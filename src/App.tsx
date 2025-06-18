@@ -1,4 +1,5 @@
 import { RouterProvider } from 'react-router-dom';
+import { ApolloProvider } from '@apollo/client';
 
 // routing
 import router from 'routes';
@@ -10,6 +11,8 @@ import NavigationScroll from 'layout/NavigationScroll';
 import Snackbar from 'ui-component/extended/Snackbar';
 import Notistack from 'ui-component/third-party/Notistack';
 
+// Apollo client
+import apolloClient from './api/apollo-client';
 
 import ThemeCustomization from 'themes';
 
@@ -29,12 +32,12 @@ export default function App() {
       <Locales>
         <NavigationScroll>
           <AuthProvider>
-            <>
+            <ApolloProvider client={apolloClient}>
               <Notistack>
                 <RouterProvider router={router} />
                 <Snackbar />
               </Notistack>
-            </>
+            </ApolloProvider>
           </AuthProvider>
         </NavigationScroll>
       </Locales>

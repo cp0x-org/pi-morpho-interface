@@ -1,18 +1,18 @@
 import { useChainId } from 'wagmi';
-import { skyConfig } from 'config/index';
+import { appChainConfig } from '@/appconfig';
 
-export type NetworkId = keyof typeof skyConfig;
+export type NetworkId = keyof typeof appChainConfig;
 
 export const useConfigChainId = () => {
   let chainId = useChainId();
 
-  const isSupportedNetwork = chainId in skyConfig;
+  const isSupportedNetwork = chainId in appChainConfig;
 
   if (!isSupportedNetwork) {
     console.warn(`Unsupported network with chainId: ${chainId}`);
     chainId = 1;
   }
 
-  const config = skyConfig[chainId as NetworkId];
+  const config = appChainConfig[chainId as NetworkId];
   return { config, chainId: chainId as NetworkId, isSupported: true };
 };

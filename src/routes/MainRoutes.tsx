@@ -1,16 +1,9 @@
-import { lazy } from 'react';
-
-// project imports
 import MainLayout from 'layout/MainLayout';
-import Loadable from 'ui-component/Loadable';
 import { Navigate } from 'react-router';
-import RewardTab from '../views/home/tabs/Reward';
-import SavingsTab from '../views/home/tabs/Savings';
-import UpgradeTab from '../views/home/tabs/Upgrade';
-import StakeTab from '../views/home/tabs/Stake';
-// import USDSSkyTab from '../views/home/tabs/rewards/USDSSky';
-// import ChronicleTab from '../views/home/tabs/rewards/Chronicle';
-import Error from '../views/pages/maintenance/Error';
+import EarnPage from 'views/home/EarnPage';
+import BorrowPage from 'views/home/BorrowPage';
+import VaultDetailsPage from 'views/home/VaultDetailsPage';
+import MarketDetailPage from 'views/home/MarketDetailPage';
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -20,27 +13,23 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="rewards" replace />
+      element: <Navigate to="earn" replace />
     },
     {
-      path: '/rewards',
-      element: <RewardTab />
+      path: '/earn',
+      element: <EarnPage />
     },
     {
-      path: '/savings',
-      element: <SavingsTab />
+      path: '/earn/vault/:address',
+      element: <VaultDetailsPage />
     },
     {
-      path: '/upgrade',
-      element: <UpgradeTab />
+      path: '/borrow',
+      element: <BorrowPage />
     },
     {
-      path: '/stake',
-      element: <StakeTab />
-    },
-    {
-      path: '*',
-      element: <Error />
+      path: '/borrow/market/:uniqueKey',
+      element: <MarketDetailPage />
     }
   ]
 };

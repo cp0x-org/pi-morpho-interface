@@ -1,16 +1,16 @@
-# Permissionless SKY Interface by cp0x
+# Permissionless Morpho Interface by cp0x
 
-An open-source, permissionless interface for the SKY protocol designed to be fully permissionless and enable direct, unrestricted interaction with smart contracts.
+An open-source, permissionless interface for the Morpho protocol designed to be fully permissionless and enable direct, unrestricted interaction with smart contracts.
 
 ## Application Links
 - Website: [pi.cp0x.com](https://pi.cp0x.com/)
-- Interface: [sky.cp0x.com](https://sky.cp0x.com)
+- Interface: [morpho.cp0x.com](https://morpho.cp0x.com)
 - Twitter: [@cp0xdotcom](https://x.com/cp0xdotcom)
 - Telegram: [@cp0xdotcom](https://t.me/cp0xdotcom)
 
 ## Protocol Docs
 
-- Docs: [developers.sky.money](https://developers.sky.money/)
+- Docs: [docs.morpho.org](https://docs.morpho.org/)
 
 ## Contributions
 

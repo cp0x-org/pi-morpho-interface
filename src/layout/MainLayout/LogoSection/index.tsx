@@ -1,8 +1,8 @@
 import { Link as RouterLink } from 'react-router-dom';
-import { ReactComponent as Cp0xLogo } from 'assets/images/sky/cp0x-logo.svg';
+import { ReactComponent as Cp0xLogo } from '@/assets/images/cp0x-logo.svg';
+import { ReactComponent as MorphoLogo } from 'assets/images/morpho/morpho_horizontal.svg';
 // material-ui
 import Link from '@mui/material/Link';
-import SkyLogo from 'assets/images/sky/sky-logo.png';
 
 // project imports
 import { DASHBOARD_PATH } from 'config';
@@ -17,23 +17,15 @@ export default function LogoSection() {
       aria-label="theme-logo"
       sx={{
         display: 'flex',
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: 1.5,
+        // gap: 1.5,
         textDecoration: 'none'
       }}
     >
-      <Cp0xLogo style={{ width: 50, height: 'auto' }} />
-      <img
-        src={SkyLogo}
-        alt="Sky"
-        style={{
-          width: 32,
-          height: 'auto',
-          marginBottom: '1px'
-        }}
-      />
+      <Cp0xLogo style={{ width: 50, height: 30 }} />
+      <MorphoLogo style={{ width: 90, height: 20 }} />
     </Link>
   );
 }

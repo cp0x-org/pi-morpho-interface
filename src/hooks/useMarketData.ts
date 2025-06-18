@@ -1,0 +1,196 @@
+import { useMemo, useEffect, useState } from 'react';
+import { useAccount, useReadContract } from 'wagmi';
+import { usePosition } from '@morpho-org/blue-sdk-wagmi';
+
+import { morphoContractConfig } from '@/appconfig/abi/Morpho';
+import { morphoOracleConfig } from '@/appconfig/abi/MorphoOracle';
+import { curveIrmConfig } from '@/appconfig/abi/CurveIrm';
+import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
+
+import { Position } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
+import type { MarketId } from '@morpho-org/blue-sdk/lib/types';
+import { isMarketId } from '@morpho-org/blue-sdk/lib/types';
+import { useConfigChainId } from 'hooks/useConfigChainId';
+
+export const useMarketData = ({
+  uniqueKey,
+  marketItemData
+}: {
+  uniqueKey?: string;
+  marketItemData?: {
+    collateralAsset: { address: string };
+    loanAsset: { address: string };
+  };
+}) => {
+  const { address: userAddress } = useAccount();
+  const { config: chainConfig, chainId } = useConfigChainId();
+
+  const marketIdParam = useMemo(() => {
+    if (uniqueKey && isMarketId(uniqueKey)) {
+      return uniqueKey as MarketId;
+    }
+    return undefined;
+  }, [uniqueKey]);
+  //
+  // const { data: position } = usePosition({
+  //   user: userAddress as `0x${string}`,
+  //   marketId: marketIdParam,
+  //   query: { enabled: !!marketIdParam && !!userAddress },
+  //   chainId: chainId
+  // });
+
+  const {
+    data: position,
+    isLoading: isPositionLoading,
+    isError: isPositionError,
+    error: positionError
+  } = useReadContract({
+    abi: morphoContractConfig.abi,
+    address: chainConfig.contracts.Morpho,
+    functionName: 'position',
+    args: [uniqueKey as `0x${string}`, userAddress as `0x${string}`],
+    query: { enabled: !!uniqueKey }
+  });
+
+  const {
+    data: marketConfig,
+    isLoading: isMcLoading,
+    isError: isMcError,
+    error: mcError
+  } = useReadContract({
+    abi: morphoContractConfig.abi,
+    address: chainConfig.contracts.Morpho,
+    functionName: 'idToMarketParams',
+    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
+    query: { enabled: !!uniqueKey }
+  });
+
+  const oracleAddress = marketConfig?.[2];
+
+  const {
+    data: oraclePrice,
+    isLoading: isOpLoading,
+    isError: isOpError,
+    error: opError
+  } = useReadContract({
+    abi: morphoOracleConfig.abi,
+    address: oracleAddress ?? '0x0000000000000000000000000000000000000000',
+    functionName: 'price',
+    args: [],
+    query: { enabled: !!oracleAddress }
+  });
+
+  const irmAddress = marketConfig?.[3];
+
+  const {
+    data: rateAtTarget,
+    isLoading: isRatLoading,
+    isError: isRatError,
+    error: ratError
+  } = useReadContract({
+    abi: curveIrmConfig.abi,
+    address: irmAddress ?? '0x0000000000000000000000000000000000000000',
+    functionName: 'rateAtTarget',
+    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
+    query: { enabled: !!irmAddress && !!userAddress }
+  });
+
+  const {
+    data: marketState,
+    isLoading: isMsLoading,
+    isError: isMsError,
+    error: msError
+  } = useReadContract({
+    abi: morphoContractConfig.abi,
+    address: chainConfig.contracts.Morpho,
+    functionName: 'market',
+    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
+    query: { enabled: !!uniqueKey }
+  });
+
+  const { data: collateralBalance } = useReadContract({
+    abi: erc20ABIConfig.abi,
+    address: marketItemData?.collateralAsset.address as `0x${string}` | undefined,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!userAddress && !!marketItemData }
+  });
+
+  const { data: loanBalance } = useReadContract({
+    abi: erc20ABIConfig.abi,
+    address: marketItemData?.loanAsset.address as `0x${string}` | undefined,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!userAddress && !!marketItemData }
+  });
+
+  const [marketParams, setMarketParams] = useState<MarketParams | null>(null);
+  const [market, setMarket] = useState<Market | null>(null);
+  const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!position || !marketConfig || !oraclePrice || !rateAtTarget || !marketState || !collateralBalance || !loanBalance) return;
+
+    const marketParams = new MarketParams({
+      loanToken: marketConfig[0],
+      collateralToken: marketConfig[1],
+      oracle: marketConfig[2],
+      irm: marketConfig[3],
+      lltv: marketConfig[4]
+    });
+
+    const market = new Market({
+      params: marketParams,
+      totalSupplyAssets: marketState[0],
+      totalSupplyShares: marketState[1],
+      totalBorrowAssets: marketState[2],
+      totalBorrowShares: marketState[3],
+      lastUpdate: marketState[4],
+      fee: marketState[5],
+      price: oraclePrice,
+      rateAtTarget
+    });
+
+    const tmpPosition = new Position({
+      user: userAddress as `0x${string}`,
+      marketId: marketIdParam as MarketId,
+      supplyShares: position[0],
+      borrowShares: position[1],
+      collateral: position[2]
+    });
+
+    const tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
+    console.log('tmpAccrualPosition');
+
+    console.log(tmpPosition);
+    console.log(market);
+
+    setMarketParams(marketParams);
+    setMarket(market);
+    setAccrualPosition(tmpAccrualPosition);
+    setIsLoading(false);
+  }, [position, marketConfig, oraclePrice, rateAtTarget, marketState, collateralBalance, loanBalance, userAddress, marketIdParam]);
+
+  return {
+    position,
+    marketConfig,
+    oraclePrice,
+    rateAtTarget,
+    marketState,
+    collateralBalance,
+    loanBalance,
+    marketParams,
+    market,
+    accrualPosition,
+    isLoading,
+    errors: {
+      mcError,
+      opError,
+      ratError,
+      msError
+    }
+  };
+};

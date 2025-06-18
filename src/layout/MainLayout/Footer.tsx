@@ -1,5 +1,5 @@
 import { Stack, Box, Typography, Link } from '@mui/material';
-import { ReactComponent as Cp0xLogo } from 'assets/images/sky/cp0x-logo.svg';
+import { ReactComponent as Cp0xLogo } from '@/assets/images/cp0x-logo.svg';
 
 export default function Footer() {
   return (

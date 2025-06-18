@@ -22,7 +22,9 @@
             "config/*": ["config/*"],
             "components/*": ["components/*"],
             "utils/*": ["utils/*"],
-            "types/*": ["types/*"]
+            "types/*": ["types/*"],
+            "views/*": ["views/*"],
+            "@/*": ["*"]
 
         }
     },

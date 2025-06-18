@@ -56,7 +56,7 @@ export const formatShortUSDS = (value: string | number) => {
     return `${(num / 1000).toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1
-    })}K`;
+    })} K`;
   }
 
   // For millions (1M - 999M)
@@ -64,14 +64,14 @@ export const formatShortUSDS = (value: string | number) => {
     return `${(num / 1000000).toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1
-    })}M`;
+    })} M`;
   }
 
   // For billions and above
   return `${(num / 1000000000).toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1
-  })}B`;
+  })} B`;
 };
 
 export const formatUSDS = (value: string | number) => {

@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to the Permissionless SKY interface!
+Thank you for your interest in contributing to the Permissionless Morpho interface!
 
 # Development
 

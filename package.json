@@ -12,6 +12,7 @@
     "@fontsource/inter": "5.2.5",
     "@fontsource/poppins": "5.2.5",
     "@fontsource/roboto": "5.2.5",
+    "@morpho-org/blue-sdk": "^4.0.0",
     "@morpho-org/blue-sdk-wagmi": "^3.0.0",
     "@mui/icons-material": "7.0.2",
     "@mui/material": "7.0.2",

@@ -1,6 +1,6 @@
 // import { http, createConfig } from 'wagmi'
 // import { mainnet, sepolia, Chain } from 'wagmi/chains';
-import { mainnet, Chain } from 'wagmi/chains';
+import { mainnet, base, polygon, unichain, Chain } from 'wagmi/chains';
 // import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
@@ -60,10 +60,10 @@ const mainAnvil: Chain = {
 };
 
 export const config = getDefaultConfig({
-  appName: 'Sky Interface',
-  projectId: '4b1f5d2b6f0a3368aba6cf7556fb00e2',
+  appName: 'Morpho Interface',
+  projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
   // chains: [mainnet, sepolia, mainTest],
-  chains: [mainnet],
+  chains: [mainnet, base, polygon, unichain],
   // chains: [mainnet, mainAnvil, mainTest],
   ssr: false
 });

@@ -34,10 +34,10 @@ export default function MainLayout() {
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
   const tabs = [
-    { label: 'Rewards', path: 'rewards', iconPosition: 'top' },
-    { label: 'Savings', path: 'savings', iconPosition: 'top' },
-    { label: 'Upgrade', path: 'upgrade', iconPosition: 'top' },
-    { label: 'Stake', path: 'stake', iconPosition: 'top' }
+    { label: 'Earn', path: 'earn', iconPosition: 'top' },
+    { label: 'Borrow', path: 'borrow', iconPosition: 'top' }
+    // { label: 'Upgrade', path: 'upgrade', iconPosition: 'top' },
+    // { label: 'Stake', path: 'stake', iconPosition: 'top' }
   ];
 
   const navigate = useNavigate();
@@ -72,7 +72,7 @@ export default function MainLayout() {
       {/* main content */}
       <MainContentStyled {...{ borderRadius, menuOrientation, open: drawerOpen, marginTop: 80 }}>
         <Container
-          maxWidth={container ? 'md' : false}
+          maxWidth={'lg'}
           sx={{ ...(!container && { px: { xs: 0 } }), minHeight: 'calc(100vh - 228px)', display: 'flex', flexDirection: 'column' }}
         >
           {/* breadcrumb */}
