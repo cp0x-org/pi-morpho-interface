@@ -23,7 +23,8 @@ import {
   TextField,
   Autocomplete,
   Chip,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Avatar
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
 import { useConfigChainId } from 'hooks/useConfigChainId';
@@ -89,10 +90,33 @@ interface MarketsData {
 type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
 type SortOrder = 'asc' | 'desc';
 
+// Component for displaying token icons
+interface TokenIconProps {
+  symbol: string;
+}
+
+const TokenIcon = ({ symbol }: TokenIconProps) => {
+  const normalizedSymbol = symbol.toLowerCase();
+  const iconUrl = `/tokens/${normalizedSymbol}.svg`;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Avatar
+        src={iconUrl}
+        alt={`${symbol} icon`}
+        sx={{ width: 24, height: 24 }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    </Box>
+  );
+};
+
 export default function BorrowPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('borrowApy');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [loanAssetSymbolFilter, setLoanAssetSymbolFilter] = useState<string[]>([]);
@@ -262,8 +286,27 @@ export default function BorrowPage() {
               setPage(1); // Reset to first page when filtering
             }}
             renderTags={(value, getTagProps) =>
-              value.map((option, index) => <Chip label={option} {...getTagProps({ index })} key={option} size="small" />)
+              value.map((option, index) => (
+                <Chip
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TokenIcon symbol={option} />
+                      {option}
+                    </Box>
+                  }
+                  {...getTagProps({ index })}
+                  size="small"
+                />
+              ))
             }
+            renderOption={(props, option) => (
+              <li {...props} key={option}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TokenIcon symbol={option} />
+                  {option}
+                </Box>
+              </li>
+            )}
             renderInput={(params) => <TextField {...params} label="Filter By Loan" placeholder="Select symbols" size="small" fullWidth />}
             size="small"
             fullWidth
@@ -413,7 +456,16 @@ export default function BorrowPage() {
                 sx={{ cursor: 'pointer' }}
                 onClick={() => navigate(`/borrow/market/${market.uniqueKey}`)}
               >
-                <TableCell>{market.loanAsset?.symbol || 'N/A'}</TableCell>
+                <TableCell>
+                  {market.loanAsset?.symbol ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TokenIcon symbol={market.loanAsset.symbol} /> {market.loanAsset.symbol}
+                    </Box>
+                  ) : (
+                    'N/A'
+                  )}
+                </TableCell>
+
                 <TableCell>{market.collateralAsset?.symbol || 'N/A'}</TableCell>
                 <TableCell>{formatLLTV(market.lltv)}</TableCell>
                 <TableCell>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</TableCell>
@@ -455,10 +507,10 @@ export default function BorrowPage() {
             label="Rows"
             sx={{ minWidth: 80 }}
           >
-            <MenuItem value={5}>5</MenuItem>
             <MenuItem value={10}>10</MenuItem>
             <MenuItem value={25}>25</MenuItem>
             <MenuItem value={50}>50</MenuItem>
+            <MenuItem value={100}>100</MenuItem>
           </Select>
         </FormControl>
         <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" />

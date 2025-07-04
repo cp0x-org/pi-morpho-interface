@@ -24,7 +24,8 @@ import {
   Tooltip,
   Autocomplete,
   Chip,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Avatar
 } from '@mui/material';
 import { UnfoldMore, ContentCopy } from '@mui/icons-material';
 import { shortenAddress } from 'utils/formatters';
@@ -120,10 +121,33 @@ const CopyableAddress = ({ address, onClick }: CopyableAddressProps) => {
   );
 };
 
+// Component for displaying token icons
+interface TokenIconProps {
+  symbol: string;
+}
+
+const TokenIcon = ({ symbol }: TokenIconProps) => {
+  const normalizedSymbol = symbol.toLowerCase();
+  const iconUrl = `/tokens/${normalizedSymbol}.svg`;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Avatar
+        src={iconUrl}
+        alt={`${symbol} icon`}
+        sx={{ width: 24, height: 24 }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    </Box>
+  );
+};
+
 export default function EarnPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
@@ -226,11 +250,30 @@ export default function EarnPage() {
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
-              setPage(1); // Reset to first page when filtering
+              setPage(1);
             }}
             renderTags={(value, getTagProps) =>
-              value.map((option, index) => <Chip label={option} {...getTagProps({ index })} key={option} size="small" />)
+              value.map((option, index) => (
+                <Chip
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TokenIcon symbol={option} />
+                      {option}
+                    </Box>
+                  }
+                  {...getTagProps({ index })}
+                  size="small"
+                />
+              ))
             }
+            renderOption={(props, option) => (
+              <li {...props} key={option}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TokenIcon symbol={option} />
+                  {option}
+                </Box>
+              </li>
+            )}
             renderInput={(params) => (
               <TextField {...params} label="Filter By Asset Symbol" placeholder="Select symbols" size="small" fullWidth />
             )}
@@ -275,7 +318,6 @@ export default function EarnPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>Symbol</TableCell>
               <TableCell>
                 <Tooltip title="Click icon to copy full address">
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>Vault Address</Box>
@@ -309,8 +351,12 @@ export default function EarnPage() {
           <TableBody>
             {paginatedVaults.map((vault) => (
               <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address)} sx={{ cursor: 'pointer' }}>
-                <TableCell>{vault.name}</TableCell>
-                <TableCell>{vault.asset.symbol}</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name}
+                  </Box>
+                </TableCell>
+
                 <TableCell>
                   <CopyableAddress
                     address={vault.address}
@@ -360,10 +406,10 @@ export default function EarnPage() {
             label="Rows"
             sx={{ minWidth: 80 }}
           >
-            <MenuItem value={5}>5</MenuItem>
             <MenuItem value={10}>10</MenuItem>
             <MenuItem value={25}>25</MenuItem>
             <MenuItem value={50}>50</MenuItem>
+            <MenuItem value={100}>100</MenuItem>
           </Select>
         </FormControl>
         <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" />
