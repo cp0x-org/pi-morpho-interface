@@ -1,0 +1,14 @@
+<svg width="41" height="40" viewBox="0 0 41 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="0.5" width="40" height="40" rx="20" fill="url(#paint0_radial_1276_10346)"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M30.5 15V11L10.5 11V15H18.5V29H22.5V15L30.5 15ZM14.5 17H10.5V29H14.5V17ZM30.5 17H26.5V29H30.5V17Z" fill="url(#paint1_linear_1276_10346)"/>
+<defs>
+<radialGradient id="paint0_radial_1276_10346" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(20.5) rotate(90) scale(26)">
+<stop stop-color="#68E4FF"/>
+<stop offset="1" stop-color="#01B6DD"/>
+</radialGradient>
+<linearGradient id="paint1_linear_1276_10346" x1="20.5" y1="11" x2="20.5" y2="29" gradientUnits="userSpaceOnUse">
+<stop stop-color="white" stop-opacity="0.9"/>
+<stop offset="1" stop-color="white"/>
+</linearGradient>
+</defs>
+</svg>

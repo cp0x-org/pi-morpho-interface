@@ -323,8 +323,27 @@ export default function BorrowPage() {
               setPage(1); // Reset to first page when filtering
             }}
             renderTags={(value, getTagProps) =>
-              value.map((option, index) => <Chip label={option} {...getTagProps({ index })} key={option} size="small" />)
+              value.map((option, index) => (
+                <Chip
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TokenIcon symbol={option} />
+                      {option}
+                    </Box>
+                  }
+                  {...getTagProps({ index })}
+                  size="small"
+                />
+              ))
             }
+            renderOption={(props, option) => (
+              <li {...props} key={option}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TokenIcon symbol={option} />
+                  {option}
+                </Box>
+              </li>
+            )}
             renderInput={(params) => (
               <TextField {...params} label="Filter By Collateral" placeholder="Select symbols" size="small" fullWidth />
             )}
@@ -466,7 +485,15 @@ export default function BorrowPage() {
                   )}
                 </TableCell>
 
-                <TableCell>{market.collateralAsset?.symbol || 'N/A'}</TableCell>
+                <TableCell>
+                  {market.collateralAsset?.symbol ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TokenIcon symbol={market.collateralAsset.symbol} /> {market.collateralAsset.symbol}
+                    </Box>
+                  ) : (
+                    'N/A'
+                  )}
+                </TableCell>
                 <TableCell>{formatLLTV(market.lltv)}</TableCell>
                 <TableCell>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</TableCell>
                 <TableCell>{((market.state?.dailyNetBorrowApy || 0) * 100).toFixed(2)}%</TableCell>

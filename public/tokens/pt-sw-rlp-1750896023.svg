@@ -1,0 +1,20 @@
+<svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M150 75C150 95.1 142.1 113.4 129.1 126.9C128.767 127.3 128.4 127.667 128 128C127.667 128.4 127.3 128.767 126.9 129.1C124.3 131.633 121.5 133.967 118.5 136.1C116.967 137.233 115.367 138.267 113.7 139.2C102.4 146.1 89.2 150 75 150C60.8 150 47.6 146.1 36.3 139.3C34.7 138.3 33.1333 137.233 31.6 136.1C28.6 133.967 25.7667 131.667 23.1 129.2C22.3667 128.467 21.6333 127.7 20.9 126.9C8 113.5 0 95.2 0 75C0 54.8 8.4 35.5 22 22C35.5 8.4 54.3 0 75 0C95.7 0 114.5 8.4 128 22C141.6 35.5 150 54.3 150 75Z" fill="#F8991D"/>
+<mask id="mask0_727_3" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="150" height="150">
+<path d="M150 75C150 95.14 142.07 113.42 129.15 126.89C128.777 127.277 128.403 127.657 128.03 128.03C127.657 128.397 127.29 128.757 126.93 129.11C124.283 131.65 121.467 133.983 118.48 136.11C116.933 137.217 115.343 138.263 113.71 139.25C102.41 146.07 89.16 150 75 150C60.84 150 47.62 146.08 36.33 139.27C34.6967 138.29 33.1033 137.247 31.55 136.14C28.5633 134.013 25.75 131.683 23.11 129.15C22.3567 128.43 21.6167 127.69 20.89 126.93C7.95 113.46 0 95.16 0 75C0 54.84 8.39 35.54 21.97 21.97C35.54 8.39 54.29 0 75 0C95.71 0 114.46 8.39 128.03 21.97C141.61 35.54 150 54.29 150 75Z" fill="white"/>
+</mask>
+<g mask="url(#mask0_727_3)">
+<g opacity="0.2">
+<path d="M17.5 132.5L131.7 18.3" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16.1 16.1L135.3 135.3" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M75 -3.79999V164.7" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M-1.30005 51.3L117.8 170.4" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M-10.9 75H157.6" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M75 127.6C45.9 127.6 22.4 104.1 22.4 75C22.4 45.9 45.9 22.4 75 22.4C104.1 22.4 127.6 45.9 127.6 75C127.6 104.1 104.1 127.6 75 127.6Z" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M75 127.6L22.4 127.7L48.7 101.3L75 127.6Z" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M127.6 75C127.6 89.5 121.8 102.7 112.2 112.2L75 75V22.3C104.1 22.3 127.7 45.9 127.6 75Z" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M74.9999 22.3C45.8999 22.3 22.2999 45.9 22.2999 75H74.9999V22.3Z" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M22.2999 75L74.9999 127.6H127.6L74.9999 75H22.2999Z" stroke="#F6E8D7" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>
