@@ -1,35 +1,35 @@
-import { useQuery, gql } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import {
+  Autocomplete,
+  Avatar,
+  Chip,
+  CircularProgress,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  SelectChangeEvent,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Typography,
-  CircularProgress,
-  Pagination,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   TableSortLabel,
   TextField,
-  Grid,
   Tooltip,
-  Autocomplete,
-  Chip,
-  SelectChangeEvent,
-  Avatar
+  Typography
 } from '@mui/material';
-import { UnfoldMore, ContentCopy } from '@mui/icons-material';
+import { ContentCopy, UnfoldMore } from '@mui/icons-material';
 import { shortenAddress } from 'utils/formatters';
-import { VaultsData, Vault } from 'types/vaults';
+import { Vault, VaultsData } from 'types/vaults';
 import { useSnackbar } from 'notistack';
 
 const GET_VAULTS = gql`
@@ -151,6 +151,7 @@ export default function EarnPage() {
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
+  const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
   const { chainId } = useConfigChainId();
 
@@ -195,13 +196,10 @@ export default function EarnPage() {
       // Filter by symbol (match any of selected symbols)
       const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset.symbol);
 
-      // Filter by asset address (case insensitive)
-      const addressMatch = assetAddressFilter
-        ? vault.asset.address.toLowerCase().includes(assetAddressFilter.toLowerCase()) ||
-          shortenAddress(vault.asset.address).toLowerCase().includes(assetAddressFilter.toLowerCase())
-        : true;
+      // Filter by name (case insensitive)
+      const nameMatch = nameFilter === '' || vault.name.toLowerCase().includes(nameFilter.toLowerCase());
 
-      return symbolMatch && addressMatch;
+      return symbolMatch && nameMatch;
     });
 
     // Then sort
@@ -283,15 +281,15 @@ export default function EarnPage() {
         </Grid>
         <Grid size={{ xs: 12, md: 3 }}>
           <TextField
-            fullWidth
-            label="Filter By Asset Address"
-            variant="outlined"
-            value={assetAddressFilter}
+            id="name-filter"
+            label="Filter By Name"
+            value={nameFilter}
             onChange={(e) => {
-              setAssetAddressFilter(e.target.value);
-              setPage(1); // Reset to first page when filtering
+              setNameFilter(e.target.value);
+              setPage(1);
             }}
             size="small"
+            fullWidth
           />
         </Grid>
       </Grid>
@@ -385,11 +383,16 @@ export default function EarnPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <Typography variant="body2" color="text.secondary">
           Showing {filteredAndSortedVaults.length} {filteredAndSortedVaults.length === 1 ? 'vault' : 'vaults'}
-          {symbolFilter.length > 0 || assetAddressFilter ? ' (filtered)' : ''}
+          {symbolFilter.length > 0 || nameFilter || assetAddressFilter ? ' (filtered)' : ''}
           {symbolFilter.length > 0 && (
             <span>
               {' '}
               by {symbolFilter.length} {symbolFilter.length === 1 ? 'symbol' : 'symbols'}
+            </span>
+          )}
+          {nameFilter && (
+            <span>
+              {symbolFilter.length > 0 ? ' and' : ' by'} name "{nameFilter}"
             </span>
           )}
         </Typography>

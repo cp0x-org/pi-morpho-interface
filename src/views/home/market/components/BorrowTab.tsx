@@ -1,0 +1,154 @@
+import Box from '@mui/material/Box';
+import { Typography, TextField, InputAdornment } from '@mui/material';
+import Button from '@mui/material/Button';
+import React, { useMemo } from 'react';
+import { MarketInterface } from 'types/market';
+import { useAccount } from 'wagmi';
+import { formatUnits, parseUnits } from 'viem';
+import { useConfigChainId } from 'hooks/useConfigChainId';
+import { morphoContractConfig } from '@/appconfig/abi/Morpho';
+import { AccrualPosition } from '@morpho-org/blue-sdk';
+
+interface BorrowTabProps {
+  market: MarketInterface;
+  accrualPosition: AccrualPosition | null;
+  borrowAmount: string;
+  setBorrowAmount: (amount: string) => void;
+  txError: string | null;
+  isProcessing: boolean;
+  isTransactionLoading: boolean;
+  setIsProcessing: (isProcessing: boolean) => void;
+  setTxError: (error: string | null) => void;
+  writeTransaction: any;
+  tabValue: number;
+  uniqueKey: string;
+}
+
+export default function BorrowTab({
+  market,
+  accrualPosition,
+  borrowAmount,
+  setBorrowAmount,
+  txError,
+  isProcessing,
+  isTransactionLoading,
+  setIsProcessing,
+  setTxError,
+  writeTransaction,
+  tabValue,
+  uniqueKey
+}: BorrowTabProps) {
+  const { address: userAddress } = useAccount();
+  const { config: chainConfig } = useConfigChainId();
+
+  const formattedMaxBorrowable = useMemo(() => {
+    if (!accrualPosition?.maxBorrowableAssets) return '0';
+    return formatUnits(accrualPosition?.maxBorrowableAssets as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
+  }, [accrualPosition, market]);
+
+  // Handle borrow loan asset
+  const handleBorrow = async () => {
+    if (!userAddress || !uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
+      return;
+    }
+
+    setTxError(null);
+
+    if (!market) {
+      console.error('Market Not Found');
+      setTxError(`Market Not Found`);
+      return;
+    }
+
+    try {
+      const assetDecimals = market.loanAsset.decimals;
+
+      // Calculate amount with decimals
+      const amountBN = parseUnits(borrowAmount, assetDecimals);
+
+      setIsProcessing(true);
+      // Example function call - this would need to be replaced with actual contract method
+      writeTransaction({
+        address: chainConfig.contracts.Morpho as `0x${string}`,
+        // This is a placeholder - replace with actual ABI and function
+        abi: morphoContractConfig.abi,
+        functionName: 'borrow',
+        args: [
+          {
+            loanToken: market.loanAsset.address as `0x${string}`,
+            collateralToken: market.collateralAsset.address as `0x${string}`,
+            oracle: market.oracleAddress as `0x${string}`,
+            irm: market.irmAddress as `0x${string}`,
+            lltv: BigInt(market.lltv)
+          },
+          amountBN,
+          0n,
+          userAddress as `0x${string}`,
+          userAddress as `0x${string}`
+        ]
+      });
+    } catch (error) {
+      console.error('Error borrowing tokens:', error);
+      setTxError(`Failed to borrow: ${error instanceof Error ? error.name : ''}`);
+      setIsProcessing(false);
+    }
+  };
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+        <Typography variant="body2" color="text.secondary">
+          Borrow {market.loanAsset?.symbol || 'N/A'}
+        </Typography>
+      </Box>
+      <TextField
+        label="Borrow Amount"
+        variant="outlined"
+        type="number"
+        fullWidth
+        value={borrowAmount}
+        onChange={(e) => setBorrowAmount(e.target.value)}
+        InputProps={{
+          endAdornment: <InputAdornment position="end">{market.loanAsset?.symbol || 'N/A'}</InputAdornment>
+        }}
+      />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Typography variant="body2" color="text.secondary">
+          Borrowable: {formattedMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.25).toString())}>
+          25%
+        </Button>
+        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.5).toString())}>
+          50%
+        </Button>
+        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.75).toString())}>
+          75%
+        </Button>
+        <Button variant="outlined" size="small" onClick={() => setBorrowAmount(formattedMaxBorrowable)}>
+          Max
+        </Button>
+      </Box>
+      {txError && tabValue === 1 && (
+        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+          {txError}
+        </Typography>
+      )}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleBorrow}
+        disabled={
+          !borrowAmount ||
+          parseFloat(borrowAmount) <= 0 ||
+          parseFloat(borrowAmount) > parseFloat(formattedMaxBorrowable) ||
+          isProcessing ||
+          isTransactionLoading
+        }
+      >
+        {isProcessing || isTransactionLoading ? 'Borrowing...' : 'Borrow'}
+      </Button>
+    </Box>
+  );
+}
