@@ -14,5 +14,5 @@ export const useConfigChainId = () => {
   }
 
   const config = appChainConfig[chainId as NetworkId];
-  return { config, chainId: chainId as NetworkId, isSupported: true };
+  return { config, chainId: chainId as NetworkId, isSupported: isSupportedNetwork };
 };

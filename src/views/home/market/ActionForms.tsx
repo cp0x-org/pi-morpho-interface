@@ -12,6 +12,7 @@ import { useConfigChainId } from 'hooks/useConfigChainId';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawTab } from './components';
+import { dispatchError } from 'utils/snackbar';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
@@ -85,7 +86,6 @@ export default function ActionForms(props: MarketProps) {
       if (isApprovalSuccess && market && uniqueKey && userAddress) {
         setIsApproving(false);
         setIsProcessing(true);
-
         try {
           if (tabValue === 0 && addAmount) {
             // Add collateral

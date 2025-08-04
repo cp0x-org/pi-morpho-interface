@@ -1,8 +1,9 @@
-import { gql, useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import { useConfigChainId } from 'hooks/useConfigChainId';
+import { appoloClients } from 'api/apollo-client';
 import {
   Autocomplete,
   Avatar,
@@ -31,33 +32,8 @@ import { ContentCopy, UnfoldMore } from '@mui/icons-material';
 import { shortenAddress } from 'utils/formatters';
 import { Vault, VaultsData } from 'types/vaults';
 import { useSnackbar } from 'notistack';
-
-const GET_VAULTS = gql`
-  query GetVaults($chainId: Int!) {
-    vaults(where: { chainId_in: [$chainId], whitelisted: true }, first: 1000) {
-      items {
-        address
-        symbol
-        name
-        whitelisted
-        asset {
-          id
-          address
-          decimals
-          name
-          symbol
-        }
-        chain {
-          id
-          network
-        }
-        state {
-          dailyNetApy
-        }
-      }
-    }
-  }
-`;
+import { OldRequests, SubgraphRequests } from '@/api/constants';
+import { MetaMorpho, MetaMorphosQueryResponse } from 'types/metamorphos';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
@@ -65,10 +41,11 @@ type SortOrder = 'asc' | 'desc';
 // Component for address with copy functionality
 interface CopyableAddressProps {
   address: string;
+  symbol?: string;
   onClick?: (e: React.MouseEvent) => void;
 }
 
-const CopyableAddress = ({ address, onClick }: CopyableAddressProps) => {
+const CopyableAddress = ({ address, symbol, onClick }: CopyableAddressProps) => {
   const { enqueueSnackbar } = useSnackbar();
 
   const copyToClipboard = (e: React.MouseEvent) => {
@@ -88,7 +65,6 @@ const CopyableAddress = ({ address, onClick }: CopyableAddressProps) => {
         });
       });
   };
-
   return (
     <Box
       sx={{
@@ -100,7 +76,7 @@ const CopyableAddress = ({ address, onClick }: CopyableAddressProps) => {
       }}
       onClick={onClick}
     >
-      <Typography component="span">{shortenAddress(address)}</Typography>
+      <Typography component="span">{symbol ? symbol : shortenAddress(address)}</Typography>
       <Tooltip title="Copy full address">
         <ContentCopy
           fontSize="small"
@@ -153,11 +129,8 @@ export default function EarnPage() {
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
-  const { chainId } = useConfigChainId();
 
-  const { loading, error, data } = useQuery<VaultsData>(GET_VAULTS, {
-    variables: { chainId }
-  });
+  const { loading, error, data } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -180,7 +153,7 @@ export default function EarnPage() {
   };
 
   // Get unique symbols from vaults data
-  const getUniqueSymbols = (vaults: Vault[]): string[] => {
+  const getUniqueSymbols = (vaults: MetaMorpho[]): string[] => {
     const symbolsSet = new Set<string>();
     vaults.forEach((vault) => {
       if (vault.asset.symbol) {
@@ -190,7 +163,7 @@ export default function EarnPage() {
     return Array.from(symbolsSet).sort();
   };
 
-  const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
+  const filterAndSortVaults = (vaults: MetaMorpho[]): MetaMorpho[] => {
     // Filter first
     const filteredVaults = vaults.filter((vault) => {
       // Filter by symbol (match any of selected symbols)
@@ -206,9 +179,10 @@ export default function EarnPage() {
     return filteredVaults.sort((a, b) => {
       if (sortField === 'name') {
         return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      } else if (sortField === 'apy') {
-        return sortOrder === 'asc' ? a.state.dailyNetApy - b.state.dailyNetApy : b.state.dailyNetApy - a.state.dailyNetApy;
       }
+      // else if (sortField === 'apy') {
+      //   return sortOrder === 'asc' ? a.state.dailyNetApy - b.state.dailyNetApy : b.state.dailyNetApy - a.state.dailyNetApy;
+      // }
       return 0;
     });
   };
@@ -229,7 +203,7 @@ export default function EarnPage() {
     );
   }
 
-  const filteredAndSortedVaults = filterAndSortVaults(data?.vaults.items || []);
+  const filteredAndSortedVaults = filterAndSortVaults(data?.metaMorphos || []);
   const paginatedVaults = filteredAndSortedVaults.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(filteredAndSortedVaults.length / rowsPerPage);
 
@@ -244,7 +218,7 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={data ? getUniqueSymbols(data.vaults.items) : []}
+            options={data ? getUniqueSymbols(data.metaMorphos) : []}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -348,32 +322,33 @@ export default function EarnPage() {
           </TableHead>
           <TableBody>
             {paginatedVaults.map((vault) => (
-              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address)} sx={{ cursor: 'pointer' }}>
+              <TableRow key={vault.id} hover onClick={() => handleVaultClick(vault.id)} sx={{ cursor: 'pointer' }}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name}
+                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name ? vault.name : shortenAddress(vault.id)}
                   </Box>
                 </TableCell>
 
                 <TableCell>
                   <CopyableAddress
-                    address={vault.address}
+                    address={vault.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.id);
                     }}
                   />
                 </TableCell>
                 <TableCell>
                   <CopyableAddress
-                    address={vault.asset.address}
+                    symbol={vault.asset.symbol}
+                    address={vault.asset.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.id);
                     }}
                   />
                 </TableCell>
-                <TableCell>{(vault.state.dailyNetApy * 100).toFixed(2)}%</TableCell>
+                {/*<TableCell>{(vault.state.dailyNetApy * 100).toFixed(2)}%</TableCell>*/}
               </TableRow>
             ))}
           </TableBody>

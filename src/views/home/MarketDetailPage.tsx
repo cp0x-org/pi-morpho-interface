@@ -13,38 +13,8 @@ import { formatUnits } from 'viem';
 import { MarketData } from 'types/market';
 import ActionForms from 'views/home/market/ActionForms';
 import { useMarketData } from 'hooks/useMarketData';
-
-const GET_MARKET_BY_ADDRESS = gql`
-  query GetMarketByAddress($uniqueKey: String!) {
-    markets(where: { uniqueKey_in: [$uniqueKey] }, first: 1) {
-      items {
-        uniqueKey
-        lltv
-        oracleAddress
-        irmAddress
-        loanAsset {
-          address
-          symbol
-          decimals
-        }
-        collateralAsset {
-          address
-          symbol
-          decimals
-        }
-        state {
-          borrowAssets
-          supplyAssets
-          fee
-          utilization
-          dailyNetBorrowApy
-          totalLiquidityUsd
-          sizeUsd
-        }
-      }
-    }
-  }
-`;
+import { OldRequests } from '@/api/constants';
+import { appoloClients } from '@/api/apollo-client';
 
 export default function MarketDetailPage() {
   const { uniqueKey } = useParams<{ uniqueKey: string }>();
@@ -64,9 +34,10 @@ export default function MarketDetailPage() {
     }
   };
 
-  const { loading, error, data } = useQuery<MarketData>(GET_MARKET_BY_ADDRESS, {
+  const { loading, error, data } = useQuery<MarketData>(OldRequests.GetMorphoMarketByAddress, {
     variables: { uniqueKey: uniqueKey },
-    skip: !uniqueKey
+    skip: !uniqueKey,
+    client: appoloClients.morphoApi
   });
 
   const {

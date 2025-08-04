@@ -28,35 +28,8 @@ import {
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
 import { useConfigChainId } from 'hooks/useConfigChainId';
-
-const GET_MARKETS = gql`
-  query GetMarkets($chainId: Int!) {
-    markets(where: { chainId_in: [$chainId], whitelisted: true }, first: 1000) {
-      items {
-        uniqueKey
-        lltv
-        oracleAddress
-        irmAddress
-        loanAsset {
-          address
-          symbol
-          decimals
-        }
-        collateralAsset {
-          address
-          symbol
-          decimals
-        }
-        state {
-          dailyNetBorrowApy
-          dailyNetSupplyApy
-          fee
-          utilization
-        }
-      }
-    }
-  }
-`;
+import { OldRequests } from '@/api/constants';
+import { appoloClients } from '@/api/apollo-client';
 
 interface MarketState {
   dailyNetBorrowApy: number;
@@ -123,8 +96,9 @@ export default function BorrowPage() {
   const [collateralAssetSymbolFilter, setCollateralAssetSymbolFilter] = useState<string[]>([]);
   const { chainId } = useConfigChainId();
 
-  const { loading, error, data } = useQuery<MarketsData>(GET_MARKETS, {
-    variables: { chainId }
+  const { loading, error, data } = useQuery<MarketsData>(OldRequests.GetMorphoMarkets, {
+    variables: { chainId },
+    client: appoloClients.morphoApi
   });
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {

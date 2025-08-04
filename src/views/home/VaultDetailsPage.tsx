@@ -24,32 +24,8 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadCont
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits } from 'viem';
 import { vaultConfig } from '@/appconfig/abi/Vault';
-
-const GET_VAULT_DETAILS = gql`
-  query GetVaultDetails($address: String!, $chain: Int!) {
-    vaults(where: { address_in: [$address], chainId_in: [$chain] }, first: 1) {
-      items {
-        address
-        symbol
-        name
-        whitelisted
-        asset {
-          id
-          symbol
-          address
-          decimals
-        }
-        chain {
-          id
-          network
-        }
-        state {
-          dailyNetApy
-        }
-      }
-    }
-  }
-`;
+import { OldRequests } from '@/api/constants';
+import { appoloClients } from '@/api/apollo-client';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -93,8 +69,9 @@ export default function VaultDetailsPage() {
     }
   };
 
-  const { loading, error, data } = useQuery<VaultsData>(GET_VAULT_DETAILS, {
-    variables: { address, chain: 1 }
+  const { loading, error, data } = useQuery<VaultsData>(OldRequests.GetMorprhoVaultByAddress, {
+    variables: { address, chain: 1 },
+    client: appoloClients.morphoApi
   });
 
   // Set up token approval contract write
