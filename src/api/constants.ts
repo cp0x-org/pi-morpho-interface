@@ -1,7 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const ApiUrls = {
-  morphoApi: 'https://api.morpho.org/graphql',
+  // morphoApi: 'https://api.morpho.org/graphql', // original with restrictions
+  morphoApi: 'https://pi.cp0x.com/proxymorpho/', // cp0x proxy, no restrictions
   ethGraphApi:
     'https://gateway.thegraph.com/api/ae52646e3d3487806a739c9a253a358d/subgraphs/id/8Lz789DP5VKLXumTMTgygjU2xtuzx8AhbaacgN5PYCAs',
   baseGraphApi:
@@ -12,9 +13,9 @@ export const ApiUrls = {
     'https://gateway.thegraph.com/api/ae52646e3d3487806a739c9a253a358d/subgraphs/id/ESbNRVHte3nwhcHveux9cK4FFAZK3TTLc5mKQNtpYgmu'
 };
 
-export const OldRequests = {
+export const MorphoRequests = {
   //EarnPage
-  GetMorphoVaults: gql`
+  GetVaultsData: gql`
     query GetVaults($chainId: Int!) {
       vaults(where: { chainId_in: [$chainId] }, first: 1000) {
         items {
@@ -27,13 +28,9 @@ export const OldRequests = {
           }
           state {
             dailyNetApy
-            curator
             curators {
-              name
-              state {
-                curatorId
-              }
               id
+              name
               image
               addresses {
                 address
@@ -156,7 +153,7 @@ export const SubgraphRequests = {
   `
 };
 
-export const MorphoRequests = {
-  // GetVaultsApy: gql``,
-  // GetCuratorsData: gql``
-};
+// export const MorphoRequests = {
+//   // GetVaultsApy: gql``,
+//   // GetCuratorsData: gql``
+// };

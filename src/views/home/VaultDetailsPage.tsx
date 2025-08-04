@@ -24,7 +24,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadCont
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits } from 'viem';
 import { vaultConfig } from '@/appconfig/abi/Vault';
-import { OldRequests } from '@/api/constants';
+import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 
 interface TabPanelProps {
@@ -69,7 +69,7 @@ export default function VaultDetailsPage() {
     }
   };
 
-  const { loading, error, data } = useQuery<VaultsData>(OldRequests.GetMorprhoVaultByAddress, {
+  const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
     variables: { address, chain: 1 },
     client: appoloClients.morphoApi
   });

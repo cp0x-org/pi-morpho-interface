@@ -13,7 +13,7 @@ import { formatUnits } from 'viem';
 import { MarketData } from 'types/market';
 import ActionForms from 'views/home/market/ActionForms';
 import { useMarketData } from 'hooks/useMarketData';
-import { OldRequests } from '@/api/constants';
+import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 
 export default function MarketDetailPage() {
@@ -34,7 +34,7 @@ export default function MarketDetailPage() {
     }
   };
 
-  const { loading, error, data } = useQuery<MarketData>(OldRequests.GetMorphoMarketByAddress, {
+  const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
     variables: { uniqueKey: uniqueKey },
     skip: !uniqueKey,
     client: appoloClients.morphoApi

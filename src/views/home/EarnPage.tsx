@@ -1,9 +1,8 @@
 import { useQuery } from '@apollo/client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import { useConfigChainId } from 'hooks/useConfigChainId';
-import { appoloClients } from 'api/apollo-client';
+
 import {
   Autocomplete,
   Avatar,
@@ -28,74 +27,17 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import { ContentCopy, UnfoldMore } from '@mui/icons-material';
+import { UnfoldMore } from '@mui/icons-material';
 import { shortenAddress } from 'utils/formatters';
-import { Vault, VaultsData } from 'types/vaults';
-import { useSnackbar } from 'notistack';
-import { OldRequests, SubgraphRequests } from '@/api/constants';
 import { MetaMorpho, MetaMorphosQueryResponse } from 'types/metamorphos';
+import { CopyableAddress } from 'components/CopyableAddress';
+import { MorphoRequests, SubgraphRequests } from '@/api/constants';
+import { VaultsData } from 'types/vaults';
+import { appoloClients } from '@/api/apollo-client';
+import { useConfigChainId } from 'hooks/useConfigChainId';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
-
-// Component for address with copy functionality
-interface CopyableAddressProps {
-  address: string;
-  symbol?: string;
-  onClick?: (e: React.MouseEvent) => void;
-}
-
-const CopyableAddress = ({ address, symbol, onClick }: CopyableAddressProps) => {
-  const { enqueueSnackbar } = useSnackbar();
-
-  const copyToClipboard = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click event
-    navigator.clipboard
-      .writeText(address)
-      .then(() => {
-        enqueueSnackbar('Address copied to clipboard!', {
-          variant: 'success',
-          autoHideDuration: 2000
-        });
-      })
-      .catch((err) => {
-        console.error('Failed to copy address:', err);
-        enqueueSnackbar('Failed to copy address', {
-          variant: 'error'
-        });
-      });
-  };
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        '&:hover .copy-icon': {
-          opacity: 1
-        }
-      }}
-      onClick={onClick}
-    >
-      <Typography component="span">{symbol ? symbol : shortenAddress(address)}</Typography>
-      <Tooltip title="Copy full address">
-        <ContentCopy
-          fontSize="small"
-          onClick={copyToClipboard}
-          sx={{
-            ml: 1,
-            cursor: 'pointer',
-            opacity: 0.3,
-            transition: 'opacity 0.2s',
-            '&:hover': {
-              opacity: 1
-            }
-          }}
-          className="copy-icon"
-        />
-      </Tooltip>
-    </Box>
-  );
-};
 
 // Component for displaying token icons
 interface TokenIconProps {
@@ -120,6 +62,29 @@ const TokenIcon = ({ symbol }: TokenIconProps) => {
   );
 };
 
+const CuratorIcon = ({ symbol }: TokenIconProps) => {
+  const normalizedSymbol = symbol.toLowerCase();
+  const [iconUrl, setIconUrl] = useState(`/curators/${normalizedSymbol}.svg`);
+  const [triedPng, setTriedPng] = useState(false);
+
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    if (!triedPng) {
+      // попробуем png, если svg не загрузился
+      setIconUrl(`/curators/${normalizedSymbol}.png`);
+      setTriedPng(true);
+    } else {
+      // если и png не загрузился — скрыть
+      (e.target as HTMLImageElement).style.display = 'none';
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Avatar src={iconUrl} alt={`${symbol} icon`} sx={{ width: 24, height: 24 }} onError={handleError} />
+    </Box>
+  );
+};
+
 export default function EarnPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -129,8 +94,51 @@ export default function EarnPage() {
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
+  const { chainId } = useConfigChainId();
 
-  const { loading, error, data } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
+  const { loading: graphLoading, error: graphError, data: graphData } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
+  const {
+    loading: morphoLoading,
+    error: morphoError,
+    data: morphoData
+  } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
+    client: appoloClients.morphoApi,
+    variables: { chainId }
+  });
+
+  // Combine data from both sources
+  const combinedVaults = React.useMemo(() => {
+    if (!graphData) return [];
+
+    const vaults = [...graphData.metaMorphos];
+
+    // If Morpho data is available without errors, merge it with graph data
+    if (morphoData && !morphoError) {
+      const morphoVaultMap = new Map();
+
+      // Create a map of Morpho vaults by address for easy lookup
+      morphoData.vaults.items.forEach((morphoVault) => {
+        morphoVaultMap.set(morphoVault.address.toLowerCase(), morphoVault);
+      });
+
+      // Enrich graph data with Morpho data
+      return vaults.map((vault) => {
+        const morphoVault = morphoVaultMap.get(vault.id.toLowerCase());
+
+        if (morphoVault) {
+          return {
+            ...vault,
+            dailyNetApy: morphoVault.state.dailyNetApy,
+            curators: morphoVault.state.curators
+          };
+        }
+
+        return vault;
+      });
+    }
+
+    return vaults;
+  }, [graphData, morphoData, morphoError]);
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -179,15 +187,16 @@ export default function EarnPage() {
     return filteredVaults.sort((a, b) => {
       if (sortField === 'name') {
         return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+      } else if (sortField === 'apy') {
+        const apyA = a.dailyNetApy || 0;
+        const apyB = b.dailyNetApy || 0;
+        return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       }
-      // else if (sortField === 'apy') {
-      //   return sortOrder === 'asc' ? a.state.dailyNetApy - b.state.dailyNetApy : b.state.dailyNetApy - a.state.dailyNetApy;
-      // }
       return 0;
     });
   };
 
-  if (loading) {
+  if (graphLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress />
@@ -195,15 +204,15 @@ export default function EarnPage() {
     );
   }
 
-  if (error) {
+  if (graphError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vaults: {error.message}</Typography>
+        <Typography color="error">Error loading vaults: {graphError.message}</Typography>
       </Box>
     );
   }
 
-  const filteredAndSortedVaults = filterAndSortVaults(data?.metaMorphos || []);
+  const filteredAndSortedVaults = filterAndSortVaults(combinedVaults);
   const paginatedVaults = filteredAndSortedVaults.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(filteredAndSortedVaults.length / rowsPerPage);
 
@@ -218,7 +227,7 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={data ? getUniqueSymbols(data.metaMorphos) : []}
+            options={graphData ? getUniqueSymbols(graphData.metaMorphos) : []}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -318,6 +327,9 @@ export default function EarnPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>Curators</Box>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -348,7 +360,17 @@ export default function EarnPage() {
                     }}
                   />
                 </TableCell>
-                {/*<TableCell>{(vault.state.dailyNetApy * 100).toFixed(2)}%</TableCell>*/}
+                <TableCell>{vault.dailyNetApy !== undefined ? `${(vault.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                {/*<TableCell>{vault.curators?.map((curator) => <Box key={curator.address}>{curator.name}</Box>)}</TableCell>*/}
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {vault.curators?.map((curator) => (
+                      <Box key={curator.address} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                      </Box>
+                    ))}
+                  </Box>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

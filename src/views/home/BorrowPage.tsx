@@ -28,7 +28,7 @@ import {
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
 import { useConfigChainId } from 'hooks/useConfigChainId';
-import { OldRequests } from '@/api/constants';
+import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 
 interface MarketState {
@@ -96,7 +96,7 @@ export default function BorrowPage() {
   const [collateralAssetSymbolFilter, setCollateralAssetSymbolFilter] = useState<string[]>([]);
   const { chainId } = useConfigChainId();
 
-  const { loading, error, data } = useQuery<MarketsData>(OldRequests.GetMorphoMarkets, {
+  const { loading, error, data } = useQuery<MarketsData>(MorphoRequests.GetMorphoMarkets, {
     variables: { chainId },
     client: appoloClients.morphoApi
   });

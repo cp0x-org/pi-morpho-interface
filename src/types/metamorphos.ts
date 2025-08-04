@@ -7,6 +7,13 @@ export interface Asset {
   symbol: string;
 }
 
+export interface Curators {
+  id: string;
+  address: string;
+  name: string;
+  image: string;
+}
+
 /**
  * MetaMorpho entity information
  */
@@ -16,6 +23,8 @@ export interface MetaMorpho {
   symbol: string;
   asset: Asset;
   timelock: string | number;
+  dailyNetApy?: number;
+  curators?: Curators[];
 }
 
 /**
