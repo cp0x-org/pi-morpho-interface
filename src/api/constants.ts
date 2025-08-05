@@ -150,6 +150,101 @@ export const SubgraphRequests = {
         timelock
       }
     }
+  `,
+  GetMetamorphoPositions: gql`
+    query GetMetamorphoPositions($account: String!) {
+      metaMorphoPositions(where: { account: $account }) {
+        id
+        lastAssetsBalance
+        lastAssetsBalanceUSD
+        metaMorpho {
+          id
+          name
+          asset {
+            symbol
+            name
+            decimals
+            id
+          }
+          curator {
+            id
+          }
+        }
+      }
+    }
+  `,
+  GetMorphoMarkets: gql`
+    query GetMorphoMarkets {
+      markets(first: 1000) {
+        maximumLTV
+        lltv
+        name
+        rates {
+          rate
+          side
+          type
+        }
+        id
+        irm
+        totalCollateral
+        totalSupply
+        totalSupplyShares
+        totalValueLockedUSD
+        isActive
+        borrowedToken {
+          name
+          symbol
+          id
+          decimals
+        }
+        inputToken {
+          decimals
+          id
+          name
+          symbol
+        }
+        totalBorrow
+      }
+    }
+  `,
+  GetMorphoMarketPositions: gql`
+    query GetMorphoMarketPositions($account: String!) {
+      account(id: $account) {
+        id
+        positionCount
+        openPositionCount
+        positions {
+          id
+          market {
+            id
+            name
+            inputToken {
+              id
+              name
+              symbol
+              decimals
+            }
+            borrowedToken {
+              id
+              decimals
+              name
+              symbol
+            }
+          }
+          asset {
+            id
+            symbol
+            name
+            decimals
+          }
+          side
+          isCollateral
+          balance
+          hashClosed
+          hashOpened
+        }
+      }
+    }
   `
 };
 

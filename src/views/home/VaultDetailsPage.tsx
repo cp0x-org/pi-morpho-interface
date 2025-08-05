@@ -117,7 +117,7 @@ export default function VaultDetailsPage() {
   const { data: vaultBalance } = useReadContract({
     abi: vaultConfig.abi,
     address: address as `0x${string}` | undefined,
-    functionName: 'balanceOf',
+    functionName: 'maxWithdraw',
     args: userAddress ? [userAddress] : undefined,
     query: {
       enabled: !!userAddress && !!address
@@ -423,7 +423,7 @@ export default function VaultDetailsPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Vault Balance: {formattedVaultBalance} {vault.symbol}
+                    Vault Balance: {formattedVaultBalance} {vault.asset.symbol}
                   </Typography>
                 </Box>
                 <TextField
@@ -434,7 +434,7 @@ export default function VaultDetailsPage() {
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   InputProps={{
-                    endAdornment: <InputAdornment position="end">{vault.asset.symbol || vault.symbol}</InputAdornment>
+                    endAdornment: <InputAdornment position="end">{vault.asset.symbol}</InputAdornment>
                   }}
                 />
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

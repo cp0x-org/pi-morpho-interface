@@ -28,13 +28,14 @@ import {
   Typography
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
-import { shortenAddress } from 'utils/formatters';
-import { MetaMorpho, MetaMorphosQueryResponse } from 'types/metamorphos';
+import { formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { MetaMorpho, MetaMorphoPositionsQueryResponse, MetaMorphosQueryResponse } from 'types/metamorphos';
 import { CopyableAddress } from 'components/CopyableAddress';
 import { MorphoRequests, SubgraphRequests } from '@/api/constants';
 import { VaultsData } from 'types/vaults';
 import { appoloClients } from '@/api/apollo-client';
 import { useConfigChainId } from 'hooks/useConfigChainId';
+import { useAccount } from 'wagmi';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
@@ -95,6 +96,14 @@ export default function EarnPage() {
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
   const { chainId } = useConfigChainId();
+  const { address: userAddress } = useAccount();
+  const {
+    loading: positionsLoading,
+    error: positionsError,
+    data: positionsData
+  } = useQuery<MetaMorphoPositionsQueryResponse>(SubgraphRequests.GetMetamorphoPositions, {
+    variables: { account: userAddress }
+  });
 
   const { loading: graphLoading, error: graphError, data: graphData } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
   const {
@@ -218,6 +227,41 @@ export default function EarnPage() {
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      {positionsData?.metaMorphoPositions && positionsData.metaMorphoPositions.length > 0 && (
+        <Box sx={{ marginBottom: 4 }}>
+          <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+            Your Positions
+          </Typography>
+          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Vault</TableCell>
+                  <TableCell>Balance</TableCell>
+                  <TableCell>USD Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {positionsData.metaMorphoPositions.map((position) => (
+                  <TableRow key={position.id} hover onClick={() => handleVaultClick(position.metaMorpho.id)} sx={{ cursor: 'pointer' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {position.metaMorpho.asset && <TokenIcon symbol={position.metaMorpho.asset.symbol} />}
+                        {position.metaMorpho.name || shortenAddress(position.metaMorpho.id)}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {formatTokenAmount(position.lastAssetsBalance, position.metaMorpho.asset.decimals)} {position.metaMorpho.asset.symbol}
+                    </TableCell>
+                    <TableCell>${parseFloat(position.lastAssetsBalanceUSD).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
       <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
         Available Vaults
       </Typography>

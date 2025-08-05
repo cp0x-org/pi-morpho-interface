@@ -82,7 +82,7 @@ export const useMarketData = ({
   });
 
   const irmAddress = marketConfig?.[3];
-
+  console.log(irmAddress);
   const {
     data: rateAtTarget,
     isLoading: isRatLoading,
@@ -163,10 +163,6 @@ export const useMarketData = ({
     });
 
     const tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
-    console.log('tmpAccrualPosition');
-
-    console.log(tmpPosition);
-    console.log(market);
 
     setMarketParams(marketParams);
     setMarket(market);
