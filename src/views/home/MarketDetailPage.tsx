@@ -13,26 +13,14 @@ import { formatUnits } from 'viem';
 import { MarketData } from 'types/market';
 import ActionForms from 'views/home/market/ActionForms';
 import { useMarketData } from 'hooks/useMarketData';
+import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 
 export default function MarketDetailPage() {
   const { uniqueKey } = useParams<{ uniqueKey: string }>();
   const navigate = useNavigate();
-  const [copySuccess, setCopySuccess] = useState<string | null>(null);
-
-  const copyToClipboard = async (text: string) => {
-    if (!text) return;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopySuccess('Copied!');
-      setTimeout(() => setCopySuccess(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-      setCopySuccess('Failed to copy');
-    }
-  };
+  const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
 
   const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
     variables: { uniqueKey: uniqueKey },
@@ -119,7 +107,7 @@ export default function MarketDetailPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Typography>{market.loanAsset?.symbol || 'N/A'}</Typography>
                       {market.loanAsset?.address && (
-                        <Tooltip title={copySuccess || 'Copy address'} placement="top">
+                        <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                           <IconButton onClick={() => copyToClipboard(market.loanAsset?.address || '')} sx={{ ml: 0.5, padding: '2px' }}>
                             <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
                           </IconButton>
@@ -136,7 +124,7 @@ export default function MarketDetailPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Typography>{market.collateralAsset?.symbol || 'N/A'}</Typography>
                       {market.collateralAsset?.address && (
-                        <Tooltip title={copySuccess || 'Copy address'} placement="top">
+                        <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                           <IconButton onClick={() => copyToClipboard(market.collateralAsset?.address || '')} sx={{ ml: 0.5 }}>
                             <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
                           </IconButton>

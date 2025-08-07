@@ -28,7 +28,7 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-export default function VaultDetailsPage() {
+export default function DashboardPage() {
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);

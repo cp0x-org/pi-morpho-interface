@@ -20,7 +20,7 @@ const MainRoutes = {
       element: <EarnPage />
     },
     {
-      path: '/earn/vault/:address',
+      path: '/earn/vault/:vaultAddress',
       element: <VaultDetailsPage />
     },
     {
