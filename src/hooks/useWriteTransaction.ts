@@ -1,14 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
-// Custom hook for transaction management
 export type TxState = 'idle' | 'submitting' | 'submitted' | 'confirmed' | 'error';
 
 export const useWriteTransaction = () => {
   const [txState, setTxState] = useState<TxState>('idle');
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const [txError, setTxError] = useState<Error | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  const { writeContract, error: txError, isError: isTxError, isSuccess: isTxSubmitted, data: txHash } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
 
   const {
     isSuccess: isTxConfirmed,
@@ -19,35 +20,49 @@ export const useWriteTransaction = () => {
     query: { enabled: !!txHash }
   });
 
-  // Reset the transaction state
-  const resetTx = useCallback(() => {
-    if (txState === 'error') {
-      setTxState('idle');
-    }
-  }, [txState]);
+  const sendTransaction = useCallback(
+    async (config: Parameters<typeof writeContractAsync>[0]) => {
+      try {
+        setTxState('submitting');
+        setTxError(null);
+        setIsCompleted(false);
+        setTxHash(undefined);
 
-  // Process transaction status changes
-  const processTxState = useCallback(() => {
-    if (isTxSubmitted && txState === 'idle') {
-      setTxState('submitted');
-      console.log('Transaction submitted:', txHash);
-    } else if (isTxConfirmed && txState === 'submitted') {
+        const hash = await writeContractAsync(config);
+        setTxHash(hash);
+        setTxState('submitted');
+      } catch (err) {
+        setTxState('error');
+        setTxError(err as Error);
+      }
+    },
+    [writeContractAsync]
+  );
+
+  useEffect(() => {
+    if (isTxConfirmed && txState === 'submitted') {
       setTxState('confirmed');
       setIsCompleted(true);
-      console.log('Transaction confirmed!');
-    } else if ((isTxError || isTxConfirmError) && txState !== 'error') {
+    } else if (isTxConfirmError && txState === 'submitted') {
       setTxState('error');
-      console.error('Transaction failed:', txError || txConfirmError);
+      setTxError(txConfirmError as Error);
     }
-  }, [isTxSubmitted, isTxConfirmed, isTxError, isTxConfirmError, txState, txHash, txError, txConfirmError]);
+  }, [isTxConfirmed, isTxConfirmError, txConfirmError, txState]);
+
+  const resetTx = useCallback(() => {
+    setTxState('idle');
+    setTxHash(undefined);
+    setTxError(null);
+    setIsCompleted(false);
+  }, []);
 
   return {
-    writeContract,
+    sendTransaction,
     txState,
     txHash,
+    txError,
     isCompleted,
     isTxConfirmed,
-    resetTx,
-    processTxState
+    resetTx
   };
 };

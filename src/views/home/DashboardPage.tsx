@@ -1,53 +1,192 @@
-import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Grid, Button, Divider, Tabs, Tab, Tooltip, IconButton } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import React, { useState } from 'react';
-import { VaultsData } from 'types/vaults';
-import { MorphoRequests } from '@/api/constants';
-import { appoloClients } from '@/api/apollo-client';
-import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
-import DepositTab from 'views/home/vault/Deposit';
-import WithdrawTab from 'views/home/vault/Withdraw';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  CircularProgress,
+  Pagination,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  TableSortLabel,
+  Tooltip,
+  Grid,
+  TextField,
+  Autocomplete,
+  Chip,
+  SelectChangeEvent,
+  Avatar
+} from '@mui/material';
+import { UnfoldMore } from '@mui/icons-material';
+import { SubgraphRequests } from '@/api/constants';
+import {
+  MetaMorphoPositionsQueryResponse,
+  MorphoMarket,
+  MorphoMarketPositionsQueryResponse,
+  MorphoMarketsQueryResponse,
+  MorphoPosition
+} from 'types/metamorphos';
+import { useAccount } from 'wagmi';
+import { formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { useConfigChainId } from 'hooks/useConfigChainId';
+
+type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
+type SortOrder = 'asc' | 'desc';
+
+// Component for displaying token icons
+interface TokenIconProps {
+  symbol: string;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+interface MarketPositionsData {
+  marketId: string; // market id
+  marketName: string;
+  collateralSymbol: string;
+  loanSymbol: string;
+  collateralBalance: number;
+  loanBalance: number;
+}
+
+const TokenIcon = ({ symbol }: TokenIconProps) => {
+  const normalizedSymbol = symbol.toLowerCase();
+  const iconUrl = `/tokens/${normalizedSymbol}.svg`;
 
   return (
-    <div role="tabpanel" hidden={value !== index} id={`vault-tabpanel-${index}`} aria-labelledby={`vault-tab-${index}`} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Avatar
+        src={iconUrl}
+        alt={`${symbol} icon`}
+        sx={{ width: 24, height: 24 }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    </Box>
   );
-}
+};
 
 export default function DashboardPage() {
-  const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
-  const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
+  const { address: userAddress, chain } = useAccount();
 
-  const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
-    variables: { address: vaultAddress, chain: 1 },
-    client: appoloClients.morphoApi
+  const {
+    loading: positionsLoading,
+    error: positionsError,
+    data: rawPositionsData
+  } = useQuery<MorphoMarketPositionsQueryResponse>(SubgraphRequests.GetMorphoMarketPositions, {
+    variables: { account: userAddress }
   });
 
-  const handleBack = () => {
-    navigate('/earn');
+  const {
+    loading: earnPositionsLoading,
+    error: earnPositionsError,
+    data: earnPositionsData
+  } = useQuery<MetaMorphoPositionsQueryResponse>(SubgraphRequests.GetMetamorphoPositions, {
+    variables: { account: userAddress }
+  });
+  const handleVaultClick = (vaultAddress: string) => {
+    navigate(`/earn/vault/${vaultAddress}`);
   };
+  // Combine data from both sources
+  const borrowPositionsData = React.useMemo<MarketPositionsData[]>(() => {
+    if (!rawPositionsData || !rawPositionsData.account || rawPositionsData.account.openPositionCount === 0) {
+      return [];
+    }
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
+    const openPositions = rawPositionsData.account.positions.filter((position) => position.hashClosed === null);
 
-  if (loading) {
+    const groupedByMarket = new Map<string, MarketPositionsData>();
+
+    for (const position of openPositions) {
+      const marketId = position.market.id;
+      const marketName = position.market.name;
+      const existing = groupedByMarket.get(marketId);
+
+      const balance = parseFloat(position.balance) / Math.pow(10, position.asset.decimals);
+
+      if (position.isCollateral) {
+        // Collateral position
+        const collateralSymbol = position.asset.symbol;
+
+        if (existing) {
+          existing.collateralBalance = balance;
+          existing.collateralSymbol = collateralSymbol;
+        } else {
+          groupedByMarket.set(marketId, {
+            marketId: marketId,
+            marketName: marketName,
+            collateralSymbol: collateralSymbol,
+            loanSymbol: '',
+            collateralBalance: balance,
+            loanBalance: 0
+          });
+        }
+      } else {
+        // Loan position
+        const loanSymbol = position.asset.symbol;
+
+        if (existing) {
+          existing.loanBalance = balance;
+          existing.loanSymbol = loanSymbol;
+        } else {
+          groupedByMarket.set(marketId, {
+            marketId: marketId,
+            marketName: marketName,
+            collateralSymbol: '',
+            loanSymbol: loanSymbol,
+            collateralBalance: 0,
+            loanBalance: balance
+          });
+        }
+      }
+    }
+
+    return Array.from(groupedByMarket.values());
+  }, [rawPositionsData]);
+
+  const {
+    loading: graphLoading,
+    error: graphError,
+    data: graphData
+  } = useQuery<MorphoMarketsQueryResponse>(SubgraphRequests.GetMorphoMarkets);
+
+  // Combine data from both sources
+  const combinedMarkets = React.useMemo(() => {
+    if (!graphData) return [];
+
+    const markets = graphData.markets.map((market) => {
+      let borrowApy: number | undefined = undefined;
+      let supplyApy: number | undefined = undefined;
+
+      market.rates.forEach((rate) => {
+        if (rate.side === 'BORROWER') {
+          borrowApy = parseFloat(rate.rate);
+        } else if (rate.side === 'LENDER') {
+          supplyApy = parseFloat(rate.rate);
+        }
+      });
+
+      return {
+        ...market,
+        borrowApy,
+        supplyApy
+      };
+    });
+
+    return markets;
+  }, [graphData]);
+
+  if (graphLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress />
@@ -55,98 +194,123 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (graphError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vault details: {error.message}</Typography>
+        <Typography color="error">Error loading markets: {graphError.message}</Typography>
       </Box>
     );
   }
 
-  const vault = data?.vaults.items[0];
-
-  if (!vault) {
+  if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to Earn
-        </Button>
-        <Typography variant="h5" color="error">
-          Vault not found
-        </Typography>
+        <Typography variant="h4">Connect wallet to see your positions.</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>
-        Back to Earn
-      </Button>
+    <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      {earnPositionsData?.metaMorphoPositions && earnPositionsData.metaMorphoPositions.length > 0 && (
+        <Box sx={{ marginBottom: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
+            Earn {chain?.name && <> ({chain?.name})</>}
+          </Typography>
+          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Vault</TableCell>
+                  <TableCell>Balance</TableCell>
+                  <TableCell>USD Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {earnPositionsData.metaMorphoPositions.map((position) => (
+                  <TableRow
+                    key={position.id}
+                    hover
+                    onClick={() => navigate(`/earn/vault/${position.metaMorpho.id}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {position.metaMorpho.asset && <TokenIcon symbol={position.metaMorpho.asset.symbol} />}
+                        {position.metaMorpho.name || shortenAddress(position.metaMorpho.id)}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {formatTokenAmount(position.lastAssetsBalance, position.metaMorpho.asset.decimals)} {position.metaMorpho.asset.symbol}
+                    </TableCell>
+                    <TableCell>${parseFloat(position.lastAssetsBalanceUSD).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 7 }}>
-            <Box sx={{ display: 'flex' }}>
-              <Typography variant="h4">
-                {vault.name} ({vault.symbol})
-              </Typography>
-              <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                <IconButton onClick={() => copyToClipboard(vault.address)} sx={{ ml: 0.5, padding: '2px' }}>
-                  <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                </IconButton>
-              </Tooltip>
-              {/*<Chip label={`APY: ${(vault.state.dailyNetApy * 100).toFixed(2)}%`} color="primary" variant="outlined" />*/}
-            </Box>
-            <Divider sx={{ my: 5 }} />
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 3, md: 3 }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    APY
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                      {(vault.state.dailyNetApy * 100).toFixed(2)} %
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 3, md: 3 }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Asset
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                      {vault.asset.symbol}
-                    </Typography>
-                    <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                      <IconButton onClick={() => copyToClipboard(vault.asset.address)} sx={{ ml: 0.5, padding: '2px' }}>
-                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid size={{ xs: 12, md: 5 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={tabValue} onChange={handleTabChange} aria-label="vault transaction tabs">
-                <Tab label="Deposit" id="vault-tab-0" aria-controls="vault-tabpanel-0" />
-                <Tab label="Withdraw" id="vault-tab-1" aria-controls="vault-tabpanel-1" />
-              </Tabs>
-            </Box>
-            <TabPanel value={tabValue} index={0}>
-              <DepositTab vaultAddress={vaultAddress} />
-            </TabPanel>
-            <TabPanel value={tabValue} index={1}>
-              <WithdrawTab vaultAddress={vaultAddress} />
-            </TabPanel>
-          </Grid>
-        </Grid>
-      </Paper>
+      {borrowPositionsData && borrowPositionsData.length > 0 && (
+        <Box sx={{ marginBottom: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
+            Borrow {chain?.name && <> ({chain?.name})</>}
+          </Typography>
+          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Market</TableCell>
+                  <TableCell>Collateral</TableCell>
+                  <TableCell>Loan</TableCell>
+                  <TableCell>Borrow APY</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {borrowPositionsData.map((position) => {
+                  const marketData = combinedMarkets.find((market) => market.id === position.marketId);
+                  const borrowApy = marketData?.borrowApy || 0;
+
+                  return (
+                    <TableRow
+                      key={position.marketId}
+                      hover
+                      onClick={() => navigate(`/borrow/market/${position.marketId}`)}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{position.marketName}</TableCell>
+                      <TableCell>
+                        {position.collateralBalance > 0 ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TokenIcon symbol={position.collateralSymbol} />
+                            {position.collateralSymbol} {position.collateralBalance.toFixed(4)}
+                          </Box>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {position.loanBalance > 0 ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TokenIcon symbol={position.loanSymbol} />
+                            {position.loanSymbol} {position.loanBalance.toFixed(4)}
+                          </Box>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+
+                      <TableCell>{(borrowApy * 100).toFixed(2)}%</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
     </Box>
   );
 }

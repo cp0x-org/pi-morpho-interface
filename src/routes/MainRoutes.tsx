@@ -4,6 +4,7 @@ import EarnPage from 'views/home/EarnPage';
 import BorrowPage from 'views/home/BorrowPage';
 import VaultDetailsPage from 'views/home/VaultDetailsPage';
 import MarketDetailPage from 'views/home/MarketDetailPage';
+import DashboardPage from 'views/home/DashboardPage';
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -14,6 +15,10 @@ const MainRoutes = {
     {
       index: true,
       element: <Navigate to="earn" replace />
+    },
+    {
+      path: '/dashboard',
+      element: <DashboardPage />
     },
     {
       path: '/earn',

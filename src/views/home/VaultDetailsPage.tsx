@@ -139,10 +139,10 @@ export default function VaultDetailsPage() {
               </Tabs>
             </Box>
             <TabPanel value={tabValue} index={0}>
-              <DepositTab vaultAddress={vaultAddress} />
+              <DepositTab vaultAddress={vaultAddress as string} vaultData={vault} />
             </TabPanel>
             <TabPanel value={tabValue} index={1}>
-              <WithdrawTab vaultAddress={vaultAddress} />
+              <WithdrawTab vaultAddress={vaultAddress as string} vaultData={vault} />
             </TabPanel>
           </Grid>
         </Grid>

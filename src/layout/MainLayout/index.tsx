@@ -34,10 +34,9 @@ export default function MainLayout() {
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
   const tabs = [
+    { label: 'Dashboard', path: 'dashboard', iconPosition: 'top' },
     { label: 'Earn', path: 'earn', iconPosition: 'top' },
     { label: 'Borrow', path: 'borrow', iconPosition: 'top' }
-    // { label: 'Upgrade', path: 'upgrade', iconPosition: 'top' },
-    // { label: 'Stake', path: 'stake', iconPosition: 'top' }
   ];
 
   const navigate = useNavigate();
