@@ -216,18 +216,11 @@ export default function ActionForms(props: MarketProps) {
       <TabPanel value={tabValue} index={0}>
         <AddTab
           market={market}
-          addAmount={addAmount}
-          setAddAmount={setAddAmount}
-          txError={txError}
-          isApproving={isApproving}
-          isProcessing={isProcessing}
-          isApprovalLoading={isApprovalLoading}
-          isTransactionLoading={isTransactionLoading}
-          setIsApproving={setIsApproving}
-          setTxError={setTxError}
-          writeApprove={writeApprove}
-          tabValue={tabValue}
           uniqueKey={uniqueKey}
+          onSuccess={() => {
+            // Refresh market data or any other necessary updates
+            setTxError(null);
+          }}
         />
       </TabPanel>
 
