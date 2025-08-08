@@ -6,6 +6,8 @@ import { mainnet, base, polygon, unichain } from 'wagmi/chains';
 
 const getClientForChainId = (chainId: number) => {
   switch (chainId) {
+    case 1222:
+      return appoloClients.ethGraphApi;
     case mainnet.id:
       return appoloClients.ethGraphApi;
     case base.id:
