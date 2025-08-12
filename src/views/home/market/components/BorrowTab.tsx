@@ -1,45 +1,54 @@
 import Box from '@mui/material/Box';
 import { Typography, TextField, InputAdornment } from '@mui/material';
 import Button from '@mui/material/Button';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MarketInterface } from 'types/market';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { dispatchError } from 'utils/snackbar';
 
 interface BorrowTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
-  borrowAmount: string;
-  setBorrowAmount: (amount: string) => void;
-  txError: string | null;
-  isProcessing: boolean;
-  isTransactionLoading: boolean;
-  setIsProcessing: (isProcessing: boolean) => void;
-  setTxError: (error: string | null) => void;
-  writeTransaction: any;
-  tabValue: number;
-  uniqueKey: string;
+  onSuccess?: () => void;
 }
 
-export default function BorrowTab({
-  market,
-  accrualPosition,
-  borrowAmount,
-  setBorrowAmount,
-  txError,
-  isProcessing,
-  isTransactionLoading,
-  setIsProcessing,
-  setTxError,
-  writeTransaction,
-  tabValue,
-  uniqueKey
-}: BorrowTabProps) {
+export default function BorrowTab({ market, accrualPosition, onSuccess }: BorrowTabProps) {
+  const [borrowAmount, setBorrowAmount] = useState<string>('');
+  const [txError, setTxError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
+
+  // Set up transaction contract write
+  const { writeContract: writeTransaction, data: transactionData } = useWriteContract({
+    mutation: {
+      onError(error) {
+        console.error('Transaction error:', error);
+        setTxError(`Transaction failed: ${error.name}`);
+        setIsProcessing(false);
+        dispatchError('Cannot send transaction.' + error.name);
+      }
+    }
+  });
+
+  // Wait for main transaction
+  const { isLoading: isTransactionLoading, isSuccess: isTransactionSuccess } = useWaitForTransactionReceipt({ hash: transactionData });
+
+  // Reset form after successful transaction
+  React.useEffect(() => {
+    if (isTransactionSuccess) {
+      setBorrowAmount('');
+      setIsProcessing(false);
+      if (onSuccess) {
+        onSuccess();
+      }
+    }
+  }, [isTransactionSuccess, onSuccess]);
 
   const formattedMaxBorrowable = useMemo(() => {
     if (!accrualPosition?.maxBorrowableAssets) return '0';
@@ -48,7 +57,7 @@ export default function BorrowTab({
 
   // Handle borrow loan asset
   const handleBorrow = async () => {
-    if (!userAddress || !uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
+    if (!userAddress || !market.uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
       return;
     }
 
@@ -65,12 +74,25 @@ export default function BorrowTab({
 
       // Calculate amount with decimals
       const amountBN = parseUnits(borrowAmount, assetDecimals);
-
+      // console.log('BORROW PARAMS');
+      //
+      // console.log([
+      //   {
+      //     loanToken: market.loanAsset.address as `0x${string}`,
+      //     collateralToken: market.collateralAsset.address as `0x${string}`,
+      //     oracle: market.oracleAddress as `0x${string}`,
+      //     irm: market.irmAddress as `0x${string}`,
+      //     lltv: BigInt(market.lltv)
+      //   },
+      //   amountBN,
+      //   0n,
+      //   userAddress as `0x${string}`,
+      //   userAddress as `0x${string}`
+      // ]);
       setIsProcessing(true);
-      // Example function call - this would need to be replaced with actual contract method
+
       writeTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,
-        // This is a placeholder - replace with actual ABI and function
         abi: morphoContractConfig.abi,
         functionName: 'borrow',
         args: [
@@ -93,6 +115,7 @@ export default function BorrowTab({
       setIsProcessing(false);
     }
   };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -130,7 +153,7 @@ export default function BorrowTab({
           Max
         </Button>
       </Box>
-      {txError && tabValue === 1 && (
+      {txError && (
         <Typography color="error" variant="body2" sx={{ mb: 2 }}>
           {txError}
         </Typography>

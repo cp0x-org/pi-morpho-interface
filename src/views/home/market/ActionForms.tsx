@@ -27,7 +27,6 @@ export default function ActionForms(props: MarketProps) {
   const [tabValue, setTabValue] = useState(0);
 
   const [addAmount, setAddAmount] = useState('');
-  const [borrowAmount, setBorrowAmount] = useState('');
   const [repayAmount, setRepayAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
@@ -160,7 +159,6 @@ export default function ActionForms(props: MarketProps) {
   useEffect(() => {
     if (isTransactionSuccess) {
       if (tabValue === 0) setAddAmount('');
-      else if (tabValue === 1) setBorrowAmount('');
       else if (tabValue === 2) setRepayAmount('');
       else if (tabValue === 3) setWithdrawAmount('');
 
@@ -229,16 +227,10 @@ export default function ActionForms(props: MarketProps) {
         <BorrowTab
           market={market}
           accrualPosition={accrualPosition}
-          borrowAmount={borrowAmount}
-          setBorrowAmount={setBorrowAmount}
-          txError={txError}
-          isProcessing={isProcessing}
-          isTransactionLoading={isTransactionLoading}
-          setIsProcessing={setIsProcessing}
-          setTxError={setTxError}
-          writeTransaction={writeTransaction}
-          tabValue={tabValue}
-          uniqueKey={uniqueKey}
+          onSuccess={() => {
+            // Refresh market data or any other necessary updates
+            setTxError(null);
+          }}
         />
       </TabPanel>
 

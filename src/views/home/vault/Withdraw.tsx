@@ -8,7 +8,6 @@ import { formatUnits } from 'viem';
 import { vaultConfig } from '@/appconfig/abi/Vault';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
-import { useDebounce } from 'hooks/useDebounce';
 
 import { Vault } from 'types/vaults';
 
@@ -22,7 +21,6 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [txError, setTxError] = useState<string | null>(null);
   const { address: userAddress } = useAccount();
-  const debouncedWithdrawAmount = useDebounce(withdrawAmount, 500);
 
   // Use transaction hooks
   const {
