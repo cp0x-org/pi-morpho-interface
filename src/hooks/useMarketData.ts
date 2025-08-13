@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { usePosition } from '@morpho-org/blue-sdk-wagmi';
 
@@ -44,7 +44,8 @@ export const useMarketData = ({
     data: position,
     isLoading: isPositionLoading,
     isError: isPositionError,
-    error: positionError
+    error: positionError,
+    refetch: refetchPosition
   } = useReadContract({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
@@ -61,7 +62,8 @@ export const useMarketData = ({
     data: marketConfig,
     isLoading: isMcLoading,
     isError: isMcError,
-    error: mcError
+    error: mcError,
+    refetch: refetchMarketConfig
   } = useReadContract({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
@@ -78,7 +80,8 @@ export const useMarketData = ({
     data: oraclePrice,
     isLoading: isOpLoading,
     isError: isOpError,
-    error: opError
+    error: opError,
+    refetch: refetchOraclePrice
   } = useReadContract({
     abi: morphoOracleConfig.abi,
     address: oracleAddress ?? '0x0000000000000000000000000000000000000000',
@@ -95,7 +98,8 @@ export const useMarketData = ({
     data: rateAtTarget,
     isLoading: isRatLoading,
     isError: isRatError,
-    error: ratError
+    error: ratError,
+    refetch: refetchRateAtTarget
   } = useReadContract({
     abi: curveIrmConfig.abi,
     address: irmAddress ?? '0x0000000000000000000000000000000000000000',
@@ -109,7 +113,8 @@ export const useMarketData = ({
     data: marketState,
     isLoading: isMsLoading,
     isError: isMsError,
-    error: msError
+    error: msError,
+    refetch: refetchMarketState
   } = useReadContract({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
@@ -120,7 +125,7 @@ export const useMarketData = ({
   console.log('marketState');
   console.log(marketState);
   console.log(isMsError);
-  const { data: collateralBalance } = useReadContract({
+  const { data: collateralBalance, refetch: refetchCollateralBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.collateralAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
@@ -129,7 +134,7 @@ export const useMarketData = ({
   });
   console.log('collateralBalance');
   console.log(collateralBalance);
-  const { data: loanBalance } = useReadContract({
+  const { data: loanBalance, refetch: refetchLoanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
@@ -143,6 +148,33 @@ export const useMarketData = ({
   const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // Function to refresh all position data
+  const refreshPositionData = useCallback(async () => {
+    console.log('Refreshing position data...');
+    try {
+      await Promise.all([
+        refetchPosition(),
+        refetchMarketConfig(),
+        refetchOraclePrice(),
+        refetchRateAtTarget(),
+        refetchMarketState(),
+        refetchCollateralBalance(),
+        refetchLoanBalance()
+      ]);
+      console.log('Position data refreshed successfully');
+    } catch (error) {
+      console.error('Failed to refresh position data:', error);
+    }
+  }, [
+    refetchPosition,
+    refetchMarketConfig,
+    refetchOraclePrice,
+    refetchRateAtTarget,
+    refetchMarketState,
+    refetchCollateralBalance,
+    refetchLoanBalance
+  ]);
 
   useEffect(() => {
     if (!position || !marketConfig || !oraclePrice || !rateAtTarget || !marketState) return;
@@ -196,6 +228,7 @@ export const useMarketData = ({
     market,
     accrualPosition,
     isLoading,
+    refreshPositionData,
     errors: {
       mcError,
       opError,

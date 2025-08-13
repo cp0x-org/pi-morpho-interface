@@ -18,6 +18,7 @@ interface MarketProps {
   accrualPosition: AccrualPosition | null;
   market?: MarketInterface;
   uniqueKey?: string;
+  onPositionUpdate?: () => void;
 }
 
 export default function ActionForms(props: MarketProps) {
@@ -189,6 +190,9 @@ export default function ActionForms(props: MarketProps) {
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);
+            if (props.onPositionUpdate) {
+              props.onPositionUpdate();
+            }
           }}
         />
       </TabPanel>
@@ -201,6 +205,9 @@ export default function ActionForms(props: MarketProps) {
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);
+            if (props.onPositionUpdate) {
+              props.onPositionUpdate();
+            }
           }}
         />
       </TabPanel>
@@ -214,6 +221,9 @@ export default function ActionForms(props: MarketProps) {
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);
+            if (props.onPositionUpdate) {
+              props.onPositionUpdate();
+            }
           }}
         />
       </TabPanel>
@@ -227,6 +237,9 @@ export default function ActionForms(props: MarketProps) {
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);
+            if (props.onPositionUpdate) {
+              props.onPositionUpdate();
+            }
           }}
         />
       </TabPanel>

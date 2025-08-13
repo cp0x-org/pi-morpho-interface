@@ -28,7 +28,7 @@ export default function MarketDetailPage() {
     client: appoloClients.morphoApi
   });
 
-  const { accrualPosition } = useMarketData({
+  const { accrualPosition, refreshPositionData } = useMarketData({
     uniqueKey,
     marketItemData: data?.markets?.items[0]
   });
@@ -155,7 +155,7 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       Market size
                     </Typography>
-                    <Typography>{market.state.sizeUsd ? market.state.sizeUsd.toFixed(2) : 'n/a'} </Typography>
+                    <Typography>{market.state.sizeUsd ? market.state.sizeUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
                   </Paper>
                 </Grid>
 
@@ -164,7 +164,7 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       Total Liquidity
                     </Typography>
-                    <Typography>{market.state.totalLiquidityUsd ? market.state.totalLiquidityUsd.toFixed(2) : 'n/a'} </Typography>
+                    <Typography>{market.state.totalLiquidityUsd ? market.state.totalLiquidityUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
                   </Paper>
                 </Grid>
                 <Grid size={{ xs: 3, md: 3 }}>
@@ -192,7 +192,7 @@ export default function MarketDetailPage() {
                         </Typography>
                         <Typography>
                           {accrualPosition.borrowAssets
-                            ? formatUnits(accrualPosition.borrowAssets, market.loanAsset?.decimals || 18)
+                            ? formatUnits(accrualPosition.borrowAssets, market.loanAsset?.decimals || 18) + ' ' + market.loanAsset?.symbol
                             : '0'}{' '}
                         </Typography>
                       </Paper>
@@ -212,7 +212,9 @@ export default function MarketDetailPage() {
                         </Typography>
                         <Typography>
                           {accrualPosition.maxBorrowableAssets
-                            ? formatUnits(accrualPosition.maxBorrowableAssets, market.loanAsset?.decimals || 18)
+                            ? formatUnits(accrualPosition.maxBorrowableAssets, market.loanAsset?.decimals || 18) +
+                              ' ' +
+                              market.loanAsset?.symbol
                             : '0'}{' '}
                         </Typography>
                       </Paper>
@@ -224,7 +226,9 @@ export default function MarketDetailPage() {
                         </Typography>
                         <Typography>
                           {accrualPosition.withdrawableCollateral
-                            ? formatUnits(accrualPosition.withdrawableCollateral, market.collateralAsset?.decimals || 18)
+                            ? formatUnits(accrualPosition.withdrawableCollateral, market.collateralAsset?.decimals || 18) +
+                              ' ' +
+                              market.collateralAsset?.symbol
                             : '0'}{' '}
                         </Typography>
                       </Paper>
@@ -236,7 +240,12 @@ export default function MarketDetailPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 5 }}>
-            <ActionForms market={market} uniqueKey={uniqueKey} accrualPosition={accrualPosition} />{' '}
+            <ActionForms
+              market={market}
+              uniqueKey={uniqueKey}
+              accrualPosition={accrualPosition}
+              onPositionUpdate={refreshPositionData}
+            />{' '}
           </Grid>
         </Grid>
         {/*<Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 2, mb: 3 }}>*/}

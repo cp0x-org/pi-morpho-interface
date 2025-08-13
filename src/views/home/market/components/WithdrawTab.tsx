@@ -42,6 +42,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onSucc
       dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.collateralAsset.symbol}`);
       setWithdrawAmount('');
 
+      // Call onSuccess to refresh the position data
       if (onSuccess) {
         onSuccess();
       }
