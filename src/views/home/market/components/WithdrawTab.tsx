@@ -1,45 +1,32 @@
 import Box from '@mui/material/Box';
 import { Typography, TextField, InputAdornment } from '@mui/material';
 import Button from '@mui/material/Button';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 
 interface WithdrawTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
-  withdrawAmount: string;
-  setWithdrawAmount: (amount: string) => void;
-  txError: string | null;
-  isProcessing: boolean;
-  isTransactionLoading: boolean;
-  setIsProcessing: (isProcessing: boolean) => void;
-  setTxError: (error: string | null) => void;
-  writeTransaction: any;
-  tabValue: number;
   uniqueKey: string;
+  onSuccess?: () => void;
 }
 
-export default function WithdrawTab({
-  market,
-  accrualPosition,
-  withdrawAmount,
-  setWithdrawAmount,
-  txError,
-  isProcessing,
-  isTransactionLoading,
-  setIsProcessing,
-  setTxError,
-  writeTransaction,
-  tabValue,
-  uniqueKey
-}: WithdrawTabProps) {
+export default function WithdrawTab({ market, accrualPosition, uniqueKey, onSuccess }: WithdrawTabProps) {
+  // Internal state management
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
+
+  // Use the custom transaction hook
+  const { sendTransaction, txState, txError, isCompleted, resetTx } = useWriteTransaction();
 
   const formattedWithdrawableCollateral = useMemo(() => {
     if (!accrualPosition?.withdrawableCollateral) return '0';
@@ -49,17 +36,35 @@ export default function WithdrawTab({
     );
   }, [accrualPosition, market]);
 
+  // Handle successful transaction completion
+  useEffect(() => {
+    if (isCompleted && txState === 'confirmed') {
+      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.collateralAsset.symbol}`);
+      setWithdrawAmount('');
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      resetTx();
+    }
+  }, [isCompleted, txState, withdrawAmount, market.collateralAsset.symbol, onSuccess, resetTx]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (txState === 'error' && txError) {
+      dispatchError(`Failed to withdraw: ${txError.message || txError.name}`);
+    }
+  }, [txState, txError]);
+
   // Handle withdraw collateral
   const handleWithdraw = async () => {
     if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(withdrawAmount) <= 0) {
       return;
     }
 
-    setTxError(null);
-
     if (!market) {
-      console.error('Market Not Found');
-      setTxError(`Market Not Found`);
+      dispatchError('Market Not Found');
       return;
     }
 
@@ -69,11 +74,9 @@ export default function WithdrawTab({
     const amountBN = parseUnits(withdrawAmount, assetDecimals);
 
     try {
-      setIsProcessing(true);
-      // Example function call - this would need to be replaced with actual contract method
-      writeTransaction({
+      // Execute transaction using the custom hook
+      await sendTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,
-        // This is a placeholder - replace with actual ABI and function
         abi: morphoContractConfig.abi,
         functionName: 'withdrawCollateral',
         args: [
@@ -91,10 +94,30 @@ export default function WithdrawTab({
       });
     } catch (error) {
       console.error('Error withdrawing collateral:', error);
-      setTxError(`Failed to withdraw: ${error instanceof Error ? error.name : String(error)}`);
-      setIsProcessing(false);
+      dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
+
+  // Determine if the button should be disabled
+  const isButtonDisabled =
+    !withdrawAmount ||
+    parseFloat(withdrawAmount) <= 0 ||
+    parseFloat(withdrawAmount) > parseFloat(formattedWithdrawableCollateral) ||
+    txState === 'submitting' ||
+    txState === 'submitted';
+
+  // Determine button text based on transaction state
+  const getButtonText = () => {
+    switch (txState) {
+      case 'submitting':
+        return 'Preparing Transaction...';
+      case 'submitted':
+        return 'Withdrawing...';
+      default:
+        return 'Withdraw';
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -112,6 +135,7 @@ export default function WithdrawTab({
         InputProps={{
           endAdornment: <InputAdornment position="end">{market.collateralAsset?.symbol || 'N/A'}</InputAdornment>
         }}
+        disabled={txState === 'submitting' || txState === 'submitted'}
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
@@ -123,6 +147,7 @@ export default function WithdrawTab({
           variant="outlined"
           size="small"
           onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.25).toString())}
+          disabled={txState === 'submitting' || txState === 'submitted'}
         >
           25%
         </Button>
@@ -130,6 +155,7 @@ export default function WithdrawTab({
           variant="outlined"
           size="small"
           onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.5).toString())}
+          disabled={txState === 'submitting' || txState === 'submitted'}
         >
           50%
         </Button>
@@ -137,31 +163,26 @@ export default function WithdrawTab({
           variant="outlined"
           size="small"
           onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.75).toString())}
+          disabled={txState === 'submitting' || txState === 'submitted'}
         >
           75%
         </Button>
-        <Button variant="outlined" size="small" onClick={() => setWithdrawAmount(formattedWithdrawableCollateral)}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setWithdrawAmount(formattedWithdrawableCollateral)}
+          disabled={txState === 'submitting' || txState === 'submitted'}
+        >
           Max
         </Button>
       </Box>
-      {txError && tabValue === 3 && (
+      {txError && txState === 'error' && (
         <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
+          {txError.message || 'An error occurred while processing your transaction'}
         </Typography>
       )}
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleWithdraw}
-        disabled={
-          !withdrawAmount ||
-          parseFloat(withdrawAmount) <= 0 ||
-          parseFloat(withdrawAmount) > parseFloat(formattedWithdrawableCollateral) ||
-          isProcessing ||
-          isTransactionLoading
-        }
-      >
-        {isProcessing || isTransactionLoading ? 'Withdrawing...' : 'Withdraw'}
+      <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled}>
+        {getButtonText()}
       </Button>
     </Box>
   );

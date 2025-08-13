@@ -27,7 +27,6 @@ export default function ActionForms(props: MarketProps) {
   const [tabValue, setTabValue] = useState(0);
 
   const [addAmount, setAddAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
 
   const [isApproving, setIsApproving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -114,7 +113,7 @@ export default function ActionForms(props: MarketProps) {
         }
       }
     };
-  
+
     executeAfterApproval();
   }, [
     isApprovalSuccess,
@@ -134,8 +133,6 @@ export default function ActionForms(props: MarketProps) {
   useEffect(() => {
     if (isTransactionSuccess) {
       if (tabValue === 0) setAddAmount('');
-      else if (tabValue === 3) setWithdrawAmount('');
-
       setIsProcessing(false);
     }
   }, [isTransactionSuccess, tabValue]);
@@ -226,16 +223,11 @@ export default function ActionForms(props: MarketProps) {
         <WithdrawTab
           market={market}
           accrualPosition={accrualPosition}
-          withdrawAmount={withdrawAmount}
-          setWithdrawAmount={setWithdrawAmount}
-          txError={txError}
-          isProcessing={isProcessing}
-          isTransactionLoading={isTransactionLoading}
-          setIsProcessing={setIsProcessing}
-          setTxError={setTxError}
-          writeTransaction={writeTransaction}
-          tabValue={tabValue}
           uniqueKey={uniqueKey}
+          onSuccess={() => {
+            // Refresh market data or any other necessary updates
+            setTxError(null);
+          }}
         />
       </TabPanel>
     </Paper>

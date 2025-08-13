@@ -28,13 +28,7 @@ export default function MarketDetailPage() {
     client: appoloClients.morphoApi
   });
 
-  const {
-    position,
-    rateAtTarget,
-    marketParams,
-    accrualPosition,
-    errors: accrualErrors
-  } = useMarketData({
+  const { accrualPosition } = useMarketData({
     uniqueKey,
     marketItemData: data?.markets?.items[0]
   });
