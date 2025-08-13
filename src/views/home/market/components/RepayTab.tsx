@@ -7,6 +7,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
+import { AccrualPosition } from '@morpho-org/blue-sdk';
 
 interface RepayTabProps {
   market: MarketInterface;
@@ -21,12 +22,14 @@ interface RepayTabProps {
   setTxError: (error: string | null) => void;
   writeApprove: any;
   tabValue: number;
+  accrualPosition: AccrualPosition | null;
   uniqueKey: string;
 }
 
 export default function RepayTab({
   market,
   repayAmount,
+  accrualPosition,
   setRepayAmount,
   txError,
   isApproving,
@@ -43,7 +46,7 @@ export default function RepayTab({
   const { config: chainConfig } = useConfigChainId();
 
   // Read user's loan token balance
-  const { data: loanBalance } = useReadContract({
+  const { data: userBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
@@ -54,9 +57,14 @@ export default function RepayTab({
   });
 
   const formattedLoanBalance = useMemo(() => {
-    if (!loanBalance) return '0';
-    return formatUnits(loanBalance as bigint, market?.loanAsset?.decimals ? market?.loanAsset?.decimals : 0);
-  }, [loanBalance, market]);
+    if (!accrualPosition?.borrowAssets) return '0';
+    return formatUnits(accrualPosition?.borrowAssets as bigint, market?.loanAsset?.decimals ? market?.loanAsset?.decimals : 0);
+  }, [accrualPosition?.borrowAssets, market]);
+
+  const formattedUserBalance = useMemo(() => {
+    if (!userBalance) return '0';
+    return formatUnits(userBalance as bigint, market?.loanAsset?.decimals ? market?.loanAsset?.decimals : 0);
+  }, [userBalance, market]);
 
   // Handle repay loan
   const handleRepay = async () => {
@@ -113,7 +121,12 @@ export default function RepayTab({
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Balance: {formattedLoanBalance} {market.loanAsset?.symbol || 'N/A'}
+          Loan: {formattedLoanBalance} {market.loanAsset?.symbol || 'N/A'}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Typography variant="body2" color="text.secondary">
+          Your Balance: {formattedUserBalance} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

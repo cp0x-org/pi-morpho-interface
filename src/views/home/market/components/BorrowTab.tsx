@@ -1,14 +1,15 @@
 import Box from '@mui/material/Box';
 import { Typography, TextField, InputAdornment } from '@mui/material';
 import Button from '@mui/material/Button';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MarketInterface } from 'types/market';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
-import { dispatchError } from 'utils/snackbar';
+import { dispatchError, dispatchSuccess } from 'utils/snackbar';
+import { useWriteTransaction } from 'hooks/useWriteTransaction';
 
 interface BorrowTabProps {
   market: MarketInterface;
@@ -19,44 +20,38 @@ interface BorrowTabProps {
 export default function BorrowTab({ market, accrualPosition, onSuccess }: BorrowTabProps) {
   const [borrowAmount, setBorrowAmount] = useState<string>('');
   const [txError, setTxError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
 
-  // Set up transaction contract write
-  const { writeContract: writeTransaction, data: transactionData } = useWriteContract({
-    mutation: {
-      onError(error) {
-        console.error('Transaction error:', error);
-        setTxError(`Transaction failed: ${error.name}`);
-        setIsProcessing(false);
-        dispatchError('Cannot send transaction.' + error.name);
-      }
-    }
-  });
-
-  // Wait for main transaction
-  const { isLoading: isTransactionLoading, isSuccess: isTransactionSuccess } = useWaitForTransactionReceipt({ hash: transactionData });
-
-  // Reset form after successful transaction
-  React.useEffect(() => {
-    if (isTransactionSuccess) {
-      setBorrowAmount('');
-      setIsProcessing(false);
-      if (onSuccess) {
-        onSuccess();
-      }
-    }
-  }, [isTransactionSuccess, onSuccess]);
+  // Use the transaction hook
+  const borrowTx = useWriteTransaction();
 
   const formattedMaxBorrowable = useMemo(() => {
+    console.log('formattedMaxBorrowable');
+    console.log(accrualPosition?.maxBorrowableAssets);
+    console.log(accrualPosition);
     if (!accrualPosition?.maxBorrowableAssets) return '0';
     return formatUnits(accrualPosition?.maxBorrowableAssets as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
   }, [accrualPosition, market]);
 
+  // Handle transaction state changes
+  useEffect(() => {
+    if (borrowTx.txState === 'confirmed') {
+      setBorrowAmount('');
+      dispatchSuccess(`${market.loanAsset?.symbol || 'Tokens'} borrowed successfully`);
+      if (onSuccess) {
+        onSuccess();
+      }
+      borrowTx.resetTx();
+    } else if (borrowTx.txState === 'error') {
+      setTxError(`Transaction failed`);
+      dispatchError(`Cannot borrow ${market.loanAsset?.symbol || 'tokens'}: 'Transaction failed'}`);
+    }
+  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess]);
+
   // Handle borrow loan asset
-  const handleBorrow = async () => {
+  const handleBorrow = useCallback(async () => {
     if (!userAddress || !market.uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
       return;
     }
@@ -74,24 +69,8 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
 
       // Calculate amount with decimals
       const amountBN = parseUnits(borrowAmount, assetDecimals);
-      // console.log('BORROW PARAMS');
-      //
-      // console.log([
-      //   {
-      //     loanToken: market.loanAsset.address as `0x${string}`,
-      //     collateralToken: market.collateralAsset.address as `0x${string}`,
-      //     oracle: market.oracleAddress as `0x${string}`,
-      //     irm: market.irmAddress as `0x${string}`,
-      //     lltv: BigInt(market.lltv)
-      //   },
-      //   amountBN,
-      //   0n,
-      //   userAddress as `0x${string}`,
-      //   userAddress as `0x${string}`
-      // ]);
-      setIsProcessing(true);
 
-      writeTransaction({
+      await borrowTx.sendTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,
         abi: morphoContractConfig.abi,
         functionName: 'borrow',
@@ -111,10 +90,12 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
       });
     } catch (error) {
       console.error('Error borrowing tokens:', error);
-      setTxError(`Failed to borrow: ${error instanceof Error ? error.name : ''}`);
-      setIsProcessing(false);
+      setTxError(`Failed to borrow: ${error instanceof Error ? error.message : ''}`);
     }
-  };
+  }, [userAddress, market, borrowAmount, borrowTx, chainConfig.contracts.Morpho]);
+
+  // Check if transaction is in progress
+  const isTransactionInProgress = borrowTx.txState === 'submitting' || borrowTx.txState === 'submitted';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -130,6 +111,7 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
         fullWidth
         value={borrowAmount}
         onChange={(e) => setBorrowAmount(e.target.value)}
+        disabled={isTransactionInProgress}
         InputProps={{
           endAdornment: <InputAdornment position="end">{market.loanAsset?.symbol || 'N/A'}</InputAdornment>
         }}
@@ -140,16 +122,31 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.25).toString())}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.25).toString())}
+          disabled={isTransactionInProgress}
+        >
           25%
         </Button>
-        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.5).toString())}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.5).toString())}
+          disabled={isTransactionInProgress}
+        >
           50%
         </Button>
-        <Button variant="outlined" size="small" onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.75).toString())}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.75).toString())}
+          disabled={isTransactionInProgress}
+        >
           75%
         </Button>
-        <Button variant="outlined" size="small" onClick={() => setBorrowAmount(formattedMaxBorrowable)}>
+        <Button variant="outlined" size="small" onClick={() => setBorrowAmount(formattedMaxBorrowable)} disabled={isTransactionInProgress}>
           Max
         </Button>
       </Box>
@@ -166,11 +163,10 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
           !borrowAmount ||
           parseFloat(borrowAmount) <= 0 ||
           parseFloat(borrowAmount) > parseFloat(formattedMaxBorrowable) ||
-          isProcessing ||
-          isTransactionLoading
+          isTransactionInProgress
         }
       >
-        {isProcessing || isTransactionLoading ? 'Borrowing...' : 'Borrow'}
+        {borrowTx.txState === 'submitting' ? 'Preparing...' : borrowTx.txState === 'submitted' ? 'Borrowing...' : 'Borrow'}
       </Button>
     </Box>
   );

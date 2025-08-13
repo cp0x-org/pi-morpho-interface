@@ -239,6 +239,7 @@ export default function ActionForms(props: MarketProps) {
         <RepayTab
           market={market}
           repayAmount={repayAmount}
+          accrualPosition={accrualPosition}
           setRepayAmount={setRepayAmount}
           txError={txError}
           isApproving={isApproving}

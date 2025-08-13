@@ -53,6 +53,10 @@ export const useMarketData = ({
     query: { enabled: !!uniqueKey }
   });
 
+  console.log('useMarketData');
+  console.log('position');
+  console.log(position);
+
   const {
     data: marketConfig,
     isLoading: isMcLoading,
@@ -67,6 +71,8 @@ export const useMarketData = ({
   });
 
   const oracleAddress = marketConfig?.[2];
+  console.log('marketConfig');
+  console.log(marketConfig);
 
   const {
     data: oraclePrice,
@@ -80,6 +86,8 @@ export const useMarketData = ({
     args: [],
     query: { enabled: !!oracleAddress }
   });
+  console.log('oraclePrice');
+  console.log(oraclePrice);
 
   const irmAddress = marketConfig?.[3];
   console.log(irmAddress);
@@ -95,7 +103,8 @@ export const useMarketData = ({
     args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
     query: { enabled: !!irmAddress && !!userAddress }
   });
-
+  console.log('irmAddress');
+  console.log(irmAddress);
   const {
     data: marketState,
     isLoading: isMsLoading,
@@ -108,7 +117,9 @@ export const useMarketData = ({
     args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
     query: { enabled: !!uniqueKey }
   });
-
+  console.log('marketState');
+  console.log(marketState);
+  console.log(isMsError);
   const { data: collateralBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.collateralAsset.address as `0x${string}` | undefined,
@@ -116,7 +127,8 @@ export const useMarketData = ({
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!userAddress && !!marketItemData }
   });
-
+  console.log('collateralBalance');
+  console.log(collateralBalance);
   const { data: loanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.loanAsset.address as `0x${string}` | undefined,
@@ -124,7 +136,8 @@ export const useMarketData = ({
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!userAddress && !!marketItemData }
   });
-
+  console.log('loanBalance');
+  console.log(loanBalance);
   const [marketParams, setMarketParams] = useState<MarketParams | null>(null);
   const [market, setMarket] = useState<Market | null>(null);
   const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
@@ -132,7 +145,7 @@ export const useMarketData = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!position || !marketConfig || !oraclePrice || !rateAtTarget || !marketState || !collateralBalance || !loanBalance) return;
+    if (!position || !marketConfig || !oraclePrice || !rateAtTarget || !marketState) return;
 
     const marketParams = new MarketParams({
       loanToken: marketConfig[0],
@@ -168,8 +181,9 @@ export const useMarketData = ({
     setMarket(market);
     setAccrualPosition(tmpAccrualPosition);
     setIsLoading(false);
-  }, [position, marketConfig, oraclePrice, rateAtTarget, marketState, collateralBalance, loanBalance, userAddress, marketIdParam]);
-
+  }, [position, marketConfig, oraclePrice, rateAtTarget, marketState, userAddress, marketIdParam]);
+  console.log('accrualPosition');
+  console.log(accrualPosition);
   return {
     position,
     marketConfig,
