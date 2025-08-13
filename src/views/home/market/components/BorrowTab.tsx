@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Typography, TextField, InputAdornment } from '@mui/material';
+import { InputAdornment, TextField, Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MarketInterface } from 'types/market';
@@ -28,11 +28,22 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
   const borrowTx = useWriteTransaction();
 
   const formattedMaxBorrowable = useMemo(() => {
-    console.log('formattedMaxBorrowable');
-    console.log(accrualPosition?.maxBorrowableAssets);
-    console.log(accrualPosition);
     if (!accrualPosition?.maxBorrowableAssets) return '0';
+
     return formatUnits(accrualPosition?.maxBorrowableAssets as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
+  }, [accrualPosition, market]);
+
+  const formattedSafeMaxBorrowable = useMemo(() => {
+    if (!accrualPosition?.maxBorrowableAssets) return '0';
+
+    let borrowable = formatUnits(
+      accrualPosition?.maxBorrowableAssets as bigint,
+      market?.loanAsset?.decimals ? market.loanAsset.decimals : 0
+    );
+
+    let safeBorrowable = Number(borrowable) * 0.94; // 6% safety margin
+
+    return safeBorrowable.toFixed(4);
   }, [accrualPosition, market]);
 
   // Handle transaction state changes
@@ -48,7 +59,7 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
       setTxError(`Transaction failed`);
       dispatchError(`Cannot borrow ${market.loanAsset?.symbol || 'tokens'}: 'Transaction failed'}`);
     }
-  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess]);
+  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess, borrowTx]);
 
   // Handle borrow loan asset
   const handleBorrow = useCallback(async () => {
@@ -118,14 +129,19 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Borrowable: {formattedMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
+          Max Borrowable: {formattedMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Typography variant="body2" color="text.secondary">
+          Safe Borrowable: {formattedSafeMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <Button
           variant="outlined"
           size="small"
-          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.25).toString())}
+          onClick={() => setBorrowAmount((parseFloat(formattedSafeMaxBorrowable) * 0.25).toString())}
           disabled={isTransactionInProgress}
         >
           25%
@@ -133,7 +149,7 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
         <Button
           variant="outlined"
           size="small"
-          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.5).toString())}
+          onClick={() => setBorrowAmount((parseFloat(formattedSafeMaxBorrowable) * 0.5).toString())}
           disabled={isTransactionInProgress}
         >
           50%
@@ -141,12 +157,17 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
         <Button
           variant="outlined"
           size="small"
-          onClick={() => setBorrowAmount((parseFloat(formattedMaxBorrowable) * 0.75).toString())}
+          onClick={() => setBorrowAmount((parseFloat(formattedSafeMaxBorrowable) * 0.75).toString())}
           disabled={isTransactionInProgress}
         >
           75%
         </Button>
-        <Button variant="outlined" size="small" onClick={() => setBorrowAmount(formattedMaxBorrowable)} disabled={isTransactionInProgress}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setBorrowAmount(formattedSafeMaxBorrowable)}
+          disabled={isTransactionInProgress}
+        >
           Max
         </Button>
       </Box>
@@ -162,7 +183,7 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
         disabled={
           !borrowAmount ||
           parseFloat(borrowAmount) <= 0 ||
-          parseFloat(borrowAmount) > parseFloat(formattedMaxBorrowable) ||
+          parseFloat(borrowAmount) > parseFloat(formattedSafeMaxBorrowable) ||
           isTransactionInProgress
         }
       >

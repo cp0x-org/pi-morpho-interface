@@ -27,7 +27,6 @@ export default function ActionForms(props: MarketProps) {
   const [tabValue, setTabValue] = useState(0);
 
   const [addAmount, setAddAmount] = useState('');
-  const [repayAmount, setRepayAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
   const [isApproving, setIsApproving] = useState(false);
@@ -107,29 +106,6 @@ export default function ActionForms(props: MarketProps) {
                 '' as `0x${string}`
               ]
             });
-          } else if (tabValue === 2 && repayAmount) {
-            // Repay loan
-            const amountBN = parseUnits(repayAmount, market.loanAsset.decimals);
-
-            writeTransaction({
-              address: chainConfig.contracts.Morpho,
-              // This is a placeholder - replace with actual ABI and function
-              abi: morphoContractConfig.abi,
-              functionName: 'repay',
-              args: [
-                {
-                  loanToken: market.loanAsset.address as `0x${string}`,
-                  collateralToken: market.collateralAsset.address as `0x${string}`,
-                  oracle: market.oracleAddress as `0x${string}`,
-                  irm: market.irmAddress as `0x${string}`,
-                  lltv: BigInt(market.lltv)
-                },
-                amountBN,
-                0n,
-                userAddress as `0x${string}`,
-                '' as `0x${string}`
-              ]
-            });
           }
         } catch (error) {
           console.error('Error in transaction after approval:', error);
@@ -138,7 +114,7 @@ export default function ActionForms(props: MarketProps) {
         }
       }
     };
-
+  
     executeAfterApproval();
   }, [
     isApprovalSuccess,
@@ -146,7 +122,6 @@ export default function ActionForms(props: MarketProps) {
     userAddress,
     tabValue,
     addAmount,
-    repayAmount,
     writeTransaction,
     market,
     chainConfig?.contracts?.Morpho,
@@ -159,7 +134,6 @@ export default function ActionForms(props: MarketProps) {
   useEffect(() => {
     if (isTransactionSuccess) {
       if (tabValue === 0) setAddAmount('');
-      else if (tabValue === 2) setRepayAmount('');
       else if (tabValue === 3) setWithdrawAmount('');
 
       setIsProcessing(false);
@@ -238,19 +212,12 @@ export default function ActionForms(props: MarketProps) {
       <TabPanel value={tabValue} index={2}>
         <RepayTab
           market={market}
-          repayAmount={repayAmount}
           accrualPosition={accrualPosition}
-          setRepayAmount={setRepayAmount}
-          txError={txError}
-          isApproving={isApproving}
-          isProcessing={isProcessing}
-          isApprovalLoading={isApprovalLoading}
-          isTransactionLoading={isTransactionLoading}
-          setIsApproving={setIsApproving}
-          setTxError={setTxError}
-          writeApprove={writeApprove}
-          tabValue={tabValue}
           uniqueKey={uniqueKey}
+          onSuccess={() => {
+            // Refresh market data or any other necessary updates
+            setTxError(null);
+          }}
         />
       </TabPanel>
 

@@ -15,6 +15,7 @@ export interface Asset {
 }
 
 export interface MarketInterface {
+  price: string;
   uniqueKey: string;
   lltv: string;
   oracleAddress: string;

@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Divider, Tooltip, IconButton } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
-import { shortenAddress } from '@/utils/formatters';
+import { formatLLTV, shortenAddress } from '@/utils/formatters';
 import Button from '@mui/material/Button';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -38,16 +38,6 @@ export default function MarketDetailPage() {
     uniqueKey,
     marketItemData: data?.markets?.items[0]
   });
-  const formatLLTV = (lltv: string) => {
-    if (!lltv) return 'N/A';
-    try {
-      const lltvNumber = parseFloat(lltv) / 1e18;
-      return `${(lltvNumber * 100).toFixed(2)}%`;
-    } catch (e) {
-      console.error(e);
-      return 'N/A';
-    }
-  };
 
   if (loading) {
     return (
@@ -138,7 +128,7 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       LLTV (Loan-to-Value)
                     </Typography>
-                    <Typography>{formatLLTV(market.lltv)}</Typography>
+                    <Typography>{formatLLTV(market.lltv) ? formatLLTV(market.lltv)?.toFixed(2) + '%' : 'n/a'}</Typography>
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 3 }}>

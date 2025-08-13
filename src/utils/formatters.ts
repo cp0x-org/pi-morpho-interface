@@ -80,3 +80,14 @@ export const formatUSDS = (value: string | number) => {
     maximumFractionDigits: 2
   })}`;
 };
+
+export const formatLLTV = (lltv: string): number | null => {
+  if (!lltv) return null;
+  try {
+    const lltvNumber = parseFloat(lltv) / 1e18;
+    return lltvNumber * 100;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
