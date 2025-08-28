@@ -16,9 +16,12 @@ interface WithdrawTabProps {
   accrualPosition: AccrualPosition | null;
   uniqueKey: string;
   onSuccess?: () => void;
+
+  onBorrowAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function WithdrawTab({ market, accrualPosition, uniqueKey, onSuccess }: WithdrawTabProps) {
+export default function WithdrawTab({ market, accrualPosition, uniqueKey, onCollateralAmountChange, onSuccess }: WithdrawTabProps) {
   // Internal state management
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
@@ -35,6 +38,23 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onSucc
       market?.collateralAsset?.decimals ? market.collateralAsset.decimals : 0
     );
   }, [accrualPosition, market]);
+
+  useEffect(() => {
+    if (!market) {
+      console.log('Market data not available');
+      return;
+    }
+
+    let amount = withdrawAmount ? withdrawAmount : '0';
+
+    const amountFloat = parseFloat(amount);
+    const assetDecimals = market.collateralAsset.decimals;
+
+    const multiplier = Math.pow(10, assetDecimals);
+    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    onCollateralAmountChange(-amountBN);
+  }, [withdrawAmount, market]);
 
   // Handle successful transaction completion
   useEffect(() => {
@@ -69,10 +89,12 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onSucc
       return;
     }
 
+    const amountFloat = parseFloat(withdrawAmount);
     const assetDecimals = market.collateralAsset.decimals;
 
-    // Calculate amount with decimals
-    const amountBN = parseUnits(withdrawAmount, assetDecimals);
+    const multiplier = Math.pow(10, assetDecimals);
+    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     try {
       // Execute transaction using the custom hook

@@ -10,19 +10,41 @@ import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { useDebounce } from 'hooks/useDebounce';
 
 interface BorrowTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
   onSuccess?: () => void;
+
+  onBorrowAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function BorrowTab({ market, accrualPosition, onSuccess }: BorrowTabProps) {
+export default function BorrowTab({ market, accrualPosition, onBorrowAmountChange, onSuccess }: BorrowTabProps) {
   const [borrowAmount, setBorrowAmount] = useState<string>('');
   const [txError, setTxError] = useState<string | null>(null);
 
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
+
+  useEffect(() => {
+    if (!market) {
+      console.log('Market data not available');
+      return;
+    }
+
+    let amount = borrowAmount ? borrowAmount : '0';
+
+    const amountFloat = parseFloat(amount);
+    const assetDecimals = market.loanAsset.decimals;
+
+    const multiplier = Math.pow(10, assetDecimals);
+    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+
+    onBorrowAmountChange(amountBN);
+  }, [borrowAmount, market]);
 
   // Use the transaction hook
   const borrowTx = useWriteTransaction();
@@ -76,10 +98,12 @@ export default function BorrowTab({ market, accrualPosition, onSuccess }: Borrow
     }
 
     try {
+      const amountFloat = parseFloat(borrowAmount);
       const assetDecimals = market.loanAsset.decimals;
 
-      // Calculate amount with decimals
-      const amountBN = parseUnits(borrowAmount, assetDecimals);
+      const multiplier = Math.pow(10, assetDecimals);
+      const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+      const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
       await borrowTx.sendTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,

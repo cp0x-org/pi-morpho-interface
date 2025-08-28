@@ -3,6 +3,7 @@ import { useQuery, gql } from '@apollo/client';
 import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Divider, Tooltip, IconButton } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 import { formatLLTV, shortenAddress } from '@/utils/formatters';
 import Button from '@mui/material/Button';
@@ -16,11 +17,16 @@ import { useMarketData } from 'hooks/useMarketData';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
+import { useFuturePosition } from 'hooks/useFuturePosition';
+import { useAccount } from 'wagmi';
 
 export default function MarketDetailPage() {
   const { uniqueKey } = useParams<{ uniqueKey: string }>();
   const navigate = useNavigate();
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
+  const { address: userAddress } = useAccount();
+  const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
+  const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
 
   const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
     variables: { uniqueKey: uniqueKey },
@@ -28,10 +34,29 @@ export default function MarketDetailPage() {
     client: appoloClients.morphoApi
   });
 
-  const { accrualPosition, refreshPositionData } = useMarketData({
+  const { accrualPosition, market, refreshPositionData } = useMarketData({
     uniqueKey,
     marketItemData: data?.markets?.items[0]
   });
+
+  const { futurePosition, isChanged } = useFuturePosition({
+    currentPosition: accrualPosition,
+    market,
+    userAddress,
+    uniqueKey,
+    diffBorrowAmount,
+    diffCollateralAmount
+  });
+
+  const onBorrowAmountChange = (amount: bigint) => {
+    console.log('onBorrowAmountChange', amount);
+    setDiffBorrowAmount(amount);
+  };
+
+  const onCollateralAmountChange = (amount: bigint) => {
+    console.log('onCollateralAmountChange', amount);
+    setDiffCollateralAmount(amount);
+  };
 
   if (loading) {
     return (
@@ -49,13 +74,13 @@ export default function MarketDetailPage() {
     );
   }
 
-  const market = data?.markets?.items?.[0];
+  const marketData = data?.markets?.items?.[0];
 
   const handleBack = () => {
     navigate('/borrow');
   };
 
-  if (!market) {
+  if (!marketData) {
     return (
       <Box sx={{ padding: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
@@ -73,7 +98,6 @@ export default function MarketDetailPage() {
       <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>
         Back to Borrow
       </Button>
-
       <Paper sx={{ padding: 3, marginBottom: 3 }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -89,10 +113,10 @@ export default function MarketDetailPage() {
                       Loan Asset
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography>{market.loanAsset?.symbol || 'N/A'}</Typography>
-                      {market.loanAsset?.address && (
+                      <Typography>{marketData.loanAsset?.symbol || 'N/A'}</Typography>
+                      {marketData.loanAsset?.address && (
                         <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                          <IconButton onClick={() => copyToClipboard(market.loanAsset?.address || '')} sx={{ ml: 0.5, padding: '2px' }}>
+                          <IconButton onClick={() => copyToClipboard(marketData.loanAsset?.address || '')} sx={{ ml: 0.5, padding: '2px' }}>
                             <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
                           </IconButton>
                         </Tooltip>
@@ -106,10 +130,10 @@ export default function MarketDetailPage() {
                       Collateral Asset
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography>{market.collateralAsset?.symbol || 'N/A'}</Typography>
-                      {market.collateralAsset?.address && (
+                      <Typography>{marketData.collateralAsset?.symbol || 'N/A'}</Typography>
+                      {marketData.collateralAsset?.address && (
                         <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                          <IconButton onClick={() => copyToClipboard(market.collateralAsset?.address || '')} sx={{ ml: 0.5 }}>
+                          <IconButton onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')} sx={{ ml: 0.5 }}>
                             <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
                           </IconButton>
                         </Tooltip>
@@ -117,20 +141,13 @@ export default function MarketDetailPage() {
                     </Box>
                   </Box>
                 </Grid>
-                <Grid size={{ xs: 3 }}>
-                  <Box>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      LLTV (Loan-to-Value)
-                    </Typography>
-                    <Typography>{formatLLTV(market.lltv) ? formatLLTV(market.lltv)?.toFixed(2) + '%' : 'n/a'}</Typography>
-                  </Box>
-                </Grid>
+
                 <Grid size={{ xs: 3 }}>
                   <Box>
                     <Typography variant="subtitle2" color="textSecondary">
                       Utilization
                     </Typography>
-                    <Typography>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
+                    <Typography>{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
                   </Box>
                 </Grid>
                 {/*<Grid size={{ xs: 3 }}>*/}
@@ -138,7 +155,7 @@ export default function MarketDetailPage() {
                 {/*    <Typography variant="subtitle2" color="textSecondary">*/}
                 {/*      Borrowed Assets*/}
                 {/*    </Typography>*/}
-                {/*    <Typography>{(market.state?.borrowAssets || 0).toLocaleString()}</Typography>*/}
+                {/*    <Typography>{(marketData.state?.borrowAssets || 0).toLocaleString()}</Typography>*/}
                 {/*  </Box>*/}
                 {/*</Grid>*/}
                 {/*<Grid size={{ xs: 3 }}>*/}
@@ -146,7 +163,7 @@ export default function MarketDetailPage() {
                 {/*    <Typography variant="subtitle2" color="textSecondary">*/}
                 {/*      Supplied Assets*/}
                 {/*    </Typography>*/}
-                {/*    <Typography>{(market.state?.supplyAssets || 0).toLocaleString()}</Typography>*/}
+                {/*    <Typography>{(marketData.state?.supplyAssets || 0).toLocaleString()}</Typography>*/}
                 {/*  </Box>*/}
                 {/*</Grid>*/}
 
@@ -155,7 +172,7 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       Market size
                     </Typography>
-                    <Typography>{market.state.sizeUsd ? market.state.sizeUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
+                    <Typography>{marketData.state.sizeUsd ? marketData.state.sizeUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
                   </Paper>
                 </Grid>
 
@@ -164,7 +181,9 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       Total Liquidity
                     </Typography>
-                    <Typography>{market.state.totalLiquidityUsd ? market.state.totalLiquidityUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
+                    <Typography>
+                      {marketData.state.totalLiquidityUsd ? marketData.state.totalLiquidityUsd.toFixed(2) + ' USD' : 'n/a'}{' '}
+                    </Typography>
                   </Paper>
                 </Grid>
                 <Grid size={{ xs: 3, md: 3 }}>
@@ -172,7 +191,9 @@ export default function MarketDetailPage() {
                     <Typography variant="subtitle2" color="textSecondary">
                       Borrow Rate
                     </Typography>
-                    <Typography>{market.state.dailyNetBorrowApy ? (market.state.dailyNetBorrowApy * 100).toFixed(2) : 'n/a'}% </Typography>
+                    <Typography>
+                      {marketData.state.dailyNetBorrowApy ? (marketData.state.dailyNetBorrowApy * 100).toFixed(2) : 'n/a'}%{' '}
+                    </Typography>
                   </Paper>
                 </Grid>
               </Grid>
@@ -188,50 +209,67 @@ export default function MarketDetailPage() {
                     <Grid size={{ xs: 3, md: 3 }}>
                       <Paper>
                         <Typography variant="subtitle2" color="textSecondary">
-                          Borrowed Assets
+                          Loan ({marketData.loanAsset?.symbol})
                         </Typography>
                         <Typography>
                           {accrualPosition.borrowAssets
-                            ? formatUnits(accrualPosition.borrowAssets, market.loanAsset?.decimals || 18) + ' ' + market.loanAsset?.symbol
+                            ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
                             : '0'}{' '}
+                          {isChanged && futurePosition && (
+                            <>
+                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                              {futurePosition?.borrowAssets
+                                ? parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
+                                : '0'}{' '}
+                            </>
+                          )}
                         </Typography>
                       </Paper>
                     </Grid>
                     <Grid size={{ xs: 3, md: 3 }}>
                       <Paper>
                         <Typography variant="subtitle2" color="textSecondary">
-                          Is Healthy
-                        </Typography>
-                        <Typography>{accrualPosition.isHealthy ? 'Yes' : 'No'}</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 3, md: 3 }}>
-                      <Paper>
-                        <Typography variant="subtitle2" color="textSecondary">
-                          Max Borrowable Assets
+                          Collateral ({marketData.collateralAsset?.symbol})
                         </Typography>
                         <Typography>
-                          {accrualPosition.maxBorrowableAssets
-                            ? formatUnits(accrualPosition.maxBorrowableAssets, market.loanAsset?.decimals || 18) +
-                              ' ' +
-                              market.loanAsset?.symbol
+                          {accrualPosition.collateral
+                            ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
                             : '0'}{' '}
+                          {isChanged && futurePosition && (
+                            <>
+                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                              {futurePosition?.collateral
+                                ? parseFloat(formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
+                                : '0'}{' '}
+                            </>
+                          )}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+
+                    <Grid size={{ xs: 3, md: 3 }}>
+                      <Paper>
+                        <Typography variant="subtitle2" color="textSecondary">
+                          LTV (%)
+                        </Typography>
+                        <Typography>
+                          {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
+                          {isChanged && futurePosition && (
+                            <>
+                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                              {futurePosition?.ltv ? (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
+                            </>
+                          )}
                         </Typography>
                       </Paper>
                     </Grid>
                     <Grid size={{ xs: 3, md: 3 }}>
-                      <Paper>
+                      <Box>
                         <Typography variant="subtitle2" color="textSecondary">
-                          Collateral Withdrawable
+                          LLTV (Loan-to-Value)
                         </Typography>
-                        <Typography>
-                          {accrualPosition.withdrawableCollateral
-                            ? formatUnits(accrualPosition.withdrawableCollateral, market.collateralAsset?.decimals || 18) +
-                              ' ' +
-                              market.collateralAsset?.symbol
-                            : '0'}{' '}
-                        </Typography>
-                      </Paper>
+                        <Typography>{formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}</Typography>
+                      </Box>
                     </Grid>
                   </Grid>
                 </Paper>
@@ -241,18 +279,15 @@ export default function MarketDetailPage() {
 
           <Grid size={{ xs: 12, md: 5 }}>
             <ActionForms
-              market={market}
+              market={marketData}
               uniqueKey={uniqueKey}
               accrualPosition={accrualPosition}
               onPositionUpdate={refreshPositionData}
+              onBorrowAmountChange={onBorrowAmountChange}
+              onCollateralAmountChange={onCollateralAmountChange}
             />{' '}
           </Grid>
         </Grid>
-        {/*<Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 2, mb: 3 }}>*/}
-        {/*  <Chip label={`Loan: ${market.loanAsset?.symbol || 'N/A'}`} color="primary" />*/}
-        {/*  <Chip label={`Collateral: ${market.collateralAsset?.symbol || 'N/A'}`} color="secondary" />*/}
-        {/*  <Chip label={`LLTV: ${formatLLTV(market.lltv)}`} variant="outlined" />*/}
-        {/*</Box>*/}
       </Paper>
     </Box>
   );

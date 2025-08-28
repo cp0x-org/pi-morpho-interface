@@ -18,9 +18,11 @@ interface RepayTabProps {
   accrualPosition: AccrualPosition | null;
   uniqueKey: string;
   onSuccess?: () => void;
+  onBorrowAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onSuccess }) => {
+const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
   const [repayAmount, setRepayAmount] = useState('');
   const [txError, setTxError] = useState<string | null>(null);
@@ -68,6 +70,28 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onSuc
       enabled: !!userAddress && !!market?.loanAsset && !!chainConfig.contracts.Morpho
     }
   });
+
+  useEffect(() => {
+    console.log('Add debouncedAmount');
+    if (!market) {
+      console.log('Market data not available');
+      return;
+    }
+
+    let amount = debouncedRepayAmount ? debouncedRepayAmount : '0';
+
+    const amountFloat = parseFloat(amount);
+    const assetDecimals = market.loanAsset.decimals;
+
+    const multiplier = Math.pow(10, assetDecimals);
+    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // Calculate amount with decimals
+    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+
+    console.log('Amount:', roundedAmount, 'Wei:', amountBN.toString());
+
+    onBorrowAmountChange(-amountBN);
+  }, [debouncedRepayAmount, market]);
 
   // Refetch allowance when input amount changes
   useEffect(() => {

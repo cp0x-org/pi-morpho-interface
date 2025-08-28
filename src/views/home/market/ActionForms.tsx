@@ -1,24 +1,18 @@
 import Box from '@mui/material/Box';
 import { Typography, Paper, Tabs, Tab, CircularProgress } from '@mui/material';
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
-import { formatUnits, parseUnits } from 'viem';
-import { usePosition } from '@morpho-org/blue-sdk-wagmi';
-import { isMarketId } from '@morpho-org/blue-sdk/lib/types';
-import type { MarketId } from '@morpho-org/blue-sdk/lib/types';
-import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { useConfigChainId } from 'hooks/useConfigChainId';
+import { useAccount } from 'wagmi';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawTab } from './components';
-import { dispatchError } from 'utils/snackbar';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
   market?: MarketInterface;
   uniqueKey?: string;
   onPositionUpdate?: () => void;
+  onBorrowAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
 export default function ActionForms(props: MarketProps) {
@@ -27,117 +21,9 @@ export default function ActionForms(props: MarketProps) {
   const accrualPosition = props.accrualPosition;
   const [tabValue, setTabValue] = useState(0);
 
-  const [addAmount, setAddAmount] = useState('');
-
-  const [isApproving, setIsApproving] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
-  const account = useAccount();
+  // const account = useAccount();
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
-
-  const marketIdParam = useMemo(() => {
-    if (uniqueKey && isMarketId(uniqueKey)) {
-      return uniqueKey as MarketId;
-    }
-    return undefined;
-  }, [uniqueKey]);
-
-  // Only call usePosition if we have a valid marketId and user address
-  // const { data: position } = usePosition({
-  //   user: account.address,
-  //   marketId: marketIdParam,
-  //   query: { enabled: !!marketIdParam && !!account.address }
-  // });
-
-  // Set up contract interactions
-  const { writeContract: writeApprove, data: approveData } = useWriteContract({
-    mutation: {
-      onError(error) {
-        console.error('Approval error:', error);
-        setTxError('Failed to approve tokens: ' + error.name);
-        setIsApproving(false);
-      }
-    }
-  });
-
-  // Set up transaction contract write
-  const { writeContract: writeTransaction, data: transactionData } = useWriteContract({
-    mutation: {
-      onError(error) {
-        console.error('Transaction error:', error);
-        setTxError('Transaction failed: ' + error.name);
-        setIsProcessing(false);
-      }
-    }
-  });
-
-  // Wait for approval transaction
-  const { isLoading: isApprovalLoading, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({ hash: approveData });
-
-  // Wait for main transaction
-  const { isLoading: isTransactionLoading, isSuccess: isTransactionSuccess } = useWaitForTransactionReceipt({ hash: transactionData });
-
-  // Execute operations after approval completes
-  useEffect(() => {
-    const executeAfterApproval = async () => {
-      if (isApprovalSuccess && market && uniqueKey && userAddress) {
-        setIsApproving(false);
-        setIsProcessing(true);
-        try {
-          if (tabValue === 0 && addAmount) {
-            // Add collateral
-            const amountBN = parseUnits(addAmount, market.collateralAsset.decimals);
-            writeTransaction({
-              address: chainConfig.contracts.Morpho,
-              // This is a placeholder - replace with actual ABI and function
-              abi: morphoContractConfig.abi,
-              functionName: 'supplyCollateral',
-              args: [
-                {
-                  loanToken: market.loanAsset.address as `0x${string}`,
-                  collateralToken: market.collateralAsset.address as `0x${string}`,
-                  oracle: market.oracleAddress as `0x${string}`,
-                  irm: market.irmAddress as `0x${string}`,
-                  lltv: BigInt(market.lltv)
-                },
-                amountBN,
-                userAddress as `0x${string}`,
-                '' as `0x${string}`
-              ]
-            });
-          }
-        } catch (error) {
-          console.error('Error in transaction after approval:', error);
-          setTxError(`Transaction failed: ${error instanceof Error ? error.name : ''}`);
-          setIsProcessing(false);
-        }
-      }
-    };
-
-    executeAfterApproval();
-  }, [
-    isApprovalSuccess,
-    uniqueKey,
-    userAddress,
-    tabValue,
-    addAmount,
-    writeTransaction,
-    market,
-    chainConfig?.contracts?.Morpho,
-    setTxError,
-    setIsApproving,
-    setIsProcessing
-  ]);
-
-  // Reset form and states after successful transaction
-  useEffect(() => {
-    if (isTransactionSuccess) {
-      if (tabValue === 0) setAddAmount('');
-      setIsProcessing(false);
-    }
-  }, [isTransactionSuccess, tabValue]);
-
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setTxError(null);
@@ -194,6 +80,8 @@ export default function ActionForms(props: MarketProps) {
               props.onPositionUpdate();
             }
           }}
+          onBorrowAmountChange={props.onBorrowAmountChange}
+          onCollateralAmountChange={props.onCollateralAmountChange}
         />
       </TabPanel>
 
@@ -209,6 +97,8 @@ export default function ActionForms(props: MarketProps) {
               props.onPositionUpdate();
             }
           }}
+          onBorrowAmountChange={props.onBorrowAmountChange}
+          onCollateralAmountChange={props.onCollateralAmountChange}
         />
       </TabPanel>
 
@@ -225,6 +115,8 @@ export default function ActionForms(props: MarketProps) {
               props.onPositionUpdate();
             }
           }}
+          onBorrowAmountChange={props.onBorrowAmountChange}
+          onCollateralAmountChange={props.onCollateralAmountChange}
         />
       </TabPanel>
 
@@ -241,6 +133,8 @@ export default function ActionForms(props: MarketProps) {
               props.onPositionUpdate();
             }
           }}
+          onBorrowAmountChange={props.onBorrowAmountChange}
+          onCollateralAmountChange={props.onCollateralAmountChange}
         />
       </TabPanel>
     </Paper>

@@ -16,9 +16,11 @@ interface AddTabProps {
   market: MarketInterface;
   uniqueKey: string;
   onSuccess?: () => void;
+  onBorrowAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
+const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const [addAmount, setAddAmount] = useState('');
@@ -61,6 +63,28 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
       enabled: !!userAddress && !!market?.collateralAsset && !!chainConfig.contracts.Morpho
     }
   });
+
+  useEffect(() => {
+    console.log('Add debouncedAmount');
+    if (!market) {
+      console.log('Market data not available');
+      return;
+    }
+
+    let amount = debouncedAddAmount ? debouncedAddAmount : '0';
+
+    const amountFloat = parseFloat(amount);
+    const assetDecimals = market.collateralAsset.decimals;
+
+    const multiplier = Math.pow(10, assetDecimals);
+    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // Calculate amount with decimals
+    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+
+    console.log('Amount:', roundedAmount, 'Wei:', amountBN.toString());
+
+    onCollateralAmountChange(amountBN);
+  }, [debouncedAddAmount, market, onCollateralAmountChange]);
 
   useEffect(() => {
     if (debouncedAddAmount && refetchAllowance) {
@@ -168,7 +192,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
   }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess]);
 
   const handleAddCollateral = useCallback(async () => {
-    if (!userAddress || !uniqueKey || !addAmount || parseFloat(addAmount) <= 0) {
+    if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(debouncedAddAmount) <= 0) {
       return;
     }
 
@@ -195,7 +219,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
     const assetDecimals = market.collateralAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
-    const amountFloat = parseFloat(addAmount);
+    const amountFloat = parseFloat(debouncedAddAmount);
     const multiplier = Math.pow(10, assetDecimals);
     const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
 
@@ -217,7 +241,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
         });
       }
       // Step 2: Add collateral if already approved
-      else if (isApproved && market && uniqueKey && userAddress && addAmount && !addCollateralTx.isCompleted) {
+      else if (isApproved && market && uniqueKey && userAddress && debouncedAddAmount && !addCollateralTx.isCompleted) {
         console.log('Initiating add collateral transaction...');
         await addCollateralTx.sendTransaction({
           address: chainConfig.contracts.Morpho,
@@ -247,7 +271,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess }) => {
       resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [userAddress, uniqueKey, addAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
+  }, [userAddress, uniqueKey, debouncedAddAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =

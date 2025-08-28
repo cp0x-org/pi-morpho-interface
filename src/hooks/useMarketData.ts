@@ -32,13 +32,6 @@ export const useMarketData = ({
     }
     return undefined;
   }, [uniqueKey]);
-  //
-  // const { data: position } = usePosition({
-  //   user: userAddress as `0x${string}`,
-  //   marketId: marketIdParam,
-  //   query: { enabled: !!marketIdParam && !!userAddress },
-  //   chainId: chainId
-  // });
 
   const {
     data: position,
@@ -53,10 +46,6 @@ export const useMarketData = ({
     args: [uniqueKey as `0x${string}`, userAddress as `0x${string}`],
     query: { enabled: !!uniqueKey }
   });
-
-  console.log('useMarketData');
-  console.log('position');
-  console.log(position);
 
   const {
     data: marketConfig,
@@ -122,9 +111,7 @@ export const useMarketData = ({
     args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
     query: { enabled: !!uniqueKey }
   });
-  console.log('marketState');
-  console.log(marketState);
-  console.log(isMsError);
+
   const { data: collateralBalance, refetch: refetchCollateralBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.collateralAsset.address as `0x${string}` | undefined,
