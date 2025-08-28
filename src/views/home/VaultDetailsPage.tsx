@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Grid, Button, Divider, Tabs, Tab, Tooltip, IconButton } from '@mui/material';
+import { Typography, CircularProgress, Paper, Grid, Button, Divider, Tabs, Tab, Tooltip, IconButton, Stack, useTheme } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import React, { useState } from 'react';
@@ -11,6 +11,7 @@ import { appoloClients } from '@/api/apollo-client';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
+import SubCard from 'ui-component/cards/SubCard';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -29,6 +30,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function VaultDetailsPage() {
+  const theme = useTheme();
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
@@ -100,34 +102,32 @@ export default function VaultDetailsPage() {
             </Box>
             <Divider sx={{ my: 5 }} />
             <Grid container spacing={3}>
-              <Grid size={{ xs: 3, md: 3 }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    APY
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                      {(vault.state.dailyNetApy * 100).toFixed(2)} %
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                  <Stack spacing={1}>
+                    <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                      APY
                     </Typography>
-                  </Box>
-                </Box>
+                    <Typography variant="h3">{(vault.state.dailyNetApy * 100).toFixed(2)} %</Typography>
+                  </Stack>
+                </SubCard>
               </Grid>
-              <Grid size={{ xs: 3, md: 3 }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Asset
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                      {vault.asset.symbol}
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                  <Stack spacing={1}>
+                    <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                      Asset
                     </Typography>
-                    <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                      <IconButton onClick={() => copyToClipboard(vault.asset.address)} sx={{ ml: 0.5, padding: '2px' }}>
-                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="h3">{vault.asset.symbol}</Typography>
+                      <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                        <IconButton onClick={() => copyToClipboard(vault.asset.address)} sx={{ ml: 0.5, padding: '2px' }}>
+                          <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Stack>
+                </SubCard>
               </Grid>
             </Grid>
           </Grid>

@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, gql } from '@apollo/client';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Divider, Tooltip, IconButton } from '@mui/material';
+import { Typography, CircularProgress, Paper, Divider, Tooltip, IconButton, Stack, useTheme } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
@@ -19,8 +19,11 @@ import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 import { useFuturePosition } from 'hooks/useFuturePosition';
 import { useAccount } from 'wagmi';
+import SubCard from 'ui-component/cards/SubCard';
 
 export default function MarketDetailPage() {
+  const theme = useTheme();
+
   const { uniqueKey } = useParams<{ uniqueKey: string }>();
   const navigate = useNavigate();
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
@@ -101,100 +104,78 @@ export default function MarketDetailPage() {
       <Paper sx={{ padding: 3, marginBottom: 3 }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <Typography variant="h4" gutterBottom>
-              Market Details
+            <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+              Market Details (
+              <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
+                {marketData.loanAsset?.symbol || 'N/A'}
+              </Typography>
+              {marketData.loanAsset?.address && (
+                <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                  <IconButton onClick={() => copyToClipboard(marketData.loanAsset?.address || '')} sx={{ ml: 0.2, padding: '2px' }}>
+                    <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              /
+              <Typography variant="h3" component="span" sx={{ display: 'inline', ml: 0.5 }}>
+                {marketData.collateralAsset?.symbol || 'N/A'}
+              </Typography>
+              {marketData.collateralAsset?.address && (
+                <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                  <IconButton onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')} sx={{ ml: 0.2, padding: '2px' }}>
+                    <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              )
             </Typography>
             {/*<Divider sx={{ my: 5 }} />*/}
             <Paper>
               <Grid container size={{ xs: 12 }} spacing={2}>
-                <Grid size={{ xs: 3 }}>
-                  <Box>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Loan Asset
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography>{marketData.loanAsset?.symbol || 'N/A'}</Typography>
-                      {marketData.loanAsset?.address && (
-                        <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                          <IconButton onClick={() => copyToClipboard(marketData.loanAsset?.address || '')} sx={{ ml: 0.5, padding: '2px' }}>
-                            <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                    <Stack spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 400 }}>
+                        Utilization (%)
+                      </Typography>
+                      <Typography variant="h3">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}`}</Typography>
+                    </Stack>
+                  </SubCard>
                 </Grid>
-                <Grid size={{ xs: 3 }}>
-                  <Box>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Collateral Asset
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography>{marketData.collateralAsset?.symbol || 'N/A'}</Typography>
-                      {marketData.collateralAsset?.address && (
-                        <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                          <IconButton onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')} sx={{ ml: 0.5 }}>
-                            <ContentCopyIcon sx={{ fontSize: '0.75rem' }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                    <Stack spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 400 }}>
+                        Market size ($)
+                      </Typography>
+                      <Typography variant="h3">{marketData.state.sizeUsd ? marketData.state.sizeUsd.toFixed(2) : 'n/a'} </Typography>
+                    </Stack>
+                  </SubCard>
                 </Grid>
 
-                <Grid size={{ xs: 3 }}>
-                  <Box>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Utilization
-                    </Typography>
-                    <Typography>{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
-                  </Box>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                    <Stack spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 400 }}>
+                        Total Liquidity ($)
+                      </Typography>
+                      <Typography variant="h3">
+                        {marketData.state.totalLiquidityUsd ? marketData.state.totalLiquidityUsd.toFixed(2) : 'n/a'}
+                      </Typography>
+                    </Stack>
+                  </SubCard>
                 </Grid>
-                {/*<Grid size={{ xs: 3 }}>*/}
-                {/*  <Box>*/}
-                {/*    <Typography variant="subtitle2" color="textSecondary">*/}
-                {/*      Borrowed Assets*/}
-                {/*    </Typography>*/}
-                {/*    <Typography>{(marketData.state?.borrowAssets || 0).toLocaleString()}</Typography>*/}
-                {/*  </Box>*/}
-                {/*</Grid>*/}
-                {/*<Grid size={{ xs: 3 }}>*/}
-                {/*  <Box>*/}
-                {/*    <Typography variant="subtitle2" color="textSecondary">*/}
-                {/*      Supplied Assets*/}
-                {/*    </Typography>*/}
-                {/*    <Typography>{(marketData.state?.supplyAssets || 0).toLocaleString()}</Typography>*/}
-                {/*  </Box>*/}
-                {/*</Grid>*/}
-
-                <Grid size={{ xs: 3, md: 3 }}>
-                  <Paper>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Market size
-                    </Typography>
-                    <Typography>{marketData.state.sizeUsd ? marketData.state.sizeUsd.toFixed(2) + ' USD' : 'n/a'} </Typography>
-                  </Paper>
-                </Grid>
-
-                <Grid size={{ xs: 3, md: 3 }}>
-                  <Paper>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Total Liquidity
-                    </Typography>
-                    <Typography>
-                      {marketData.state.totalLiquidityUsd ? marketData.state.totalLiquidityUsd.toFixed(2) + ' USD' : 'n/a'}{' '}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid size={{ xs: 3, md: 3 }}>
-                  <Paper>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      Borrow Rate
-                    </Typography>
-                    <Typography>
-                      {marketData.state.dailyNetBorrowApy ? (marketData.state.dailyNetBorrowApy * 100).toFixed(2) : 'n/a'}%{' '}
-                    </Typography>
-                  </Paper>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                    <Stack spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 400 }}>
+                        Borrow Rate (%)
+                      </Typography>
+                      <Typography variant="h3">
+                        {marketData.state.dailyNetBorrowApy ? (marketData.state.dailyNetBorrowApy * 100).toFixed(2) : 'n/a'}
+                      </Typography>
+                    </Stack>
+                  </SubCard>
                 </Grid>
               </Grid>
             </Paper>
@@ -206,70 +187,83 @@ export default function MarketDetailPage() {
                     Your Position
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 3, md: 3 }}>
-                      <Paper>
-                        <Typography variant="subtitle2" color="textSecondary">
-                          Loan ({marketData.loanAsset?.symbol})
-                        </Typography>
-                        <Typography>
-                          {accrualPosition.borrowAssets
-                            ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
-                            : '0'}{' '}
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
-                              {futurePosition?.borrowAssets
-                                ? parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
-                                : '0'}{' '}
-                            </>
-                          )}
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 3, md: 3 }}>
-                      <Paper>
-                        <Typography variant="subtitle2" color="textSecondary">
-                          Collateral ({marketData.collateralAsset?.symbol})
-                        </Typography>
-                        <Typography>
-                          {accrualPosition.collateral
-                            ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
-                            : '0'}{' '}
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
-                              {futurePosition?.collateral
-                                ? parseFloat(formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
-                                : '0'}{' '}
-                            </>
-                          )}
-                        </Typography>
-                      </Paper>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                        <Stack spacing={1}>
+                          <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                            Loan ({marketData.loanAsset?.symbol})
+                          </Typography>
+                          <Typography variant="h3">
+                            {accrualPosition.borrowAssets
+                              ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
+                              : '0'}{' '}
+                            {isChanged && futurePosition && (
+                              <>
+                                <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                                {futurePosition?.borrowAssets
+                                  ? parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
+                                  : '0'}{' '}
+                              </>
+                            )}
+                          </Typography>
+                        </Stack>
+                      </SubCard>
                     </Grid>
 
-                    <Grid size={{ xs: 3, md: 3 }}>
-                      <Paper>
-                        <Typography variant="subtitle2" color="textSecondary">
-                          LTV (%)
-                        </Typography>
-                        <Typography>
-                          {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowForwardIcon style={{ fontSize: '1rem' }} />
-                              {futurePosition?.ltv ? (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
-                            </>
-                          )}
-                        </Typography>
-                      </Paper>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                        <Stack spacing={1}>
+                          <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                            Collateral ({marketData.collateralAsset?.symbol})
+                          </Typography>
+                          <Typography variant="h3">
+                            {accrualPosition.collateral
+                              ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
+                              : '0'}{' '}
+                            {isChanged && futurePosition && (
+                              <>
+                                <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                                {futurePosition?.collateral
+                                  ? parseFloat(formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(
+                                      4
+                                    )
+                                  : '0'}{' '}
+                              </>
+                            )}
+                          </Typography>
+                        </Stack>
+                      </SubCard>
                     </Grid>
-                    <Grid size={{ xs: 3, md: 3 }}>
-                      <Box>
-                        <Typography variant="subtitle2" color="textSecondary">
-                          LLTV (Loan-to-Value)
-                        </Typography>
-                        <Typography>{formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}</Typography>
-                      </Box>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                        <Stack spacing={1}>
+                          <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                            LTV (%)
+                          </Typography>
+                          <Typography variant="h3">
+                            {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
+                            {isChanged && futurePosition && (
+                              <>
+                                <ArrowForwardIcon style={{ fontSize: '1rem' }} />
+                                {futurePosition?.ltv ? (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2) : '0'}{' '}
+                              </>
+                            )}
+                          </Typography>
+                        </Stack>
+                      </SubCard>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                        <Stack spacing={1}>
+                          <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                            LLTV (Loan-to-Value)
+                          </Typography>
+                          <Typography variant="h3">
+                            {formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}
+                          </Typography>
+                        </Stack>
+                      </SubCard>
                     </Grid>
                   </Grid>
                 </Paper>
