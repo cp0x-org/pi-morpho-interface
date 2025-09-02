@@ -1,125 +1,44 @@
-import { useQuery, gql } from '@apollo/client';
-import { useState } from 'react';
+import { useQuery } from '@apollo/client';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import { useConfigChainId } from 'hooks/useConfigChainId';
+
 import {
+  Autocomplete,
+  Avatar,
+  Chip,
+  CircularProgress,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  SelectChangeEvent,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Typography,
-  CircularProgress,
-  Pagination,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   TableSortLabel,
   TextField,
-  Grid,
   Tooltip,
-  Autocomplete,
-  Chip,
-  SelectChangeEvent,
-  Avatar
+  Typography
 } from '@mui/material';
-import { UnfoldMore, ContentCopy } from '@mui/icons-material';
-import { shortenAddress } from 'utils/formatters';
-import { VaultsData, Vault } from 'types/vaults';
-import { useSnackbar } from 'notistack';
-
-const GET_VAULTS = gql`
-  query GetVaults($chainId: Int!) {
-    vaults(where: { chainId_in: [$chainId], whitelisted: true }, first: 1000) {
-      items {
-        address
-        symbol
-        name
-        whitelisted
-        asset {
-          id
-          address
-          decimals
-          name
-          symbol
-        }
-        chain {
-          id
-          network
-        }
-        state {
-          dailyNetApy
-        }
-      }
-    }
-  }
-`;
+import { UnfoldMore } from '@mui/icons-material';
+import { formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { MetaMorpho, MetaMorphoPositionsQueryResponse, MetaMorphosQueryResponse } from 'types/metamorphos';
+import { CopyableAddress } from 'components/CopyableAddress';
+import { MorphoRequests, SubgraphRequests } from '@/api/constants';
+import { VaultsData } from 'types/vaults';
+import { appoloClients } from '@/api/apollo-client';
+import { useConfigChainId } from 'hooks/useConfigChainId';
+import { useAccount } from 'wagmi';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
-
-// Component for address with copy functionality
-interface CopyableAddressProps {
-  address: string;
-  onClick?: (e: React.MouseEvent) => void;
-}
-
-const CopyableAddress = ({ address, onClick }: CopyableAddressProps) => {
-  const { enqueueSnackbar } = useSnackbar();
-
-  const copyToClipboard = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click event
-    navigator.clipboard
-      .writeText(address)
-      .then(() => {
-        enqueueSnackbar('Address copied to clipboard!', {
-          variant: 'success',
-          autoHideDuration: 2000
-        });
-      })
-      .catch((err) => {
-        console.error('Failed to copy address:', err);
-        enqueueSnackbar('Failed to copy address', {
-          variant: 'error'
-        });
-      });
-  };
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        '&:hover .copy-icon': {
-          opacity: 1
-        }
-      }}
-      onClick={onClick}
-    >
-      <Typography component="span">{shortenAddress(address)}</Typography>
-      <Tooltip title="Copy full address">
-        <ContentCopy
-          fontSize="small"
-          onClick={copyToClipboard}
-          sx={{
-            ml: 1,
-            cursor: 'pointer',
-            opacity: 0.3,
-            transition: 'opacity 0.2s',
-            '&:hover': {
-              opacity: 1
-            }
-          }}
-          className="copy-icon"
-        />
-      </Tooltip>
-    </Box>
-  );
-};
 
 // Component for displaying token icons
 interface TokenIconProps {
@@ -144,6 +63,29 @@ const TokenIcon = ({ symbol }: TokenIconProps) => {
   );
 };
 
+const CuratorIcon = ({ symbol }: TokenIconProps) => {
+  const normalizedSymbol = symbol.toLowerCase();
+  const [iconUrl, setIconUrl] = useState(`/curators/${normalizedSymbol}.svg`);
+  const [triedPng, setTriedPng] = useState(false);
+
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    if (!triedPng) {
+      // попробуем png, если svg не загрузился
+      setIconUrl(`/curators/${normalizedSymbol}.png`);
+      setTriedPng(true);
+    } else {
+      // если и png не загрузился — скрыть
+      (e.target as HTMLImageElement).style.display = 'none';
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Avatar src={iconUrl} alt={`${symbol} icon`} sx={{ width: 24, height: 24 }} onError={handleError} />
+    </Box>
+  );
+};
+
 export default function EarnPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -151,12 +93,61 @@ export default function EarnPage() {
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
+  const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
   const { chainId } = useConfigChainId();
+  const { address: userAddress } = useAccount();
+  const {
+    loading: positionsLoading,
+    error: positionsError,
+    data: positionsData
+  } = useQuery<MetaMorphoPositionsQueryResponse>(SubgraphRequests.GetMetamorphoPositions, {
+    variables: { account: userAddress }
+  });
 
-  const { loading, error, data } = useQuery<VaultsData>(GET_VAULTS, {
+  const { loading: graphLoading, error: graphError, data: graphData } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
+  const {
+    loading: morphoLoading,
+    error: morphoError,
+    data: morphoData
+  } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
+    client: appoloClients.morphoApi,
     variables: { chainId }
   });
+
+  // Combine data from both sources
+  const combinedVaults = React.useMemo(() => {
+    if (!graphData) return [];
+
+    const vaults = [...graphData.metaMorphos];
+
+    // If Morpho data is available without errors, merge it with graph data
+    if (morphoData && !morphoError) {
+      const morphoVaultMap = new Map();
+
+      // Create a map of Morpho vaults by address for easy lookup
+      morphoData.vaults.items.forEach((morphoVault) => {
+        morphoVaultMap.set(morphoVault.address.toLowerCase(), morphoVault);
+      });
+
+      // Enrich graph data with Morpho data
+      return vaults.map((vault) => {
+        const morphoVault = morphoVaultMap.get(vault.id.toLowerCase());
+
+        if (morphoVault) {
+          return {
+            ...vault,
+            dailyNetApy: morphoVault.state.dailyNetApy,
+            curators: morphoVault.state.curators
+          };
+        }
+
+        return vault;
+      });
+    }
+
+    return vaults;
+  }, [graphData, morphoData, morphoError]);
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -179,7 +170,7 @@ export default function EarnPage() {
   };
 
   // Get unique symbols from vaults data
-  const getUniqueSymbols = (vaults: Vault[]): string[] => {
+  const getUniqueSymbols = (vaults: MetaMorpho[]): string[] => {
     const symbolsSet = new Set<string>();
     vaults.forEach((vault) => {
       if (vault.asset.symbol) {
@@ -189,19 +180,16 @@ export default function EarnPage() {
     return Array.from(symbolsSet).sort();
   };
 
-  const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
+  const filterAndSortVaults = (vaults: MetaMorpho[]): MetaMorpho[] => {
     // Filter first
     const filteredVaults = vaults.filter((vault) => {
       // Filter by symbol (match any of selected symbols)
       const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset.symbol);
 
-      // Filter by asset address (case insensitive)
-      const addressMatch = assetAddressFilter
-        ? vault.asset.address.toLowerCase().includes(assetAddressFilter.toLowerCase()) ||
-          shortenAddress(vault.asset.address).toLowerCase().includes(assetAddressFilter.toLowerCase())
-        : true;
+      // Filter by name (case insensitive)
+      const nameMatch = nameFilter === '' || vault.name.toLowerCase().includes(nameFilter.toLowerCase());
 
-      return symbolMatch && addressMatch;
+      return symbolMatch && nameMatch;
     });
 
     // Then sort
@@ -209,13 +197,15 @@ export default function EarnPage() {
       if (sortField === 'name') {
         return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
       } else if (sortField === 'apy') {
-        return sortOrder === 'asc' ? a.state.dailyNetApy - b.state.dailyNetApy : b.state.dailyNetApy - a.state.dailyNetApy;
+        const apyA = a.dailyNetApy || 0;
+        const apyB = b.dailyNetApy || 0;
+        return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       }
       return 0;
     });
   };
 
-  if (loading) {
+  if (graphLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress />
@@ -223,20 +213,55 @@ export default function EarnPage() {
     );
   }
 
-  if (error) {
+  if (graphError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vaults: {error.message}</Typography>
+        <Typography color="error">Error loading vaults: {graphError.message}</Typography>
       </Box>
     );
   }
 
-  const filteredAndSortedVaults = filterAndSortVaults(data?.vaults.items || []);
+  const filteredAndSortedVaults = filterAndSortVaults(combinedVaults);
   const paginatedVaults = filteredAndSortedVaults.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(filteredAndSortedVaults.length / rowsPerPage);
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      {positionsData?.metaMorphoPositions && positionsData.metaMorphoPositions.length > 0 && (
+        <Box sx={{ marginBottom: 4 }}>
+          <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+            Your Positions
+          </Typography>
+          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Vault</TableCell>
+                  <TableCell>Balance</TableCell>
+                  <TableCell>USD Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {positionsData.metaMorphoPositions.map((position) => (
+                  <TableRow key={position.id} hover onClick={() => handleVaultClick(position.metaMorpho.id)} sx={{ cursor: 'pointer' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {position.metaMorpho.asset && <TokenIcon symbol={position.metaMorpho.asset.symbol} />}
+                        {position.metaMorpho.name || shortenAddress(position.metaMorpho.id)}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {formatTokenAmount(position.lastAssetsBalance, position.metaMorpho.asset.decimals)} {position.metaMorpho.asset.symbol}
+                    </TableCell>
+                    <TableCell>${parseFloat(position.lastAssetsBalanceUSD).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
       <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
         Available Vaults
       </Typography>
@@ -246,7 +271,7 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={data ? getUniqueSymbols(data.vaults.items) : []}
+            options={graphData ? getUniqueSymbols(graphData.metaMorphos) : []}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -283,15 +308,15 @@ export default function EarnPage() {
         </Grid>
         <Grid size={{ xs: 12, md: 3 }}>
           <TextField
-            fullWidth
-            label="Filter By Asset Address"
-            variant="outlined"
-            value={assetAddressFilter}
+            id="name-filter"
+            label="Filter By Name"
+            value={nameFilter}
             onChange={(e) => {
-              setAssetAddressFilter(e.target.value);
-              setPage(1); // Reset to first page when filtering
+              setNameFilter(e.target.value);
+              setPage(1);
             }}
             size="small"
+            fullWidth
           />
         </Grid>
       </Grid>
@@ -346,36 +371,50 @@ export default function EarnPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>Curators</Box>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {paginatedVaults.map((vault) => (
-              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address)} sx={{ cursor: 'pointer' }}>
+              <TableRow key={vault.id} hover onClick={() => handleVaultClick(vault.id)} sx={{ cursor: 'pointer' }}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name}
+                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name ? vault.name : shortenAddress(vault.id)}
                   </Box>
                 </TableCell>
 
                 <TableCell>
                   <CopyableAddress
-                    address={vault.address}
+                    address={vault.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.id);
                     }}
                   />
                 </TableCell>
                 <TableCell>
                   <CopyableAddress
-                    address={vault.asset.address}
+                    symbol={vault.asset.symbol}
+                    address={vault.asset.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.id);
                     }}
                   />
                 </TableCell>
-                <TableCell>{(vault.state.dailyNetApy * 100).toFixed(2)}%</TableCell>
+                <TableCell>{vault.dailyNetApy !== undefined ? `${(vault.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                {/*<TableCell>{vault.curators?.map((curator) => <Box key={curator.address}>{curator.name}</Box>)}</TableCell>*/}
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {vault.curators?.map((curator) => (
+                      <Box key={curator.address} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                      </Box>
+                    ))}
+                  </Box>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -385,11 +424,16 @@ export default function EarnPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <Typography variant="body2" color="text.secondary">
           Showing {filteredAndSortedVaults.length} {filteredAndSortedVaults.length === 1 ? 'vault' : 'vaults'}
-          {symbolFilter.length > 0 || assetAddressFilter ? ' (filtered)' : ''}
+          {symbolFilter.length > 0 || nameFilter || assetAddressFilter ? ' (filtered)' : ''}
           {symbolFilter.length > 0 && (
             <span>
               {' '}
               by {symbolFilter.length} {symbolFilter.length === 1 ? 'symbol' : 'symbols'}
+            </span>
+          )}
+          {nameFilter && (
+            <span>
+              {symbolFilter.length > 0 ? ' and' : ' by'} name "{nameFilter}"
             </span>
           )}
         </Typography>

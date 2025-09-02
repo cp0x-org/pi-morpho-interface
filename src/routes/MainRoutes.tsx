@@ -4,6 +4,7 @@ import EarnPage from 'views/home/EarnPage';
 import BorrowPage from 'views/home/BorrowPage';
 import VaultDetailsPage from 'views/home/VaultDetailsPage';
 import MarketDetailPage from 'views/home/MarketDetailPage';
+import DashboardPage from 'views/home/DashboardPage';
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -13,14 +14,18 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="earn" replace />
+      element: <Navigate to="dashboard" replace />
+    },
+    {
+      path: '/dashboard',
+      element: <DashboardPage />
     },
     {
       path: '/earn',
       element: <EarnPage />
     },
     {
-      path: '/earn/vault/:address',
+      path: '/earn/vault/:vaultAddress',
       element: <VaultDetailsPage />
     },
     {

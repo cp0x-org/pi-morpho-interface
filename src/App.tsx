@@ -1,5 +1,5 @@
 import { RouterProvider } from 'react-router-dom';
-import { ApolloProvider } from '@apollo/client';
+// import { ApolloProvider } from '@apollo/client';
 
 // routing
 import router from 'routes';
@@ -12,12 +12,13 @@ import Snackbar from 'ui-component/extended/Snackbar';
 import Notistack from 'ui-component/third-party/Notistack';
 
 // Apollo client
-import apolloClient from './api/apollo-client';
+// import apolloClients from './api/apollo-client';
 
 import ThemeCustomization from 'themes';
 
 // auth provider
-import { JWTProvider as AuthProvider } from 'contexts/JWTContext'
+import { JWTProvider as AuthProvider } from 'contexts/JWTContext';
+import { DynamicApolloProvider } from '@/providers/DynamicApolloProvider';
 // import { FirebaseProvider as AuthProvider } from 'contexts/FirebaseContext';
 // import { Auth0Provider as AuthProvider } from 'contexts/Auth0Context';
 // import { AWSCognitoProvider as AuthProvider } from 'contexts/AWSCognitoContext';
@@ -32,12 +33,12 @@ export default function App() {
       <Locales>
         <NavigationScroll>
           <AuthProvider>
-            <ApolloProvider client={apolloClient}>
+            <DynamicApolloProvider>
               <Notistack>
                 <RouterProvider router={router} />
                 <Snackbar />
               </Notistack>
-            </ApolloProvider>
+            </DynamicApolloProvider>
           </AuthProvider>
         </NavigationScroll>
       </Locales>

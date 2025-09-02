@@ -59,11 +59,35 @@ const mainAnvil: Chain = {
   testnet: false
 };
 
+const mainnetCustom = {
+  ...mainnet,
+  rpcUrls: {
+    default: { http: ['https://mainnet.gateway.tenderly.co/pdi7AAywqnL5vR9UcNZag'] }
+    // public: { http: ['https://mainnet.gateway.tenderly.co/pdi7AAywqnL5vR9UcNZag'] }
+  }
+};
+
+const baseCustom = {
+  ...base,
+  rpcUrls: {
+    default: { http: ['https://base.gateway.tenderly.co/4ZBIIWD6nHhRpKjsjBbW76'] }
+    // public: { http: ['https://base.gateway.tenderly.co/4ZBIIWD6nHhRpKjsjBbW76'] }
+  }
+};
+
+const polygonCustom = {
+  ...polygon,
+  rpcUrls: {
+    default: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+  }
+};
+
 export const config = getDefaultConfig({
   appName: 'Morpho Interface',
   projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
   // chains: [mainnet, sepolia, mainTest],
-  chains: [mainnet, base, polygon, unichain],
+  chains: [mainnetCustom, baseCustom, polygonCustom, mainAnvil],
   // chains: [mainnet, mainAnvil, mainTest],
   ssr: false
 });
