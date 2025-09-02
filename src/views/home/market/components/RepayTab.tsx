@@ -134,7 +134,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const value = (parseFloat(formattedLoanBalance) * percent) / 100;
+      const decimals = market?.loanAsset?.decimals || 0;
+      const rawValue = (parseFloat(formattedLoanBalance) * percent) / 100;
+      const factor = 10 ** decimals;
+      const value = Math.floor(rawValue * factor) / factor;
+
+      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
       setRepayAmount(value.toString());
 
       if (repayAmount !== debouncedRepayAmount) {

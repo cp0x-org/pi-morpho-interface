@@ -133,10 +133,10 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     [rawTokenBalance, depositAmount, debouncedDepositAmount, resetTransactionStates]
   );
 
-  // Handle success/error notifications and update states
+  // Handle approval transaction states
   useEffect(() => {
     if (approveTx.txState === 'confirmed') {
-      // Update approval status when confirmed
+      // Update approval status when confirmed in blockchain
       setIsApproved(true);
 
       // Refresh allowance data to confirm
@@ -144,38 +144,43 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         refetchAllowance();
       }
 
+      // Show success message only after blockchain confirmation
       dispatchSuccess(`${vaultData?.asset.symbol || 'Token'} approved successfully`);
-      console.log('Approval confirmed!');
+      console.log('Approval confirmed in blockchain!');
     } else if (approveTx.txState === 'error') {
       dispatchError(`Failed to approve ${vaultData?.asset.symbol || 'token'}`);
       setTxError(`Approval failed. Please try again.`);
       console.error('Approval transaction failed');
     } else if (approveTx.txState === 'submitted') {
-      console.log('Approval transaction submitted');
+      console.log('Approval transaction submitted, waiting for blockchain confirmation...');
     }
   }, [approveTx.txState, vaultData?.asset.symbol, refetchAllowance]);
 
+  // Handle deposit transaction states
   useEffect(() => {
     if (depositTx.txState === 'confirmed') {
       // Clear input and update states
       setDepositAmount('');
 
-      // Show success message
+      // Show success message only after blockchain confirmation
       dispatchSuccess(`${vaultData?.asset.symbol || 'Tokens'} deposited successfully`);
-      console.log('Deposit confirmed!');
+      console.log('Deposit confirmed in blockchain!');
 
-      // After successful deposit, we might want to refresh any balances
+      // After successful deposit, refresh balances
       if (refetchAllowance) {
         refetchAllowance();
       }
+
+      // Refresh token balance
+      refetchBalance();
     } else if (depositTx.txState === 'error') {
       dispatchError(`Failed to deposit ${vaultData?.asset.symbol || 'token'}`);
       setTxError(`Deposit failed. Please try again.`);
       console.error('Deposit transaction failed');
     } else if (depositTx.txState === 'submitted') {
-      console.log('Deposit transaction submitted');
+      console.log('Deposit transaction submitted, waiting for blockchain confirmation...');
     }
-  }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance]);
+  }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance, refetchBalance]);
 
   const handleDeposit = useCallback(async () => {
     if (!userAddress || !vaultAddress || !depositAmount) {
@@ -206,12 +211,15 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
 
       // Step 1: Approve
       if (!isApproved) {
+        console.log('Initiating approval transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
           args: [vaultAddress as `0x${string}`, amountBN]
         });
+        // Wait for approval to be confirmed before continuing
+        // The confirmation will be handled in the useEffect hook
       }
       // Step 2: Deposit
       else if (!depositTx.isCompleted) {
@@ -222,9 +230,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           functionName: 'deposit',
           args: [amountBN, userAddress as `0x${string}`]
         });
-        // await refetchBalance();
-        const refetchedBalance = await refetchBalance();
-        console.log(refetchedBalance.data);
+        // Refresh will be triggered after confirmation in useEffect
       }
     } catch (error) {
       console.error('Transaction failed:', error);
@@ -252,8 +258,11 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     }
 
     if (!isApproved) {
-      if (approveTx.txState === 'submitting' || approveTx.txState === 'submitted') {
-        return 'Approving...';
+      if (approveTx.txState === 'submitting') {
+        return 'Sending Approval...';
+      }
+      if (approveTx.txState === 'submitted') {
+        return 'Waiting for Approval Confirmation...';
       }
       if (approveTx.txState === 'error') {
         return 'Approval Failed - Try again';
@@ -261,8 +270,11 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       return `Approve ${vaultData?.asset.symbol || ''}`;
     }
 
-    if (depositTx.txState === 'submitting' || depositTx.txState === 'submitted') {
-      return 'Depositing...';
+    if (depositTx.txState === 'submitting') {
+      return 'Sending Deposit Transaction...';
+    }
+    if (depositTx.txState === 'submitted') {
+      return 'Waiting for Blockchain Confirmation...';
     }
     if (depositTx.txState === 'error') {
       return 'Deposit Failed - Try again';

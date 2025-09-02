@@ -27,9 +27,9 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
 
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
-
+  const [txError, setTxError] = useState<string | null>(null);
   // Use the custom transaction hook
-  const { sendTransaction, txState, txError, isCompleted, resetTx } = useWriteTransaction();
+  const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
 
   const formattedWithdrawableCollateral = useMemo(() => {
     if (!accrualPosition?.withdrawableCollateral) return '0';
@@ -73,10 +73,11 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
 
   // Handle transaction errors
   useEffect(() => {
-    if (txState === 'error' && txError) {
-      dispatchError(`Failed to withdraw: ${txError.message || txError.name}`);
+    if (txState === 'error' && txRawError) {
+      dispatchError(`Failed to withdraw`);
+      setTxError('Failed to withdraw');
     }
-  }, [txState, txError]);
+  }, [txState, txRawError]);
 
   // Handle withdraw collateral
   const handleWithdraw = async () => {
@@ -118,6 +119,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
     } catch (error) {
       console.error('Error withdrawing collateral:', error);
       dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
+      setTxError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -201,7 +203,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
       </Box>
       {txError && txState === 'error' && (
         <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError.message || 'An error occurred while processing your transaction'}
+          {txError}
         </Typography>
       )}
       <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled}>

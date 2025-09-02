@@ -5,7 +5,7 @@ import { Typography, CircularProgress, Paper, Divider, Tooltip, IconButton, Stac
 import Grid from '@mui/material/Grid';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-import { formatLLTV, shortenAddress } from '@/utils/formatters';
+import { formatLLTV, formatShortUSDS, shortenAddress } from '@/utils/formatters';
 import Button from '@mui/material/Button';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -148,7 +148,7 @@ export default function MarketDetailPage() {
                       <Typography variant="h6" sx={{ fontWeight: 400 }}>
                         Market size ($)
                       </Typography>
-                      <Typography variant="h3">{marketData.state.sizeUsd ? marketData.state.sizeUsd.toFixed(2) : 'n/a'} </Typography>
+                      <Typography variant="h3">{marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : 'n/a'} </Typography>
                     </Stack>
                   </SubCard>
                 </Grid>
@@ -160,7 +160,7 @@ export default function MarketDetailPage() {
                         Total Liquidity ($)
                       </Typography>
                       <Typography variant="h3">
-                        {marketData.state.totalLiquidityUsd ? marketData.state.totalLiquidityUsd.toFixed(2) : 'n/a'}
+                        {marketData.state.totalLiquidityUsd ? formatShortUSDS(marketData.state.totalLiquidityUsd) : 'n/a'}
                       </Typography>
                     </Stack>
                   </SubCard>

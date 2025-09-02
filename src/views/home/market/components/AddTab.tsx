@@ -92,7 +92,12 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       setAllowanceChecking(false); // Clear checking state when debounced value is processed
     }
   }, [debouncedAddAmount, refetchAllowance]);
-
+  const safeDecimal = (value: string, decimals: number) => {
+    const floatValue = parseFloat(value);
+    if (floatValue === 0) return '0';
+    // используем toFixed с количеством знаков >= decimals
+    return floatValue.toFixed(decimals);
+  };
   useEffect(() => {
     if (addAmount && addAmount !== debouncedAddAmount) {
       setAllowanceChecking(true); // Set checking state when amount changes
@@ -103,8 +108,9 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   useEffect(() => {
     if (userAddress && debouncedAddAmount && allowanceData && market?.collateralAsset) {
       try {
-        const amountBigInt = parseUnits(debouncedAddAmount, market.collateralAsset.decimals);
-        const shouldBeApproved = allowanceData >= amountBigInt;
+        const amountStr = safeDecimal(debouncedAddAmount, market.collateralAsset.decimals);
+        const amountBN = parseUnits(amountStr, market.collateralAsset.decimals);
+        const shouldBeApproved = allowanceData >= amountBN;
 
         // Only update state if it's different to avoid unnecessary re-renders
         if (shouldBeApproved !== isApproved) {

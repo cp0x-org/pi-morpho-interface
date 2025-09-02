@@ -110,6 +110,9 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       if (refetchVaultBalance) {
         refetchVaultBalance();
       }
+
+      // Reset the transaction state to enable the percentage buttons
+      resetWithdrawTx();
     }
     // Handle error state
     else if (withdrawTxState === 'error') {
@@ -117,14 +120,16 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       setTxError(`Withdrawal failed. Please try again.`);
       console.error('Withdrawal transaction failed');
     }
-  }, [withdrawTxState, withdrawTxHash, refetchVaultBalance, vaultData?.asset.symbol]);
+  }, [withdrawTxState, withdrawTxHash, refetchVaultBalance, vaultData?.asset.symbol, resetWithdrawTx]);
 
   // Reset form after confirmed withdrawal
   useEffect(() => {
     if (isWithdrawCompleted) {
       setWithdrawAmount('');
+      // Reset transaction state after the transaction is completed
+      resetWithdrawTx();
     }
-  }, [isWithdrawCompleted]);
+  }, [isWithdrawCompleted, resetWithdrawTx]);
 
   // Format vault balance for display
   const formattedVaultBalance = useMemo(() => {
@@ -176,7 +181,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   }
 
   // Determine if input and percentage buttons should be disabled
-  const isInputDisabled = withdrawTxState === 'submitting' || withdrawTxState === 'submitted' || withdrawTxState === 'confirmed';
+  const isInputDisabled = withdrawTxState === 'submitting' || withdrawTxState === 'submitted';
 
   // Handle percentage button clicks with better formatting
   const handleWithdrawPercentClick = useCallback(
