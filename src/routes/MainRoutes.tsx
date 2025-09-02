@@ -14,7 +14,7 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="earn" replace />
+      element: <Navigate to="dashboard" replace />
     },
     {
       path: '/dashboard',

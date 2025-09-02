@@ -10,6 +10,8 @@ import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 
+import { parseUnits } from 'viem'; // или ethers.js
+
 interface DepositProps {
   vaultAddress: string;
   vaultData?: Vault;
@@ -22,6 +24,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   const [txError, setTxError] = useState<string | null>(null);
   const { address: userAddress } = useAccount();
   const debouncedDepositAmount = useDebounce(depositAmount, 500);
+  const [localBalance, setLocalBalance] = useState<bigint | undefined>(undefined);
 
   // Track process completion
   const [isApproved, setIsApproved] = useState(false);
@@ -72,7 +75,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   }, [userAddress, debouncedDepositAmount, allowanceData, isApproved, vaultAddress]);
 
   // Read user's token balance
-  const { data: tokenBalance } = useReadContract({
+  const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: vaultData?.asset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
@@ -82,16 +85,20 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     }
   });
 
+  useEffect(() => {
+    setLocalBalance(tokenBalance);
+  }, [tokenBalance]);
+
   // Format balances for display
   const formattedTokenBalance = useMemo(() => {
-    if (!tokenBalance || !vaultData) return '0';
-    return formatUnits(tokenBalance as bigint, vaultData.asset.decimals);
-  }, [tokenBalance, vaultData]);
+    if (!localBalance || !vaultData) return '0';
+    return formatUnits(localBalance as bigint, vaultData.asset.decimals);
+  }, [localBalance, vaultData]);
 
   const rawTokenBalance = useMemo(() => {
-    if (!tokenBalance || !vaultData) return '0';
-    return tokenBalance;
-  }, [tokenBalance, vaultData]);
+    if (!localBalance || !vaultData) return '0';
+    return localBalance;
+  }, [localBalance, vaultData]);
 
   // Reset transaction states
   const resetTransactionStates = useCallback(() => {
@@ -106,10 +113,16 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   }, [depositTx, depositTx.txState, resetTransactionStates]);
 
   // Handle percentage button clicks
+
   const handleDepositPercentClick = useCallback(
     (percent: number) => {
-      const value = (Number(formatEther(BigInt(rawTokenBalance))) * percent) / 100;
-      setDepositAmount(value.toString());
+      // rawTokenBalance у тебя BigInt (в wei)
+      const rawValue = (BigInt(rawTokenBalance) * BigInt(percent)) / BigInt(100);
+
+      // переводим в строку ETH без потери точности
+      const valueStr = formatEther(rawValue);
+
+      setDepositAmount(valueStr);
 
       if (depositAmount !== debouncedDepositAmount) {
         setAllowanceChecking(true);
@@ -165,7 +178,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance]);
 
   const handleDeposit = useCallback(async () => {
-    if (!userAddress || !vaultAddress || !depositAmount || parseFloat(depositAmount) <= 0) {
+    if (!userAddress || !vaultAddress || !depositAmount) {
       return;
     }
 
@@ -176,40 +189,23 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       return;
     }
 
-    // Reset error states if trying again
-    console.log('Resetting transaction states...');
-    console.log(depositTx.txState);
-    if (approveTx.txState === 'error' || depositTx.txState === 'error') {
-      if (approveTx.txState === 'error') {
-        console.log('Resetting approval transaction state...');
-        console.log(approveTx.txState);
-        approveTx.resetTx();
-      }
-      if (depositTx.txState === 'error') {
-        console.log('Resetting deposit transaction state...');
-        console.log(depositTx.txState);
-        depositTx.resetTx();
-      }
-    }
-
-    const assetAddress = vaultData.asset.address;
-    const assetDecimals = vaultData.asset.decimals;
-
-    // Round down the amount to ensure we don't try to use more tokens than available
-    const amountFloat = parseFloat(depositAmount);
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-
-    // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    console.log('Attempting transaction with amount:', roundedAmount, 'Wei:', amountBN.toString());
-    console.log('Current states - Approved:', isApproved);
-    console.log(approveTx.isCompleted, vaultAddress, userAddress, depositAmount, !depositTx.isCompleted);
     try {
-      // Step 1: Approve tokens if not already approved
+      const assetAddress = vaultData.asset.address;
+      const assetDecimals = vaultData.asset.decimals;
+
+      // переводим строку напрямую в BigInt (без float!)
+      let amountBN: bigint;
+      try {
+        amountBN = parseUnits(depositAmount, assetDecimals);
+      } catch {
+        setTxError('Invalid amount');
+        return;
+      }
+
+      if (amountBN <= 0n) return;
+
+      // Step 1: Approve
       if (!isApproved) {
-        console.log('Initiating approve transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
           address: assetAddress as `0x${string}`,
@@ -217,8 +213,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           args: [vaultAddress as `0x${string}`, amountBN]
         });
       }
-      // Step 2: Deposit tokens if already approved
-      else if (isApproved && vaultData && vaultAddress && userAddress && depositAmount && !depositTx.isCompleted) {
+      // Step 2: Deposit
+      else if (!depositTx.isCompleted) {
         console.log('Initiating deposit transaction...');
         await depositTx.sendTransaction({
           abi: vaultConfig.abi,
@@ -226,16 +222,14 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           functionName: 'deposit',
           args: [amountBN, userAddress as `0x${string}`]
         });
+        // await refetchBalance();
+        const refetchedBalance = await refetchBalance();
+        console.log(refetchedBalance.data);
       }
     } catch (error) {
       console.error('Transaction failed:', error);
-      if (!isApproved) {
-        dispatchError(`Failed to approve ${vaultData.asset.symbol}`);
-      } else {
-        dispatchError(`Failed to deposit ${vaultData.asset.symbol}`);
-      }
-      resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      resetTransactionStates();
     }
   }, [userAddress, vaultAddress, depositAmount, vaultData, depositTx, approveTx, isApproved]);
 
