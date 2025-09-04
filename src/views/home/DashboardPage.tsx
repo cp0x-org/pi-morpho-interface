@@ -92,7 +92,7 @@ export default function DashboardPage() {
   if (morphoPositionsError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading Morpho positions: {morphoPositionsError.message}</Typography>
+        <Typography variant="h4">Positions not found.</Typography>
       </Box>
     );
   }
