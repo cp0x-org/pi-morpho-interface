@@ -36,55 +36,11 @@ import { VaultsData } from 'types/vaults';
 import { appoloClients } from '@/api/apollo-client';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { useAccount } from 'wagmi';
+import { CuratorIcon } from 'components/CuratorIcon';
+import { TokenIcon } from 'components/TokenIcon';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
-
-// Component for displaying token icons
-interface TokenIconProps {
-  symbol: string;
-}
-
-const TokenIcon = ({ symbol }: TokenIconProps) => {
-  const normalizedSymbol = symbol.toLowerCase();
-  const iconUrl = `/tokens/${normalizedSymbol}.svg`;
-
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Avatar
-        src={iconUrl}
-        alt={`${symbol} icon`}
-        sx={{ width: 24, height: 24 }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = 'none';
-        }}
-      />
-    </Box>
-  );
-};
-
-const CuratorIcon = ({ symbol }: TokenIconProps) => {
-  const normalizedSymbol = symbol.toLowerCase();
-  const [iconUrl, setIconUrl] = useState(`/curators/${normalizedSymbol}.svg`);
-  const [triedPng, setTriedPng] = useState(false);
-
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    if (!triedPng) {
-      // попробуем png, если svg не загрузился
-      setIconUrl(`/curators/${normalizedSymbol}.png`);
-      setTriedPng(true);
-    } else {
-      // если и png не загрузился — скрыть
-      (e.target as HTMLImageElement).style.display = 'none';
-    }
-  };
-
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Avatar src={iconUrl} alt={`${symbol} icon`} sx={{ width: 24, height: 24 }} onError={handleError} />
-    </Box>
-  );
-};
 
 export default function EarnPage() {
   const navigate = useNavigate();

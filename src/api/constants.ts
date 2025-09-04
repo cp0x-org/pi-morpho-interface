@@ -128,6 +128,64 @@ export const MorphoRequests = {
         }
       }
     }
+  `,
+  GetUserPositions: gql`
+    query Vault($chainId: Int!, $address: String!) {
+      userByAddress(chainId: $chainId, address: $address) {
+        address
+        marketPositions {
+          market {
+            uniqueKey
+            collateralAsset {
+              address
+              name
+              decimals
+              symbol
+            }
+            loanAsset {
+              address
+              name
+              symbol
+              decimals
+            }
+            state {
+              borrowApy
+            }
+          }
+          state {
+            borrowAssets
+            borrowAssetsUsd
+            supplyAssets
+            supplyAssetsUsd
+            collateralUsd
+            collateral
+          }
+        }
+        vaultPositions {
+          vault {
+            address
+            name
+            state {
+              totalAssetsUsd
+              avgNetApy
+              curators {
+                id
+                name
+              }
+            }
+            asset {
+              name
+              decimals
+              symbol
+            }
+          }
+          state {
+            assets
+            assetsUsd
+          }
+        }
+      }
+    }
   `
 };
 

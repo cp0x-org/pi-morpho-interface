@@ -1,4 +1,4 @@
-import { formatEther } from 'viem';
+import { formatEther, formatUnits } from 'viem';
 
 /**
  * Formats a blockchain amount (in wei) to a human-readable format
@@ -13,7 +13,7 @@ export const formatTokenAmount = (amount: string | undefined, decimals: number =
 
   try {
     return (
-      Number(formatEther(BigInt(amount)))
+      Number(formatUnits(BigInt(amount), decimals))
         // .toFixed(decimals)
         .toLocaleString('en-US', {
           minimumFractionDigits: decimals,

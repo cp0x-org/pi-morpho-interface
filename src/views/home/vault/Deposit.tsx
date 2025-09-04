@@ -21,6 +21,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [formattedDepositAmount, setFormattedDepositAmount] = useState('');
   const [txError, setTxError] = useState<string | null>(null);
   const { address: userAddress } = useAccount();
   const debouncedDepositAmount = useDebounce(depositAmount, 500);
@@ -45,6 +46,21 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   });
 
   useEffect(() => {
+    if (depositAmount && vaultData?.asset?.decimals) {
+      try {
+        // Parse the string value to BigInt before formatting
+        const amountBN = parseUnits(depositAmount, vaultData.asset.decimals);
+        setFormattedDepositAmount(formatUnits(amountBN, vaultData.asset.decimals));
+      } catch (error) {
+        console.error('Error formatting deposit amount:', error);
+        setFormattedDepositAmount('0');
+      }
+    } else {
+      setFormattedDepositAmount('0');
+    }
+  }, [depositAmount, vaultData]);
+
+  useEffect(() => {
     if (debouncedDepositAmount && refetchAllowance) {
       refetchAllowance();
       setAllowanceChecking(false); // Clear checking state when debounced value is processed
@@ -61,9 +77,12 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   useEffect(() => {
     if (userAddress && debouncedDepositAmount && allowanceData && vaultAddress) {
       try {
-        const amountBigInt = parseEther(debouncedDepositAmount);
+        const amountBigInt = parseUnits(debouncedDepositAmount, vaultData?.asset?.decimals || 18);
         const shouldBeApproved = allowanceData >= amountBigInt;
-
+        console.log('shouldBeApproved:', shouldBeApproved);
+        console.log('allowanceData:', allowanceData);
+        console.log('amountBigInt:', amountBigInt);
+        console.log('debouncedDepositAmount:', debouncedDepositAmount);
         // Only update state if it's different to avoid unnecessary re-renders
         if (shouldBeApproved !== isApproved) {
           setIsApproved(shouldBeApproved);
@@ -116,11 +135,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
 
   const handleDepositPercentClick = useCallback(
     (percent: number) => {
-      // rawTokenBalance у тебя BigInt (в wei)
       const rawValue = (BigInt(rawTokenBalance) * BigInt(percent)) / BigInt(100);
-
-      // переводим в строку ETH без потери точности
-      const valueStr = formatEther(rawValue);
+      const valueStr = formatUnits(rawValue, vaultData?.asset.decimals || 18);
 
       setDepositAmount(valueStr);
 
@@ -133,7 +149,6 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     [rawTokenBalance, depositAmount, debouncedDepositAmount, resetTransactionStates]
   );
 
-  // Handle approval transaction states
   useEffect(() => {
     if (approveTx.txState === 'confirmed') {
       // Update approval status when confirmed in blockchain

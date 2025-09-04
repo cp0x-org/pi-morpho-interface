@@ -12,6 +12,7 @@ import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
 import SubCard from 'ui-component/cards/SubCard';
+import { useChainId } from 'wagmi';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -31,13 +32,14 @@ function TabPanel(props: TabPanelProps) {
 
 export default function VaultDetailsPage() {
   const theme = useTheme();
+  const chainId = useChainId();
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
 
   const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
-    variables: { address: vaultAddress, chain: 1 },
+    variables: { address: vaultAddress, chain: chainId },
     client: appoloClients.morphoApi
   });
 
