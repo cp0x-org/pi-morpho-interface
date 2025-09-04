@@ -137,7 +137,7 @@ export default function VaultDetailsPage() {
                 <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
                   <Stack spacing={1}>
                     <Typography variant="h5" sx={{ fontWeight: 400 }}>
-                      Total Assets (USD)
+                      Total Deposits (USD)
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Typography variant="h3">{formatShortUSDS(vault.state.totalAssetsUsd)}</Typography>

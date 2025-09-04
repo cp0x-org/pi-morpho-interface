@@ -29,10 +29,9 @@ import {
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
 import { formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
-import { MetaMorpho, MetaMorphoPositionsQueryResponse, MetaMorphosQueryResponse } from 'types/metamorphos';
 import { CopyableAddress } from 'components/CopyableAddress';
 import { MorphoRequests, SubgraphRequests } from '@/api/constants';
-import { VaultsData } from 'types/vaults';
+import { Vault, VaultsData } from 'types/vaults';
 import { appoloClients } from '@/api/apollo-client';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { useAccount } from 'wagmi';
@@ -41,7 +40,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { formatUnits } from 'viem';
 
-type SortableField = 'name' | 'apy';
+type SortableField = 'name' | 'apy' | 'totalAssetsUsd';
 type SortOrder = 'asc' | 'desc';
 interface MorphoPositionsData {
   marketId: string;
@@ -84,7 +83,6 @@ export default function EarnPage() {
     return morphoPositionsData.userByAddress.vaultPositions;
   }, [morphoPositionsData]);
 
-  const { loading: graphLoading, error: graphError, data: graphData } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
   const {
     loading: morphoLoading,
     error: morphoError,
@@ -96,9 +94,9 @@ export default function EarnPage() {
 
   // Combine data from both sources
   const combinedVaults = React.useMemo(() => {
-    if (!graphData) return [];
+    if (!morphoData) return [];
 
-    const vaults = [...graphData.metaMorphos];
+    const vaults = [...morphoData.vaults.items];
 
     // If Morpho data is available without errors, merge it with graph data
     if (morphoData && !morphoError) {
@@ -111,7 +109,7 @@ export default function EarnPage() {
 
       // Enrich graph data with Morpho data
       return vaults.map((vault) => {
-        const morphoVault = morphoVaultMap.get(vault.id.toLowerCase());
+        const morphoVault = morphoVaultMap.get(vault.address.toLowerCase());
 
         if (morphoVault) {
           return {
@@ -126,7 +124,7 @@ export default function EarnPage() {
     }
 
     return vaults;
-  }, [graphData, morphoData, morphoError]);
+  }, [morphoData, morphoError]);
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -149,21 +147,21 @@ export default function EarnPage() {
   };
 
   // Get unique symbols from vaults data
-  const getUniqueSymbols = (vaults: MetaMorpho[]): string[] => {
+  const getUniqueSymbols = (vaults: Vault[]): string[] => {
     const symbolsSet = new Set<string>();
     vaults.forEach((vault) => {
-      if (vault.asset.symbol) {
-        symbolsSet.add(vault.asset.symbol);
+      if (vault.asset?.symbol) {
+        symbolsSet.add(vault.asset?.symbol);
       }
     });
     return Array.from(symbolsSet).sort();
   };
 
-  const filterAndSortVaults = (vaults: MetaMorpho[]): MetaMorpho[] => {
+  const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
     // Filter first
     const filteredVaults = vaults.filter((vault) => {
       // Filter by symbol (match any of selected symbols)
-      const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset.symbol);
+      const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset?.symbol);
 
       // Filter by name (case insensitive)
       const nameMatch = nameFilter === '' || vault.name.toLowerCase().includes(nameFilter.toLowerCase());
@@ -176,15 +174,19 @@ export default function EarnPage() {
       if (sortField === 'name') {
         return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
       } else if (sortField === 'apy') {
-        const apyA = a.dailyNetApy || 0;
-        const apyB = b.dailyNetApy || 0;
+        const apyA = a.state.dailyNetApy || 0;
+        const apyB = b.state.dailyNetApy || 0;
+        return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
+      } else if (sortField === 'totalAssetsUsd') {
+        const apyA = a.state.totalAssetsUsd || 0;
+        const apyB = b.state.totalAssetsUsd || 0;
         return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       }
       return 0;
     });
   };
 
-  if (graphLoading) {
+  if (morphoLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress />
@@ -192,10 +194,10 @@ export default function EarnPage() {
     );
   }
 
-  if (graphError) {
+  if (morphoError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vaults: {graphError.message}</Typography>
+        <Typography color="error">Error loading vaults: {morphoError.message}</Typography>
       </Box>
     );
   }
@@ -218,7 +220,7 @@ export default function EarnPage() {
                   <TableCell>Vault</TableCell>
                   <TableCell>Balance</TableCell>
                   <TableCell>APY</TableCell>
-                  <TableCell>Total Assets (USD)</TableCell>
+                  <TableCell>Total Deposits (USD)</TableCell>
                   <TableCell>Curators</TableCell>
                 </TableRow>
               </TableHead>
@@ -232,7 +234,7 @@ export default function EarnPage() {
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TokenIcon symbol={position.vault.asset.symbol} />
+                        <TokenIcon symbol={position.vault.asset?.symbol} />
                         {position.vault.name || shortenAddress(position.vault.address)}
                       </Box>
                     </TableCell>
@@ -246,8 +248,8 @@ export default function EarnPage() {
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {position.vault.state.curators?.map((curator) => (
-                          <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                          <Box key={curator?.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CuratorIcon symbol={curator?.id} /> {curator.name ? curator.name : curator?.id}
                           </Box>
                         ))}
                       </Box>
@@ -269,7 +271,7 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={graphData ? getUniqueSymbols(graphData.metaMorphos) : []}
+            options={morphoData ? getUniqueSymbols(morphoData.vaults.items) : []}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -370,45 +372,63 @@ export default function EarnPage() {
                 </Tooltip>
               </TableCell>
               <TableCell>
+                <Tooltip title="Click to sort by APY" arrow>
+                  <TableSortLabel
+                    active={sortField === 'totalAssetsUsd'}
+                    direction={sortField === 'totalAssetsUsd' ? sortOrder : 'asc'}
+                    onClick={() => handleRequestSort('totalAssetsUsd')}
+                    IconComponent={sortField === 'apy' ? undefined : UnfoldMore}
+                    sx={{
+                      '.MuiTableSortLabel-icon': {
+                        opacity: 1,
+                        visibility: 'visible'
+                      }
+                    }}
+                  >
+                    Total Deposits (USD)
+                  </TableSortLabel>
+                </Tooltip>
+              </TableCell>
+              <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>Curators</Box>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {paginatedVaults.map((vault) => (
-              <TableRow key={vault.id} hover onClick={() => handleVaultClick(vault.id)} sx={{ cursor: 'pointer' }}>
+              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address)} sx={{ cursor: 'pointer' }}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TokenIcon symbol={vault.asset.symbol} /> {vault.name ? vault.name : shortenAddress(vault.id)}
+                    <TokenIcon symbol={vault.asset?.symbol} /> {vault.name ? vault.name : shortenAddress(vault.address)}
                   </Box>
                 </TableCell>
 
                 <TableCell>
                   <CopyableAddress
-                    address={vault.id}
+                    address={vault.address}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.id);
+                      handleVaultClick(vault.address);
                     }}
                   />
                 </TableCell>
                 <TableCell>
                   <CopyableAddress
-                    symbol={vault.asset.symbol}
-                    address={vault.asset.id}
+                    symbol={vault.asset?.symbol}
+                    address={vault.asset?.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.id);
+                      handleVaultClick(vault.address);
                     }}
                   />
                 </TableCell>
-                <TableCell>{vault.dailyNetApy !== undefined ? `${(vault.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
-                {/*<TableCell>{vault.curators?.map((curator) => <Box key={curator.address}>{curator.name}</Box>)}</TableCell>*/}
+                <TableCell>{vault.state.dailyNetApy !== undefined ? `${(vault.state.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                <TableCell>$ {vault.state.totalAssetsUsd !== undefined ? `${formatShortUSDS(vault.state.totalAssetsUsd)}` : '-'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {vault.curators?.map((curator) => (
-                      <Box key={curator.address} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                    {vault.state.curators?.map((curator) => (
+                      <Box key={curator?.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CuratorIcon symbol={curator?.id} /> {curator.name ? curator.name : curator?.id}
                       </Box>
                     ))}
                   </Box>

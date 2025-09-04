@@ -5,6 +5,9 @@ interface TokenIconProps {
   symbol: string;
 }
 export const TokenIcon = ({ symbol }: TokenIconProps) => {
+  if (!symbol) {
+    return null;
+  }
   const normalizedSymbol = symbol.toLowerCase();
   const iconUrl = `/tokens/${normalizedSymbol}.svg`;
 

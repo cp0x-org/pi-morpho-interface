@@ -119,7 +119,7 @@ export default function DashboardPage() {
                   <TableCell>Vault</TableCell>
                   <TableCell>Balance</TableCell>
                   <TableCell>APY</TableCell>
-                  <TableCell>Total Assets (USD)</TableCell>
+                  <TableCell>Total Deposits (USD)</TableCell>
                   <TableCell>Curators</TableCell>
                 </TableRow>
               </TableHead>
