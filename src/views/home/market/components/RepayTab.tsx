@@ -371,12 +371,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Loan: {formattedLoanBalance} {market.loanAsset?.symbol || 'N/A'}
+          Loan: {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Your Balance: {formattedUserBalance} {market.loanAsset?.symbol || 'N/A'}
+          Your Balance: {Number(formattedUserBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

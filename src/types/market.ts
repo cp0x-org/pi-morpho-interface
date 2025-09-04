@@ -6,6 +6,8 @@ export interface MarketState {
   dailyNetBorrowApy: number;
   totalLiquidityUsd: number;
   sizeUsd: number;
+  netBorrowApy: number;
+  netSupplyApy: number;
 }
 
 export interface Asset {

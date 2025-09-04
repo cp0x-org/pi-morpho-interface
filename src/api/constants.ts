@@ -66,6 +66,14 @@ export const MorphoRequests = {
             dailyNetSupplyApy
             fee
             utilization
+            dailyNetBorrowApy
+            dailyNetSupplyApy
+            fee
+            utilization
+            netBorrowApy
+            avgNetBorrowApy
+            avgNetSupplyApy
+            netSupplyApy
           }
         }
       }
@@ -92,6 +100,7 @@ export const MorphoRequests = {
           }
           state {
             dailyNetApy
+            totalAssetsUsd
           }
         }
       }
@@ -124,6 +133,64 @@ export const MorphoRequests = {
             dailyNetBorrowApy
             totalLiquidityUsd
             sizeUsd
+          }
+        }
+      }
+    }
+  `,
+  GetUserPositions: gql`
+    query Vault($chainId: Int!, $address: String!) {
+      userByAddress(chainId: $chainId, address: $address) {
+        address
+        marketPositions {
+          market {
+            uniqueKey
+            collateralAsset {
+              address
+              name
+              decimals
+              symbol
+            }
+            loanAsset {
+              address
+              name
+              symbol
+              decimals
+            }
+            state {
+              borrowApy
+            }
+          }
+          state {
+            borrowAssets
+            borrowAssetsUsd
+            supplyAssets
+            supplyAssetsUsd
+            collateralUsd
+            collateral
+          }
+        }
+        vaultPositions {
+          vault {
+            address
+            name
+            state {
+              totalAssetsUsd
+              avgNetApy
+              curators {
+                id
+                name
+              }
+            }
+            asset {
+              name
+              decimals
+              symbol
+            }
+          }
+          state {
+            assets
+            assetsUsd
           }
         }
       }

@@ -87,7 +87,7 @@ export const config = getDefaultConfig({
   appName: 'Morpho Interface',
   projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
   // chains: [mainnet, sepolia, mainTest],
-  chains: [mainnetCustom, baseCustom, polygonCustom, mainAnvil],
+  chains: [mainnetCustom, baseCustom, polygonCustom],
   // chains: [mainnet, mainAnvil, mainTest],
   ssr: false
 });

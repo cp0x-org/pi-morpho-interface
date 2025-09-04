@@ -12,6 +12,8 @@ import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
 import SubCard from 'ui-component/cards/SubCard';
+import { useChainId } from 'wagmi';
+import { formatShortUSDS } from 'utils/formatters';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -31,13 +33,14 @@ function TabPanel(props: TabPanelProps) {
 
 export default function VaultDetailsPage() {
   const theme = useTheme();
+  const chainId = useChainId();
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
 
   const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
-    variables: { address: vaultAddress, chain: 1 },
+    variables: { address: vaultAddress, chain: chainId },
     client: appoloClients.morphoApi
   });
 
@@ -125,6 +128,19 @@ export default function VaultDetailsPage() {
                           <ContentCopyIcon sx={{ fontSize: '1rem' }} />
                         </IconButton>
                       </Tooltip>
+                    </Box>
+                  </Stack>
+                </SubCard>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <SubCard sx={{ bgcolor: 'grey.100', ...theme.applyStyles('dark', { bgcolor: 'background.default' }) }}>
+                  <Stack spacing={1}>
+                    <Typography variant="h5" sx={{ fontWeight: 400 }}>
+                      Total Assets (USD)
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="h3">{formatShortUSDS(vault.state.totalAssetsUsd)}</Typography>
                     </Box>
                   </Stack>
                 </SubCard>

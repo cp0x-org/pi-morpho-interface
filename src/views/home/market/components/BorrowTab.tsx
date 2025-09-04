@@ -153,12 +153,12 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Max Borrowable: {formattedMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
+          Max Borrowable: {Number(formattedMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Safe Borrowable: {formattedSafeMaxBorrowable} {market.loanAsset?.symbol || 'N/A'}
+          Safe Borrowable: {Number(formattedSafeMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

@@ -135,7 +135,7 @@ export interface MorphoMarket {
  * Response structure for MorphoMarkets GraphQL query
  */
 export interface MorphoMarketsQueryResponse {
-  markets: MorphoMarket[];
+  markets: { items: MorphoMarket[] };
 }
 
 /**
@@ -251,7 +251,7 @@ export interface MorphoMarket {
 /**
  * Response structure for MorphoMarkets GraphQL query
  */
-export interface MorphoMarketsQueryResponse {
+export interface SubgraphMarketsQueryResponse {
   markets: MorphoMarket[];
 }
 
