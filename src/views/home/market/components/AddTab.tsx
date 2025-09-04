@@ -359,7 +359,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Balance: {formattedCollateralBalance} {market.collateralAsset?.symbol || 'N/A'}
+          Balance: {Number(formattedCollateralBalance).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

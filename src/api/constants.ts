@@ -66,6 +66,14 @@ export const MorphoRequests = {
             dailyNetSupplyApy
             fee
             utilization
+            dailyNetBorrowApy
+            dailyNetSupplyApy
+            fee
+            utilization
+            netBorrowApy
+            avgNetBorrowApy
+            avgNetSupplyApy
+            netSupplyApy
           }
         }
       }
@@ -92,6 +100,7 @@ export const MorphoRequests = {
           }
           state {
             dailyNetApy
+            totalAssetsUsd
           }
         }
       }

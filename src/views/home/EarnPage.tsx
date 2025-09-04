@@ -28,7 +28,7 @@ import {
   Typography
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
-import { formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
 import { MetaMorpho, MetaMorphoPositionsQueryResponse, MetaMorphosQueryResponse } from 'types/metamorphos';
 import { CopyableAddress } from 'components/CopyableAddress';
 import { MorphoRequests, SubgraphRequests } from '@/api/constants';
@@ -38,10 +38,23 @@ import { useConfigChainId } from 'hooks/useConfigChainId';
 import { useAccount } from 'wagmi';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
+import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
+import { formatUnits } from 'viem';
 
 type SortableField = 'name' | 'apy';
 type SortOrder = 'asc' | 'desc';
-
+interface MorphoPositionsData {
+  marketId: string;
+  collateralSymbol: string;
+  loanSymbol: string;
+  collateralBalance: string;
+  loanBalance: string;
+  collateralDecimal: number;
+  loanDecimal: number;
+  borrowUsd: string;
+  supplyUsd: string;
+  borrowApy: string;
+}
 export default function EarnPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -54,12 +67,22 @@ export default function EarnPage() {
   const { chainId } = useConfigChainId();
   const { address: userAddress } = useAccount();
   const {
-    loading: positionsLoading,
-    error: positionsError,
-    data: positionsData
-  } = useQuery<MetaMorphoPositionsQueryResponse>(SubgraphRequests.GetMetamorphoPositions, {
-    variables: { account: userAddress }
+    loading: morphoPositionsLoading,
+    error: morphoPositionsError,
+    data: morphoPositionsData
+  } = useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
+    client: appoloClients.morphoApi,
+    variables: {
+      chainId: chainId,
+      address: userAddress || ''
+    },
+    skip: !userAddress
   });
+  const morphoVaultPositions = React.useMemo(() => {
+    if (!morphoPositionsData?.userByAddress) return [];
+
+    return morphoPositionsData.userByAddress.vaultPositions;
+  }, [morphoPositionsData]);
 
   const { loading: graphLoading, error: graphError, data: graphData } = useQuery<MetaMorphosQueryResponse>(SubgraphRequests.GetMetaMorphos);
   const {
@@ -93,8 +116,8 @@ export default function EarnPage() {
         if (morphoVault) {
           return {
             ...vault,
-            dailyNetApy: morphoVault.state.dailyNetApy,
-            curators: morphoVault.state.curators
+            dailyNetApy: morphoVault.state?.dailyNetApy || 0,
+            curators: morphoVault.state?.curators || []
           };
         }
 
@@ -183,33 +206,52 @@ export default function EarnPage() {
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
-      {positionsData?.metaMorphoPositions && positionsData.metaMorphoPositions.length > 0 && (
+      {morphoVaultPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+            <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
               <TableHead>
                 <TableRow>
                   <TableCell>Vault</TableCell>
                   <TableCell>Balance</TableCell>
-                  <TableCell>USD Value</TableCell>
+                  <TableCell>APY</TableCell>
+                  <TableCell>Total Assets (USD)</TableCell>
+                  <TableCell>Curators</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {positionsData.metaMorphoPositions.map((position) => (
-                  <TableRow key={position.id} hover onClick={() => handleVaultClick(position.metaMorpho.id)} sx={{ cursor: 'pointer' }}>
+                {morphoVaultPositions.map((position) => (
+                  <TableRow
+                    key={position.vault.address}
+                    hover
+                    onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {position.metaMorpho.asset && <TokenIcon symbol={position.metaMorpho.asset.symbol} />}
-                        {position.metaMorpho.name || shortenAddress(position.metaMorpho.id)}
+                        <TokenIcon symbol={position.vault.asset.symbol} />
+                        {position.vault.name || shortenAddress(position.vault.address)}
                       </Box>
                     </TableCell>
+
                     <TableCell>
-                      {formatTokenAmount(position.lastAssetsBalance, position.metaMorpho.asset.decimals)} {position.metaMorpho.asset.symbol}
+                      {Number(formatUnits(BigInt(position.state.assets), position.vault.asset.decimals)).toFixed(6)} (
+                      {Number(position.state.assetsUsd).toFixed(2)} $)
                     </TableCell>
-                    <TableCell>${parseFloat(position.lastAssetsBalanceUSD).toFixed(2)}</TableCell>
+                    <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
+                    <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {position.vault.state.curators?.map((curator) => (
+                          <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                          </Box>
+                        ))}
+                      </Box>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

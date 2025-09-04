@@ -23,24 +23,31 @@ import {
   TextField,
   Autocomplete,
   Chip,
-  SelectChangeEvent,
-  Avatar
+  SelectChangeEvent
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
-import { SubgraphRequests } from '@/api/constants';
-import {
-  MetaMorphoPositionsQueryResponse,
-  MorphoMarket,
-  MorphoMarketPositionsQueryResponse,
-  MorphoMarketsQueryResponse,
-  MorphoPosition
-} from 'types/metamorphos';
+import { MorphoRequests } from '@/api/constants';
 import { useAccount } from 'wagmi';
 import { TokenIcon } from 'components/TokenIcon';
+import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
+import { appoloClients } from '@/api/apollo-client';
+import { formatTokenAmount } from 'utils/formatters';
+import { MarketData, MarketInterface } from 'types/market';
 
 type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
 type SortOrder = 'asc' | 'desc';
-
+interface MorphoPositionsData {
+  marketId: string;
+  collateralSymbol: string;
+  loanSymbol: string;
+  collateralBalance: string;
+  loanBalance: string;
+  collateralDecimal: number;
+  loanDecimal: number;
+  borrowUsd: string;
+  supplyUsd: string;
+  borrowApy: string;
+}
 export default function BorrowPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -50,113 +57,51 @@ export default function BorrowPage() {
   const [loanAssetSymbolFilter, setLoanAssetSymbolFilter] = useState<string[]>([]);
   const [collateralAssetSymbolFilter, setCollateralAssetSymbolFilter] = useState<string[]>([]);
 
-  const { address: userAddress } = useAccount();
+  const { address: userAddress, chain } = useAccount();
 
   const {
-    loading: positionsLoading,
-    error: positionsError,
-    data: rawPositionsData
-  } = useQuery<MorphoMarketPositionsQueryResponse>(SubgraphRequests.GetMorphoMarketPositions, {
-    variables: { account: userAddress }
+    loading: morphoPositionsLoading,
+    error: morphoPositionsError,
+    data: morphoPositionsData
+  } = useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
+    client: appoloClients.morphoApi,
+    variables: {
+      chainId: Number(chain?.id || 1),
+      address: userAddress || ''
+    },
+    skip: !userAddress
   });
 
-  interface MarketPositionsData {
-    marketId: string; // market id
-    marketName: string;
-    collateralSymbol: string;
-    loanSymbol: string;
-    collateralBalance: number;
-    loanBalance: number;
-  }
+  // Process Morpho positions data
+  const morphoPositions = React.useMemo<MorphoPositionsData[]>(() => {
+    if (!morphoPositionsData?.userByAddress) return [];
 
-  // Combine data from both sources
-  const positionsData = React.useMemo<MarketPositionsData[]>(() => {
-    if (!rawPositionsData || !rawPositionsData.account || rawPositionsData.account.openPositionCount === 0) {
-      return [];
-    }
-
-    const openPositions = rawPositionsData.account.positions.filter((position) => position.hashClosed === null);
-
-    const groupedByMarket = new Map<string, MarketPositionsData>();
-
-    for (const position of openPositions) {
-      const marketId = position.market.id;
-      const marketName = position.market.name;
-      const existing = groupedByMarket.get(marketId);
-
-      const balance = parseFloat(position.balance) / Math.pow(10, position.asset.decimals);
-
-      if (position.isCollateral) {
-        // Collateral position
-        const collateralSymbol = position.asset.symbol;
-
-        if (existing) {
-          existing.collateralBalance = balance;
-          existing.collateralSymbol = collateralSymbol;
-        } else {
-          groupedByMarket.set(marketId, {
-            marketId: marketId,
-            marketName: marketName,
-            collateralSymbol: collateralSymbol,
-            loanSymbol: '',
-            collateralBalance: balance,
-            loanBalance: 0
-          });
-        }
-      } else {
-        // Loan position
-        const loanSymbol = position.asset.symbol;
-
-        if (existing) {
-          existing.loanBalance = balance;
-          existing.loanSymbol = loanSymbol;
-        } else {
-          groupedByMarket.set(marketId, {
-            marketId: marketId,
-            marketName: marketName,
-            collateralSymbol: '',
-            loanSymbol: loanSymbol,
-            collateralBalance: 0,
-            loanBalance: balance
-          });
-        }
-      }
-    }
-
-    return Array.from(groupedByMarket.values());
-  }, [rawPositionsData]);
+    return morphoPositionsData.userByAddress.marketPositions.map((position) => {
+      return {
+        marketId: position.market.uniqueKey,
+        collateralSymbol: position.market.collateralAsset?.symbol,
+        loanSymbol: position.market.loanAsset?.symbol,
+        collateralBalance: position.state.collateral || '0',
+        loanBalance: position.state.borrowAssets || '0',
+        collateralDecimal: position.market.collateralAsset.decimals,
+        loanDecimal: position.market.loanAsset.decimals,
+        borrowUsd: position.state.borrowAssetsUsd || '0',
+        supplyUsd: position.state.supplyAssetsUsd || '0',
+        borrowApy: position.market.state.borrowApy || '0'
+      };
+    });
+  }, [morphoPositionsData]);
 
   const {
     loading: graphLoading,
     error: graphError,
     data: graphData
-  } = useQuery<MorphoMarketsQueryResponse>(SubgraphRequests.GetMorphoMarkets);
-
-  // Combine data from both sources
-  const combinedMarkets = React.useMemo(() => {
-    if (!graphData) return [];
-
-    const markets = graphData.markets.map((market) => {
-      let borrowApy: number | undefined = undefined;
-      let supplyApy: number | undefined = undefined;
-
-      market.rates.forEach((rate) => {
-        if (rate.side === 'BORROWER') {
-          borrowApy = parseFloat(rate.rate);
-        } else if (rate.side === 'LENDER') {
-          supplyApy = parseFloat(rate.rate);
-        }
-      });
-
-      return {
-        ...market,
-        borrowApy,
-        supplyApy
-      };
-    });
-
-    return markets;
-  }, [graphData]);
+  } = useQuery<MarketData>(MorphoRequests.GetMorphoMarkets, {
+    client: appoloClients.morphoApi,
+    variables: {
+      chainId: Number(chain?.id || 1)
+    }
+  });
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -203,41 +148,43 @@ export default function BorrowPage() {
   };
 
   // Get unique loan asset symbols
-  const getUniqueLoanAssetSymbols = (markets: MorphoMarket[]): string[] => {
+  const getUniqueLoanAssetSymbols = (markets: MarketInterface[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
-      if (market.borrowedToken?.symbol) {
-        symbolsSet.add(market.borrowedToken.symbol);
+      console.log('market');
+      console.log(market.loanAsset);
+      if (market.loanAsset?.symbol) {
+        symbolsSet.add(market.loanAsset?.symbol);
       }
     });
     return Array.from(symbolsSet).sort();
   };
 
   // Get unique collateral asset symbols
-  const getUniqueCollateralAssetSymbols = (markets: MorphoMarket[]): string[] => {
+  const getUniqueCollateralAssetSymbols = (markets: MarketInterface[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
-      if (market.inputToken?.symbol) {
-        symbolsSet.add(market.inputToken.symbol);
+      if (market.collateralAsset?.symbol) {
+        symbolsSet.add(market.collateralAsset?.symbol);
       }
     });
     return Array.from(symbolsSet).sort();
   };
 
-  const sortMarkets = (markets: MorphoMarket[]): MorphoMarket[] => {
+  const sortMarkets = (markets: MarketInterface[]): MarketInterface[] => {
     // Filter out markets with missing required fields and apply symbol filters
     const filteredMarkets = markets.filter((market) => {
       // Basic validation
-      if (!market.lltv || !market.inputToken || !market.borrowedToken) {
+      if (!market.lltv || !market.collateralAsset || !market.loanAsset) {
         return false;
       }
 
       // Apply loan asset symbol filter
-      const loanAssetMatch = loanAssetSymbolFilter.length === 0 || loanAssetSymbolFilter.includes(market.borrowedToken.symbol);
+      const loanAssetMatch = loanAssetSymbolFilter.length === 0 || loanAssetSymbolFilter.includes(market.loanAsset?.symbol);
 
       // Apply collateral asset symbol filter
       const collateralAssetMatch =
-        collateralAssetSymbolFilter.length === 0 || collateralAssetSymbolFilter.includes(market.inputToken.symbol);
+        collateralAssetSymbolFilter.length === 0 || collateralAssetSymbolFilter.includes(market.collateralAsset?.symbol);
 
       return loanAssetMatch && collateralAssetMatch;
     });
@@ -247,10 +194,10 @@ export default function BorrowPage() {
 
       switch (sortField) {
         case 'loanAsset':
-          return multiplier * (a.borrowedToken?.symbol || '').localeCompare(b.borrowedToken?.symbol || '');
+          return multiplier * (a.loanAsset?.symbol || '').localeCompare(b.loanAsset?.symbol || '');
 
         case 'collateralAsset':
-          return multiplier * (a.inputToken?.symbol || '').localeCompare(b.inputToken?.symbol || '');
+          return multiplier * (a.collateralAsset?.symbol || '').localeCompare(b.collateralAsset?.symbol || '');
 
         case 'lltv':
           return multiplier * (getLLTVAsNumber(a.lltv) - getLLTVAsNumber(b.lltv));
@@ -259,10 +206,10 @@ export default function BorrowPage() {
         //   return multiplier * ((a.state?.utilization || 0) - (b.state?.utilization || 0));
 
         case 'borrowApy':
-          return multiplier * ((a.borrowApy || 0) - (b.borrowApy || 0));
+          return multiplier * ((a.state.netBorrowApy || 0) - (b.state.netBorrowApy || 0));
 
         case 'supplyApy':
-          return multiplier * ((a.supplyApy || 0) - (b.supplyApy || 0));
+          return multiplier * ((a.state.netSupplyApy || 0) - (b.state.netSupplyApy || 0));
 
         default:
           return 0;
@@ -286,7 +233,7 @@ export default function BorrowPage() {
     );
   }
 
-  const markets = sortMarkets(combinedMarkets || []);
+  const markets = sortMarkets(graphData?.markets.items || []);
   const paginatedMarkets = markets.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(markets.length / rowsPerPage);
 
@@ -301,13 +248,13 @@ export default function BorrowPage() {
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
-      {positionsData && positionsData.length > 0 && (
+      {morphoPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="positions table">
+            <Table sx={{ minWidth: 650 }} aria-label="morpho markets table">
               <TableHead>
                 <TableRow>
                   <TableCell>Market</TableCell>
@@ -317,50 +264,45 @@ export default function BorrowPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {positionsData.map((position) => {
-                  const marketData = combinedMarkets.find((market) => market.id === position.marketId);
-                  const borrowApy = marketData?.borrowApy || 0;
-
-                  return (
-                    <TableRow
-                      key={position.marketId}
-                      hover
-                      onClick={() => navigate(`/borrow/market/${position.marketId}`)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>{position.marketName}</TableCell>
-                      <TableCell>
-                        {position.collateralBalance > 0 ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TokenIcon symbol={position.collateralSymbol} />
-                            {position.collateralSymbol} {position.collateralBalance.toFixed(4)}
-                          </Box>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {position.loanBalance > 0 ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TokenIcon symbol={position.loanSymbol} />
-                            {position.loanSymbol} {position.loanBalance.toFixed(4)}
-                          </Box>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-
-                      <TableCell>{(borrowApy * 100).toFixed(2)}%</TableCell>
-                    </TableRow>
-                  );
-                })}
+                {morphoPositions.map((position) => (
+                  <TableRow
+                    key={position.marketId}
+                    hover
+                    onClick={() => navigate(`/borrow/market/${position.marketId}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell>
+                      {position.collateralSymbol}/{position.loanSymbol}
+                    </TableCell>
+                    <TableCell>
+                      {parseFloat(position.collateralBalance) > 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <TokenIcon symbol={position.collateralSymbol} />
+                          {Number(formatTokenAmount(position.collateralBalance, position.collateralDecimal)).toFixed(6)}{' '}
+                          {position.collateralSymbol}
+                        </Box>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {parseFloat(position.loanBalance) > 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <TokenIcon symbol={position.loanSymbol} />
+                          {Number(formatTokenAmount(position.loanBalance, position.loanDecimal)).toFixed(6)} {position.loanSymbol}
+                        </Box>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>{(Number(position.borrowApy) * 100).toFixed(2)} %</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
         </Box>
       )}
-
       <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
         Available Markets
       </Typography>
@@ -370,7 +312,7 @@ export default function BorrowPage() {
           <Autocomplete
             multiple
             id="loan-asset-symbols-filter"
-            options={graphData ? getUniqueLoanAssetSymbols(graphData.markets) : []}
+            options={graphData ? getUniqueLoanAssetSymbols(graphData.markets.items) : []}
             value={loanAssetSymbolFilter}
             onChange={(event, newValue) => {
               setLoanAssetSymbolFilter(newValue);
@@ -407,7 +349,7 @@ export default function BorrowPage() {
           <Autocomplete
             multiple
             id="collateral-asset-symbols-filter"
-            options={combinedMarkets ? getUniqueCollateralAssetSymbols(combinedMarkets) : []}
+            options={graphData?.markets.items ? getUniqueCollateralAssetSymbols(graphData?.markets.items) : []}
             value={collateralAssetSymbolFilter}
             onChange={(event, newValue) => {
               setCollateralAssetSymbolFilter(newValue);
@@ -502,24 +444,6 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              {/*<TableCell>*/}
-              {/*  <Tooltip title="Click to sort by utilization" arrow>*/}
-              {/*    <TableSortLabel*/}
-              {/*      active={sortField === 'utilization'}*/}
-              {/*      direction={sortField === 'utilization' ? sortOrder : 'asc'}*/}
-              {/*      onClick={() => handleRequestSort('utilization')}*/}
-              {/*      IconComponent={sortField === 'utilization' ? undefined : UnfoldMore}*/}
-              {/*      sx={{*/}
-              {/*        '.MuiTableSortLabel-icon': {*/}
-              {/*          opacity: 1,*/}
-              {/*          visibility: 'visible'*/}
-              {/*        }*/}
-              {/*      }}*/}
-              {/*    >*/}
-              {/*      Utilization*/}
-              {/*    </TableSortLabel>*/}
-              {/*  </Tooltip>*/}
-              {/*</TableCell>*/}
               <TableCell>
                 <Tooltip title="Click to sort by borrow APY" arrow>
                   <TableSortLabel
@@ -560,11 +484,16 @@ export default function BorrowPage() {
           </TableHead>
           <TableBody>
             {paginatedMarkets.map((market) => (
-              <TableRow key={market.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/borrow/market/${market.id}`)}>
+              <TableRow
+                key={market.uniqueKey}
+                hover
+                sx={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/borrow/market/${market.uniqueKey}`)}
+              >
                 <TableCell>
-                  {market.borrowedToken?.symbol ? (
+                  {market.loanAsset?.symbol ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon symbol={market.borrowedToken.symbol} /> {market.borrowedToken.symbol}
+                      <TokenIcon symbol={market.loanAsset?.symbol} /> {market.loanAsset?.symbol}
                     </Box>
                   ) : (
                     'N/A'
@@ -572,9 +501,9 @@ export default function BorrowPage() {
                 </TableCell>
 
                 <TableCell>
-                  {market.inputToken?.symbol ? (
+                  {market.collateralAsset?.symbol ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon symbol={market.inputToken.symbol} /> {market.inputToken.symbol}
+                      <TokenIcon symbol={market.collateralAsset?.symbol} /> {market.collateralAsset?.symbol}
                     </Box>
                   ) : (
                     'N/A'
@@ -582,8 +511,8 @@ export default function BorrowPage() {
                 </TableCell>
                 <TableCell>{formatLLTV(market.lltv)}</TableCell>
                 {/*<TableCell>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</TableCell>*/}
-                <TableCell>{((market.borrowApy || 0) * 100).toFixed(2)}%</TableCell>
-                <TableCell>{((market.supplyApy || 0) * 100).toFixed(2)}%</TableCell>
+                <TableCell>{((market.state.netBorrowApy || 0) * 100).toFixed(2)}%</TableCell>
+                <TableCell>{((market.state.netSupplyApy || 0) * 100).toFixed(2)}%</TableCell>
               </TableRow>
             ))}
           </TableBody>

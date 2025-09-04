@@ -219,7 +219,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          Vault Balance: {formattedVaultBalance} {vaultData.asset.symbol}
+          Vault Balance: {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}
         </Typography>
       </Box>
       <TextField

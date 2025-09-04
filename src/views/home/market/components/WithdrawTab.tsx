@@ -164,7 +164,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography variant="body2" color="text.secondary">
-          Withdrawable: {formattedWithdrawableCollateral} {market.collateralAsset?.symbol || 'N/A'}
+          Withdrawable: {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

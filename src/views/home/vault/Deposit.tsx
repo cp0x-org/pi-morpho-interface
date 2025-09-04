@@ -320,7 +320,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          Balance: {formattedTokenBalance} {vaultData.asset.symbol || vaultData.symbol}
+          Balance: {Number(formattedTokenBalance).toFixed(6)} {vaultData.asset.symbol || vaultData.symbol}
         </Typography>
       </Box>
       <TextField
