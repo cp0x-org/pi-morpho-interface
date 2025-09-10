@@ -1,12 +1,13 @@
 import { formatEther, formatUnits } from 'viem';
 
+export const DECIMALS_SCALE_FACTOR = 3;
 /**
  * Formats a blockchain amount (in wei) to a human-readable format
  * @param amount - Amount in wei as string
  * @param decimals - Number of decimal places to display
  * @returns Formatted amount as string
  */
-export const formatTokenAmount = (amount: string | undefined, decimals: number = 4): string => {
+export const formatTokenAmount = (amount: string | undefined, decimals: number = 4, fractionDigits: number = 6): string => {
   if (!amount) {
     amount = '0';
   }
@@ -16,8 +17,8 @@ export const formatTokenAmount = (amount: string | undefined, decimals: number =
       Number(formatUnits(BigInt(amount), decimals))
         // .toFixed(decimals)
         .toLocaleString('en-US', {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals
+          minimumFractionDigits: fractionDigits,
+          maximumFractionDigits: fractionDigits
         })
     );
 

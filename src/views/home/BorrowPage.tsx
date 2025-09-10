@@ -31,7 +31,7 @@ import { useAccount } from 'wagmi';
 import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { appoloClients } from '@/api/apollo-client';
-import { formatTokenAmount } from 'utils/formatters';
+import { DECIMALS_SCALE_FACTOR, formatTokenAmount } from 'utils/formatters';
 import { MarketData, MarketInterface } from 'types/market';
 
 type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
@@ -278,7 +278,11 @@ export default function BorrowPage() {
                       {parseFloat(position.collateralBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.collateralSymbol} />
-                          {Number(formatTokenAmount(position.collateralBalance, position.collateralDecimal)).toFixed(6)}{' '}
+                          {formatTokenAmount(
+                            position.collateralBalance,
+                            position.collateralDecimal,
+                            position.collateralDecimal / DECIMALS_SCALE_FACTOR
+                          )}{' '}
                           {position.collateralSymbol}
                         </Box>
                       ) : (
@@ -289,7 +293,8 @@ export default function BorrowPage() {
                       {parseFloat(position.loanBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.loanSymbol} />
-                          {Number(formatTokenAmount(position.loanBalance, position.loanDecimal)).toFixed(6)} {position.loanSymbol}
+                          {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
+                          {position.loanSymbol}
                         </Box>
                       ) : (
                         '-'

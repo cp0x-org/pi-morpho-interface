@@ -18,7 +18,7 @@ import {
 import { MorphoRequests } from '@/api/constants';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { useAccount } from 'wagmi';
-import { formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { DECIMALS_SCALE_FACTOR, formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
 import { appoloClients } from '@/api/apollo-client';
 import { formatUnits } from 'viem';
 import { CuratorIcon } from 'components/CuratorIcon';
@@ -191,7 +191,11 @@ export default function DashboardPage() {
                       {parseFloat(position.collateralBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.collateralSymbol} />
-                          {Number(formatTokenAmount(position.collateralBalance, position.collateralDecimal)).toFixed(6)}{' '}
+                          {formatTokenAmount(
+                            position.collateralBalance,
+                            position.collateralDecimal,
+                            position.collateralDecimal / DECIMALS_SCALE_FACTOR
+                          )}{' '}
                           {position.collateralSymbol}
                         </Box>
                       ) : (
@@ -202,7 +206,8 @@ export default function DashboardPage() {
                       {parseFloat(position.loanBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.loanSymbol} />
-                          {Number(formatTokenAmount(position.loanBalance, position.loanDecimal)).toFixed(6)} {position.loanSymbol}
+                          {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
+                          {position.loanSymbol}
                         </Box>
                       ) : (
                         '-'
