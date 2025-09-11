@@ -1,15 +1,19 @@
 import Box from '@mui/material/Box';
-import { Typography, TextField, InputAdornment } from '@mui/material';
+import { Typography } from '@mui/material';
 import Button from '@mui/material/Button';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
+import { TokenIcon } from 'components/TokenIcon';
+import { CustomInput } from 'components/CustomInput';
+import { useTheme } from '@mui/material/styles';
+import { INPUT_DECIMALS } from '@/appconfig';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -23,8 +27,10 @@ interface WithdrawTabProps {
 
 export default function WithdrawTab({ market, accrualPosition, uniqueKey, onCollateralAmountChange, onSuccess }: WithdrawTabProps) {
   // Internal state management
+  const theme = useTheme();
   const [withdrawAmount, setWithdrawAmount] = useState('');
-
+  const [inputAmount, setInputAmount] = useState('');
+  const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
   const [txError, setTxError] = useState<string | null>(null);
@@ -123,6 +129,24 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
     }
   };
 
+  // Handle percentage button clicks
+  const handlePercentClick = useCallback(
+    (percent: number) => {
+      const decimals = market?.collateralAsset?.decimals || 0;
+      const rawValue = (parseFloat(formattedWithdrawableCollateral) * percent) / 100;
+      const factor = 10 ** decimals;
+      const value = Math.floor(rawValue * factor) / factor;
+
+      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
+      setWithdrawAmount(value.toString());
+      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+
+      // Set active percentage
+      setActivePercentage(percent);
+    },
+    [formattedWithdrawableCollateral, market?.collateralAsset?.decimals]
+  );
+
   // Determine if the button should be disabled
   const isButtonDisabled =
     !withdrawAmount ||
@@ -144,71 +168,234 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-        <Typography variant="body2" color="text.secondary">
-          Withdraw Collateral {market.collateralAsset?.symbol || 'N/A'}
-        </Typography>
-      </Box>
-      <TextField
-        label="Withdraw Amount"
-        variant="outlined"
-        type="number"
-        fullWidth
-        value={withdrawAmount}
-        onChange={(e) => setWithdrawAmount(e.target.value)}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">{market.collateralAsset?.symbol || 'N/A'}</InputAdornment>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '20px',
+          bgcolor: theme.palette.background.default,
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
         }}
-        disabled={txState === 'submitting' || txState === 'submitted'}
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="body2" color="text.secondary">
-          Withdrawable: {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
-        </Typography>
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            height: '80px',
+            alignItems: 'center',
+            marginBottom: '20px',
+            marginTop: '15px'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '100%',
+              width: '100%'
+            }}
+          >
+            <Typography variant="body2" color="text.main" fontWeight="bold">
+              Withdraw Collateral
+            </Typography>
+            <Typography variant="body2">Withdraw Amount:</Typography>
+          </Box>
+          <Box
+            sx={{
+              paddingRight: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {market.collateralAsset?.symbol && (
+              <TokenIcon
+                sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
+                avatarProps={{ sx: { width: 45, height: 45 } }}
+                symbol={market.collateralAsset?.symbol}
+              />
+            )}
+            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
+          </Box>
+        </Box>
+        <CustomInput
+          autoFocus
+          type="number"
+          fullWidth
+          value={inputAmount}
+          onChange={(e) => {
+            setWithdrawAmount(e.target.value);
+            setInputAmount(e.target.value);
+            // Clear active percentage when user manually enters a value
+            if (activePercentage !== null) {
+              setActivePercentage(null);
+            }
+          }}
+          disabled={txState === 'submitting' || txState === 'submitted'}
+          placeholder="0"
+          inputProps={{ inputMode: 'numeric' }}
+        />
+
+        {/*<Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>*/}
+        {/*  <Typography variant="body2" color="text.secondary">*/}
+        {/*    Withdrawable: {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}*/}
+        {/*  </Typography>*/}
+        {/*</Box>*/}
+        {/*  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
+        {/*    <Button*/}
+        {/*      variant="outlined"*/}
+        {/*      size="small"*/}
+        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.25).toString())}*/}
+        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
+        {/*    >*/}
+        {/*      25%*/}
+        {/*    </Button>*/}
+        {/*    <Button*/}
+        {/*      variant="outlined"*/}
+        {/*      size="small"*/}
+        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.5).toString())}*/}
+        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
+        {/*    >*/}
+        {/*      50%*/}
+        {/*    </Button>*/}
+        {/*    <Button*/}
+        {/*      variant="outlined"*/}
+        {/*      size="small"*/}
+        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.75).toString())}*/}
+        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
+        {/*    >*/}
+        {/*      75%*/}
+        {/*    </Button>*/}
+        {/*    <Button*/}
+        {/*      variant="outlined"*/}
+        {/*      size="small"*/}
+        {/*      onClick={() => setWithdrawAmount(formattedWithdrawableCollateral)}*/}
+        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
+        {/*    >*/}
+        {/*      Max*/}
+        {/*    </Button>*/}
+        {/*  </Box>*/}
+        {/*  {txError && txState === 'error' && (*/}
+        {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
+        {/*      {txError}*/}
+        {/*    </Typography>*/}
+        {/*  )}*/}
+        {/*  <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled}>*/}
+        {/*    {getButtonText()}*/}
+        {/*  </Button>*/}
+        {/*</Box>*/}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(25)}
+            disabled={txState === 'submitting' || txState === 'submitted'}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 25 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            25%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(50)}
+            disabled={txState === 'submitting' || txState === 'submitted'}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 50 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            50%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(75)}
+            disabled={txState === 'submitting' || txState === 'submitted'}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 75 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            75%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(100)}
+            disabled={txState === 'submitting' || txState === 'submitted'}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            Max
+          </Button>
+        </Box>
       </Box>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.25).toString())}
-          disabled={txState === 'submitting' || txState === 'submitted'}
+      <Box
+        sx={{
+          width: '100%',
+          padding: '25px 20px',
+          border: '1px solid',
+          borderTop: 'none',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderColor: theme.palette.grey[800],
+          mt: '-25px'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            backgroundColor: theme.palette.background.paper,
+            margin: '20px 0 0 0'
+          }}
         >
-          25%
-        </Button>
+          <Typography variant="h4" fontWeight="normal">
+            Withdrawable:
+          </Typography>
+          <Typography variant="h4" fontWeight="normal">
+            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
+          </Typography>
+        </Box>
         <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.5).toString())}
-          disabled={txState === 'submitting' || txState === 'submitted'}
+          variant="contained"
+          color="primary"
+          onClick={handleWithdraw}
+          disabled={isButtonDisabled}
+          sx={{
+            height: '58px',
+            width: '100%',
+            marginTop: '20px',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontSize: '18px',
+            fontWeight: 700
+          }}
         >
-          50%
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.75).toString())}
-          disabled={txState === 'submitting' || txState === 'submitted'}
-        >
-          75%
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setWithdrawAmount(formattedWithdrawableCollateral)}
-          disabled={txState === 'submitting' || txState === 'submitted'}
-        >
-          Max
+          {getButtonText()}
         </Button>
       </Box>
-      {txError && txState === 'error' && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
-        </Typography>
-      )}
-      <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled}>
-        {getButtonText()}
-      </Button>
     </Box>
   );
 }

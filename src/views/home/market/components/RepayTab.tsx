@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Typography, TextField, InputAdornment } from '@mui/material';
+import { Typography, useTheme } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
@@ -12,6 +12,10 @@ import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { TokenIcon } from 'components/TokenIcon';
+import { CustomInput } from 'components/CustomInput';
+import Divider from '@mui/material/Divider';
+import { INPUT_DECIMALS } from '@/appconfig';
 
 interface RepayTabProps {
   market: MarketInterface;
@@ -24,11 +28,14 @@ interface RepayTabProps {
 
 const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
+  const theme = useTheme();
   const [repayAmount, setRepayAmount] = useState('');
   const [txError, setTxError] = useState<string | null>(null);
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const debouncedRepayAmount = useDebounce(repayAmount, 500);
   const [isApproved, setIsApproved] = useState(false);
+  const [activePercentage, setActivePercentage] = useState<number | null>(null);
+  const [inputAmount, setInputAmount] = useState('');
 
   // Hooks
   const { address: userAddress } = useAccount();
@@ -141,6 +148,10 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
 
       // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
       setRepayAmount(value.toString());
+      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+
+      // Set active percentage
+      setActivePercentage(percent);
 
       if (repayAmount !== debouncedRepayAmount) {
         setAllowanceChecking(true);
@@ -185,6 +196,10 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     if (repayTx.txState === 'confirmed') {
       // Clear input and update states
       setRepayAmount('');
+      setInputAmount('');
+
+      // Set active percentage
+      setActivePercentage(null);
 
       // Show success message
       dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} repaid successfully`);
@@ -351,56 +366,214 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-        <Typography variant="body2" color="text.secondary">
-          Repay Loan {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
-      </Box>
-      <TextField
-        label="Repay Amount"
-        variant="outlined"
-        type="number"
-        fullWidth
-        value={repayAmount}
-        onChange={(e) => setRepayAmount(e.target.value)}
-        disabled={isInputDisabled}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">{market.loanAsset?.symbol || 'N/A'}</InputAdornment>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '20px',
+          bgcolor: theme.palette.background.default,
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
         }}
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="body2" color="text.secondary">
-          Loan: {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            height: '80px',
+            alignItems: 'center',
+            marginBottom: '20px',
+            marginTop: '15px'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '100%',
+              width: '100%'
+            }}
+          >
+            <Typography variant="body2" color="text.main" fontWeight="bold">
+              Repay Loan
+            </Typography>
+            <Typography variant="body2">Repay Amount:</Typography>
+          </Box>
+          <Box
+            sx={{
+              paddingRight: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {market.loanAsset?.symbol && (
+              <TokenIcon
+                sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
+                avatarProps={{ sx: { width: 45, height: 45 } }}
+                symbol={market.loanAsset?.symbol}
+              />
+            )}
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+          </Box>
+        </Box>
+        <CustomInput
+          autoFocus
+          type="number"
+          fullWidth
+          value={inputAmount}
+          onChange={(e) => {
+            setRepayAmount(e.target.value);
+            setInputAmount(e.target.value);
+            // Clear active percentage when user manually enters a value
+            if (activePercentage !== null) {
+              setActivePercentage(null);
+            }
+          }}
+          disabled={isInputDisabled}
+          placeholder="0"
+          inputProps={{ inputMode: 'numeric' }}
+        />
+
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(25)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 25 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            25%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(50)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 50 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            50%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(75)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 75 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            75%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(100)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            Max
+          </Button>
+        </Box>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="body2" color="text.secondary">
-          Your Balance: {Number(formattedUserBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
+      <Box
+        sx={{
+          width: '100%',
+          padding: '25px 20px',
+          border: '1px solid',
+          borderTop: 'none',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderColor: theme.palette.grey[800],
+          mt: '-25px'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            backgroundColor: theme.palette.background.paper,
+            margin: '10px 0'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '10px 0 20px 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              Loan:
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+            </Typography>
+          </Box>
+          <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
+
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '20px 0 0 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              Your Balance:
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {Number(formattedUserBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleRepay}
+          disabled={isButtonDisabled()}
+          sx={{
+            height: '58px',
+            width: '100%',
+            marginTop: '20px',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontSize: '18px',
+            fontWeight: 700
+          }}
+        >
+          {getButtonText()}
+        </Button>
       </Box>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(25)} disabled={isInputDisabled}>
-          25%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(50)} disabled={isInputDisabled}>
-          50%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(75)} disabled={isInputDisabled}>
-          75%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(100)} disabled={isInputDisabled}>
-          Max
-        </Button>
-      </Box>
-      {txError && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
-        </Typography>
-      )}
-      <Button variant="contained" color="primary" onClick={handleRepay} disabled={isButtonDisabled()}>
-        {getButtonText()}
-      </Button>
     </Box>
   );
 };
