@@ -102,7 +102,7 @@ export default function ActionForms(props: MarketProps) {
       </TabPanel>
 
       {/* Borrow Tab */}
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={1} sx={{ bgcolor: theme.palette.background.paper }}>
         <BorrowTab
           market={market}
           accrualPosition={accrualPosition}
@@ -119,7 +119,7 @@ export default function ActionForms(props: MarketProps) {
       </TabPanel>
 
       {/* Repay Tab */}
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={2} sx={{ bgcolor: theme.palette.background.paper }}>
         <RepayTab
           market={market}
           accrualPosition={accrualPosition}
@@ -137,7 +137,7 @@ export default function ActionForms(props: MarketProps) {
       </TabPanel>
 
       {/* Withdraw Tab */}
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={3} sx={{ bgcolor: theme.palette.background.paper }}>
         <WithdrawTab
           market={market}
           accrualPosition={accrualPosition}

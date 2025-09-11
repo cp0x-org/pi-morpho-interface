@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Typography, TextField, InputAdornment } from '@mui/material';
+import { Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
@@ -14,6 +14,7 @@ import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { styled, useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
+import { CustomInput } from 'components/CustomInput';
 
 interface AddTabProps {
   market: MarketInterface;
@@ -22,38 +23,6 @@ interface AddTabProps {
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
-const CustomInput = styled(TextField)(() => ({
-  '& .MuiInputBase-root': {
-    background: 'none',
-    border: 'none',
-    boxShadow: 'none',
-    fontSize: '2.5rem', // большой шрифт
-    caretColor: 'text.main' // яркий синий курсор
-    // ⚡ толщина курсора
-    // '&::selection': {
-    //   backgroundColor: '#a0c4ff'
-    // }
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none'
-  },
-  '&:hover .MuiOutlinedInput-notchedOutline': {
-    border: 'none'
-  },
-  '& .MuiInputBase-input': {
-    background: 'none',
-    MozAppearance: 'textfield',
-    caretWidth: '3px', // толще курсор
-    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-      WebkitAppearance: 'none',
-      margin: 0
-    }
-  },
-  '& .MuiInputBase-input::placeholder': {
-    fontSize: '2.5rem',
-    opacity: 0.5
-  }
-}));
 
 const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
@@ -540,8 +509,10 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
             margin: '10px 0'
           }}
         >
-          <Typography variant="h4">Balance:</Typography>
-          <Typography variant="h4">
+          <Typography variant="h4" fontWeight="normal">
+            Balance:
+          </Typography>
+          <Typography variant="h4" fontWeight="normal">
             {Number(formattedCollateralBalance).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
           </Typography>
         </Box>
