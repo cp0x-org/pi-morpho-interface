@@ -205,9 +205,9 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   if (!vaultData) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to Earn
-        </Button>
+        {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>*/}
+        {/*  Back to Earn*/}
+        {/*</Button>*/}
         <Typography variant="h5" color="error">
           Vault not found
         </Typography>

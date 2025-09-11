@@ -89,9 +89,9 @@ export default function MarketDetailPage() {
   if (!marketData) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to Borrow
-        </Button>
+        {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>*/}
+        {/*  Back to Borrow*/}
+        {/*</Button>*/}
         <Typography variant="h5" color="error">
           Market not found
         </Typography>
@@ -101,9 +101,9 @@ export default function MarketDetailPage() {
 
   return (
     <Box sx={{ padding: '16px 0px' }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>
-        Back to Borrow
-      </Button>
+      {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>*/}
+      {/*  Back to Borrow*/}
+      {/*</Button>*/}
       <Paper sx={{ padding: 0, marginBottom: 3 }}>
         <Grid container spacing={12.5}>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -165,13 +165,13 @@ export default function MarketDetailPage() {
                   </Typography>
                   <Box display="flex" alignItems="center">
                     <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
-                      {marketData.loanAsset?.symbol || 'N/A'}
+                      {marketData.collateralAsset?.symbol || 'N/A'}
                     </Typography>
-                    {marketData.loanAsset?.address && (
+                    {marketData.collateralAsset?.address && (
                       <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                         <IconButton
-                          onClick={() => copyToClipboard(marketData.loanAsset?.address || '')}
-                          sx={{ ml: 0.2, padding: '2px', marginLeft: '10px' }}
+                          onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')}
+                          sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
                         >
                           <ContentCopyIcon sx={{ fontSize: '22px', color: theme.palette.grey[500] }} />
                         </IconButton>
@@ -180,15 +180,14 @@ export default function MarketDetailPage() {
                     <Typography variant="h2" sx={{ display: 'inline', margin: '0px 20px', color: theme.palette.grey[500] }}>
                       /
                     </Typography>
-
                     <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
-                      {marketData.collateralAsset?.symbol || 'N/A'}
+                      {marketData.loanAsset?.symbol || 'N/A'}
                     </Typography>
-                    {marketData.collateralAsset?.address && (
+                    {marketData.loanAsset?.address && (
                       <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                         <IconButton
-                          onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')}
-                          sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
+                          onClick={() => copyToClipboard(marketData.loanAsset?.address || '')}
+                          sx={{ ml: 0.2, padding: '2px', marginLeft: '10px' }}
                         >
                           <ContentCopyIcon sx={{ fontSize: '22px', color: theme.palette.grey[500] }} />
                         </IconButton>

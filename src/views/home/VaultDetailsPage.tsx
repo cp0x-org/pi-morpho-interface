@@ -73,9 +73,9 @@ export default function VaultDetailsPage() {
   if (!vault) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to Earn
-        </Button>
+        {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>*/}
+        {/*  Back to Earn*/}
+        {/*</Button>*/}
         <Typography variant="h5" color="error">
           Vault not found
         </Typography>
@@ -85,9 +85,9 @@ export default function VaultDetailsPage() {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>
-        Back to Earn
-      </Button>
+      {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>*/}
+      {/*  Back to Earn*/}
+      {/*</Button>*/}
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={3}>

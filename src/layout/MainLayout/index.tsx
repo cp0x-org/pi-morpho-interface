@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 // material-ui
@@ -135,8 +135,21 @@ export default function MainLayout() {
           {/*<MainCard>*/}
           <MainCard>
             <AntTabs value={currentTabIndex} onChange={handleChange} centered>
-              {tabs.map((tab) => (
-                <AntTab wrapped={true} key={tab.path} label={tab.label} />
+              {tabs.map((tab, index) => (
+                <AntTab
+                  wrapped={true}
+                  key={tab.path}
+                  label={tab.label}
+                  onClick={() => {
+                    const tabPath = `/${tab.path}`;
+                    // клик на активный таб
+                    if (currentTabIndex === index) {
+                      navigate(tabPath, { replace: true, state: { refresh: Date.now() } });
+                    } else {
+                      navigate(tabPath);
+                    }
+                  }}
+                />
               ))}
             </AntTabs>
             <Box sx={{ pt: 3 }}>

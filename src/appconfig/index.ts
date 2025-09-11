@@ -27,3 +27,5 @@ export const appChainConfig = {
     }
   }
 } as const;
+
+export const INPUT_DECIMALS = 12;
