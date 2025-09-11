@@ -101,9 +101,6 @@ export default function MarketDetailPage() {
 
   return (
     <Box sx={{ padding: '16px 0px' }}>
-      {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 3 }}>*/}
-      {/*  Back to Borrow*/}
-      {/*</Button>*/}
       <Paper sx={{ padding: 0, marginBottom: 3 }}>
         <Grid container spacing={12.5}>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -146,9 +143,6 @@ export default function MarketDetailPage() {
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 10 }}>
-                  {/*<Box sx={{ display: 'flex', width: '100%' }}>*/}
-                  {/*  */}
-                  {/*</Box>*/}
                   <Typography
                     variant="h4"
                     component="span"

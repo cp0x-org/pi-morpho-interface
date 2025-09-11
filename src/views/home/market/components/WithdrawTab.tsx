@@ -241,55 +241,6 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
           placeholder="0"
           inputProps={{ inputMode: 'numeric' }}
         />
-
-        {/*<Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>*/}
-        {/*  <Typography variant="body2" color="text.secondary">*/}
-        {/*    Withdrawable: {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}*/}
-        {/*  </Typography>*/}
-        {/*</Box>*/}
-        {/*  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
-        {/*    <Button*/}
-        {/*      variant="outlined"*/}
-        {/*      size="small"*/}
-        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.25).toString())}*/}
-        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
-        {/*    >*/}
-        {/*      25%*/}
-        {/*    </Button>*/}
-        {/*    <Button*/}
-        {/*      variant="outlined"*/}
-        {/*      size="small"*/}
-        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.5).toString())}*/}
-        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
-        {/*    >*/}
-        {/*      50%*/}
-        {/*    </Button>*/}
-        {/*    <Button*/}
-        {/*      variant="outlined"*/}
-        {/*      size="small"*/}
-        {/*      onClick={() => setWithdrawAmount((parseFloat(formattedWithdrawableCollateral) * 0.75).toString())}*/}
-        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
-        {/*    >*/}
-        {/*      75%*/}
-        {/*    </Button>*/}
-        {/*    <Button*/}
-        {/*      variant="outlined"*/}
-        {/*      size="small"*/}
-        {/*      onClick={() => setWithdrawAmount(formattedWithdrawableCollateral)}*/}
-        {/*      disabled={txState === 'submitting' || txState === 'submitted'}*/}
-        {/*    >*/}
-        {/*      Max*/}
-        {/*    </Button>*/}
-        {/*  </Box>*/}
-        {/*  {txError && txState === 'error' && (*/}
-        {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
-        {/*      {txError}*/}
-        {/*    </Typography>*/}
-        {/*  )}*/}
-        {/*  <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled}>*/}
-        {/*    {getButtonText()}*/}
-        {/*  </Button>*/}
-        {/*</Box>*/}
         <Box
           sx={{
             display: 'flex',
@@ -369,7 +320,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
             justifyContent: 'space-between',
             width: '100%',
             backgroundColor: theme.palette.background.paper,
-            margin: '20px 0 0 0'
+            margin: '10px 0'
           }}
         >
           <Typography variant="h4" fontWeight="normal">

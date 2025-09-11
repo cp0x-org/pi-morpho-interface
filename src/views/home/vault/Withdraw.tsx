@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Button, TextField, InputAdornment } from '@mui/material';
+import { Typography, CircularProgress, Button, TextField, InputAdornment, useTheme } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import React, { useState, useMemo, useEffect, FC, useCallback } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
@@ -10,6 +10,9 @@ import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 
 import { Vault } from 'types/vaults';
+import { TokenIcon } from 'components/TokenIcon';
+import { INPUT_DECIMALS } from '@/appconfig';
+import { CustomInput } from 'components/CustomInput';
 
 interface WithdrawProps {
   vaultAddress: string;
@@ -17,6 +20,9 @@ interface WithdrawProps {
 }
 
 const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
+  const theme = useTheme();
+  const [inputAmount, setInputAmount] = useState('');
+  const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const navigate = useNavigate();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [txError, setTxError] = useState<string | null>(null);
@@ -137,10 +143,6 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     return formatUnits(vaultBalance as bigint, vaultData.asset.decimals);
   }, [vaultBalance, vaultData]);
 
-  const handleBack = () => {
-    navigate('/earn');
-  };
-
   // Get button text based on transaction states
   const getButtonText = useCallback(() => {
     if (!withdrawAmount) {
@@ -171,15 +173,6 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     return withdrawTxState === 'confirmed';
   }, [withdrawAmount, withdrawTxState]);
 
-  // Show loading state only if we need to fetch vault data and it's loading
-  if (!vaultData) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = withdrawTxState === 'submitting' || withdrawTxState === 'submitted';
 
@@ -193,7 +186,10 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       const roundedValue = Math.floor(value * 10000) / 10000; // 4 decimal places
 
       setWithdrawAmount(roundedValue.toString());
+      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
 
+      // Set active percentage
+      setActivePercentage(percent);
       // Reset transaction states if changing amount
       if (withdrawTxState === 'error' || withdrawTxState === 'confirmed') {
         resetWithdrawTx();
@@ -205,62 +201,243 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   if (!vaultData) {
     return (
       <Box sx={{ padding: 2 }}>
-        {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>*/}
-        {/*  Back to Earn*/}
-        {/*</Button>*/}
         <Typography variant="h5" color="error">
           Vault not found
         </Typography>
+        <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          Vault Balance: {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}
-        </Typography>
-      </Box>
-      <TextField
-        label="Withdraw Amount"
-        variant="outlined"
-        type="number"
-        fullWidth
-        value={withdrawAmount}
-        onChange={(e) => {
-          setWithdrawAmount(e.target.value);
-          if (withdrawTxState === 'error' || withdrawTxState === 'confirmed') {
-            resetWithdrawTx();
-          }
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '20px',
+          bgcolor: theme.palette.background.default,
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
         }}
-        disabled={isInputDisabled}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">{vaultData.asset.symbol}</InputAdornment>
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            height: '80px',
+            alignItems: 'center',
+            marginBottom: '20px',
+            marginTop: '15px'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '100%',
+              width: '100%'
+            }}
+          >
+            <Typography variant="body2" color="text.main" fontWeight="bold">
+              Withdraw Asset
+            </Typography>
+            <Typography variant="body2">Withdraw Amount:</Typography>
+          </Box>
+          <Box
+            sx={{
+              paddingRight: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {vaultData.asset.symbol && (
+              <TokenIcon
+                sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
+                avatarProps={{ sx: { width: 45, height: 45 } }}
+                symbol={vaultData.asset.symbol}
+              />
+            )}
+            <Typography fontWeight="bold">{vaultData.asset.symbol || 'N/A'}</Typography>
+          </Box>
+        </Box>
+        <CustomInput
+          autoFocus
+          type="number"
+          fullWidth
+          value={inputAmount}
+          onChange={(e) => {
+            setWithdrawAmount(e.target.value);
+            setInputAmount(e.target.value);
+            // Clear active percentage when user manually enters a value
+            if (activePercentage !== null) {
+              setActivePercentage(null);
+            }
+            if (withdrawTxState === 'error' || withdrawTxState === 'confirmed') {
+              resetWithdrawTx();
+            }
+          }}
+          disabled={isInputDisabled}
+          placeholder="0"
+          inputProps={{ inputMode: 'numeric' }}
+        />
+
+        {/*<TextField*/}
+        {/*  label="Withdraw Amount"*/}
+        {/*  variant="outlined"*/}
+        {/*  type="number"*/}
+        {/*  fullWidth*/}
+        {/*  value={withdrawAmount}*/}
+        {/*  onChange={(e) => {*/}
+        {/*    setWithdrawAmount(e.target.value);*/}
+        {/*    if (withdrawTxState === 'error' || withdrawTxState === 'confirmed') {*/}
+        {/*      resetWithdrawTx();*/}
+        {/*    }*/}
+        {/*  }}*/}
+        {/*  disabled={isInputDisabled}*/}
+        {/*  InputProps={{*/}
+        {/*    endAdornment: <InputAdornment position="end">{vaultData.asset.symbol}</InputAdornment>*/}
+        {/*  }}*/}
+        {/*/>*/}
+
+        {/*  <Typography variant="body2" color="text.secondary">*/}
+        {/*    Vault Balance: {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}*/}
+        {/*  </Typography>*/}
+
+        {/*  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
+        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(25)} disabled={isInputDisabled}>*/}
+        {/*      25%*/}
+        {/*    </Button>*/}
+        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(50)} disabled={isInputDisabled}>*/}
+        {/*      50%*/}
+        {/*    </Button>*/}
+        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(75)} disabled={isInputDisabled}>*/}
+        {/*      75%*/}
+        {/*    </Button>*/}
+        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(100)} disabled={isInputDisabled}>*/}
+        {/*      Max*/}
+        {/*    </Button>*/}
+        {/*  </Box>*/}
+        {/*  {txError && (*/}
+        {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
+        {/*      {txError}*/}
+        {/*    </Typography>*/}
+        {/*  )}*/}
+        {/*  <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled()}>*/}
+        {/*    {getButtonText()}*/}
+        {/*  </Button>*/}
+        {/*</Box>*/}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleWithdrawPercentClick(25)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 25 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            25%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleWithdrawPercentClick(50)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 50 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            50%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleWithdrawPercentClick(75)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 75 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            75%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleWithdrawPercentClick(100)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            Max
+          </Button>
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          width: '100%',
+          padding: '25px 20px',
+          border: '1px solid',
+          borderTop: 'none',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderColor: theme.palette.grey[800],
+          mt: '-25px'
         }}
-      />
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(25)} disabled={isInputDisabled}>
-          25%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(50)} disabled={isInputDisabled}>
-          50%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(75)} disabled={isInputDisabled}>
-          75%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(100)} disabled={isInputDisabled}>
-          Max
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            backgroundColor: theme.palette.background.paper,
+            margin: '10px 0'
+          }}
+        >
+          <Typography variant="h4" fontWeight="normal">
+            Withdrawable:
+          </Typography>
+          <Typography variant="h4" fontWeight="normal">
+            {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleWithdraw}
+          disabled={isButtonDisabled()}
+          sx={{
+            height: '58px',
+            width: '100%',
+            marginTop: '20px',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontSize: '18px',
+            fontWeight: 700
+          }}
+        >
+          {getButtonText()}
         </Button>
       </Box>
-      {txError && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
-        </Typography>
-      )}
-      <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled()}>
-        {getButtonText()}
-      </Button>
     </Box>
   );
 };

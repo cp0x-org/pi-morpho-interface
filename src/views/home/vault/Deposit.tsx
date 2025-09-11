@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Typography, Button, TextField, InputAdornment } from '@mui/material';
+import { Typography, Button, TextField, InputAdornment, useTheme } from '@mui/material';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { Vault } from 'types/vaults';
 import { useAccount, useReadContract } from 'wagmi';
@@ -10,7 +10,10 @@ import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 
-import { parseUnits } from 'viem'; // или ethers.js
+import { parseUnits } from 'viem';
+import { TokenIcon } from 'components/TokenIcon';
+import { CustomInput } from 'components/CustomInput';
+import { INPUT_DECIMALS } from '@/appconfig'; // или ethers.js
 
 interface DepositProps {
   vaultAddress: string;
@@ -19,6 +22,9 @@ interface DepositProps {
 
 const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Track when allowance checking is in progress (during debounce)
+  const theme = useTheme();
+  const [inputAmount, setInputAmount] = useState('');
+  const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [formattedDepositAmount, setFormattedDepositAmount] = useState('');
@@ -139,6 +145,10 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       const valueStr = formatUnits(rawValue, vaultData?.asset.decimals || 18);
 
       setDepositAmount(valueStr);
+      setInputAmount(Number(valueStr).toFixed(INPUT_DECIMALS).toString());
+
+      // Set active percentage
+      setActivePercentage(percent);
 
       if (depositAmount !== debouncedDepositAmount) {
         setAllowanceChecking(true);
@@ -176,6 +186,10 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     if (depositTx.txState === 'confirmed') {
       // Clear input and update states
       setDepositAmount('');
+      setInputAmount('');
+
+      // Reset active percentage button
+      setActivePercentage(null);
 
       // Show success message only after blockchain confirmation
       dispatchSuccess(`${vaultData?.asset.symbol || 'Tokens'} deposited successfully`);
@@ -317,46 +331,226 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          Balance: {Number(formattedTokenBalance).toFixed(6)} {vaultData.asset.symbol || vaultData.symbol}
-        </Typography>
-      </Box>
-      <TextField
-        label="Deposit Amount"
-        variant="outlined"
-        type="number"
-        fullWidth
-        value={depositAmount}
-        onChange={(e) => setDepositAmount(e.target.value)}
-        disabled={isInputDisabled}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">{vaultData.asset.symbol || vaultData.symbol}</InputAdornment>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '20px',
+          bgcolor: theme.palette.background.default,
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
         }}
-      />
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(25)} disabled={isInputDisabled}>
-          25%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(50)} disabled={isInputDisabled}>
-          50%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(75)} disabled={isInputDisabled}>
-          75%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(100)} disabled={isInputDisabled}>
-          Max
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            height: '80px',
+            alignItems: 'center',
+            marginBottom: '20px',
+            marginTop: '15px'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '100%',
+              width: '100%'
+            }}
+          >
+            <Typography variant="body2" color="text.main" fontWeight="bold">
+              Deposit Asset
+            </Typography>
+            <Typography variant="body2">Deposit Amount:</Typography>
+          </Box>
+          <Box
+            sx={{
+              paddingRight: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {vaultData.asset.symbol && (
+              <TokenIcon
+                sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
+                avatarProps={{ sx: { width: 45, height: 45 } }}
+                symbol={vaultData.asset.symbol}
+              />
+            )}
+            <Typography fontWeight="bold">{vaultData.asset.symbol || 'N/A'}</Typography>
+          </Box>
+        </Box>
+        <CustomInput
+          autoFocus
+          type="number"
+          fullWidth
+          value={depositAmount}
+          onChange={(e) => {
+            setDepositAmount(e.target.value);
+            setInputAmount(e.target.value);
+            // Clear active percentage when user manually enters a value
+            if (activePercentage !== null) {
+              setActivePercentage(null);
+            }
+          }}
+          disabled={isInputDisabled}
+          placeholder="0"
+          inputProps={{ inputMode: 'numeric' }}
+        />
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleDepositPercentClick(25)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 25 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            25%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleDepositPercentClick(50)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 50 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            50%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleDepositPercentClick(75)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 75 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            75%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleDepositPercentClick(100)}
+            disabled={isInputDisabled}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            Max
+          </Button>
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          width: '100%',
+          padding: '25px 20px',
+          border: '1px solid',
+          borderTop: 'none',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderColor: theme.palette.grey[800],
+          mt: '-25px'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            backgroundColor: theme.palette.background.paper,
+            margin: '10px 0'
+          }}
+        >
+          <Typography variant="h4" fontWeight="normal">
+            Balance:
+          </Typography>
+          <Typography variant="h4" fontWeight="normal">
+            {Number(formattedTokenBalance).toFixed(vaultData.asset.decimals / 3)} {vaultData.asset.symbol || 'N/A'}
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleDeposit}
+          disabled={isButtonDisabled()}
+          sx={{
+            height: '58px',
+            width: '100%',
+            marginTop: '20px',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontSize: '18px',
+            fontWeight: 700
+          }}
+        >
+          {getButtonText()}
         </Button>
       </Box>
-      {txError && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
-        </Typography>
-      )}
-      <Button variant="contained" color="primary" onClick={handleDeposit} disabled={isButtonDisabled()}>
-        {getButtonText()}
-      </Button>
+      {/*<TextField*/}
+      {/*  label="Deposit Amount"*/}
+      {/*  variant="outlined"*/}
+      {/*  type="number"*/}
+      {/*  fullWidth*/}
+      {/*  value={depositAmount}*/}
+      {/*  onChange={(e) => setDepositAmount(e.target.value)}*/}
+      {/*  disabled={isInputDisabled}*/}
+      {/*  InputProps={{*/}
+      {/*    endAdornment: <InputAdornment position="end">{vaultData.asset.symbol || vaultData.symbol}</InputAdornment>*/}
+      {/*  }}*/}
+      {/*/>*/}
+
+      {/*<Typography variant="body2" color="text.secondary">*/}
+      {/*  Balance: {Number(formattedTokenBalance).toFixed(6)} {vaultData.asset.symbol || vaultData.symbol}*/}
+      {/*</Typography>*/}
+
+      {/*<Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
+      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(25)} disabled={isInputDisabled}>*/}
+      {/*    25%*/}
+      {/*  </Button>*/}
+      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(50)} disabled={isInputDisabled}>*/}
+      {/*    50%*/}
+      {/*  </Button>*/}
+      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(75)} disabled={isInputDisabled}>*/}
+      {/*    75%*/}
+      {/*  </Button>*/}
+      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(100)} disabled={isInputDisabled}>*/}
+      {/*    Max*/}
+      {/*  </Button>*/}
+      {/*</Box>*/}
+      {/*  {txError && (*/}
+      {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
+      {/*      {txError}*/}
+      {/*    </Typography>*/}
+      {/*  )}*/}
+      {/*  <Button variant="contained" color="primary" onClick={handleDeposit} disabled={isButtonDisabled()}>*/}
+      {/*    {getButtonText()}*/}
+      {/*  </Button>*/}
+      {/*</Box>*/}
     </Box>
   );
 };
