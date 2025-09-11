@@ -58,7 +58,7 @@ export default function ActionForms(props: MarketProps) {
   }
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
+    <Paper sx={{ mb: 3 }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={handleTabChange} aria-label="market transaction tabs">
           <Tab label="Add" id="market-tab-0" aria-controls="market-tabpanel-0" />
@@ -68,7 +68,6 @@ export default function ActionForms(props: MarketProps) {
         </Tabs>
       </Box>
 
-      {/* Add Collateral Tab */}
       <TabPanel value={tabValue} index={0}>
         <AddTab
           market={market}

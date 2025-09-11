@@ -267,7 +267,7 @@ export default function EarnPage() {
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="symbols-filter"
@@ -306,7 +306,7 @@ export default function EarnPage() {
             fullWidth
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <TextField
             id="name-filter"
             label="Filter By Name"
