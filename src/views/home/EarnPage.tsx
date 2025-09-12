@@ -210,7 +210,7 @@ export default function EarnPage() {
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
       {morphoVaultPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
@@ -262,7 +262,7 @@ export default function EarnPage() {
         </Box>
       )}
 
-      <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
         Available Vaults
       </Typography>
 

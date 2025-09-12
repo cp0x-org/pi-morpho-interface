@@ -16,6 +16,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
 import Divider from '@mui/material/Divider';
+import { formatAssetOutput } from 'utils/formatters';
 
 interface BorrowTabProps {
   market: MarketInterface;
@@ -80,7 +81,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
     (percent: number) => {
       const value = (parseFloat(formattedSafeMaxBorrowable) * percent) / 100;
       setBorrowAmount(value.toString());
-      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -212,12 +213,13 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
           value={inputAmount}
           onChange={(e) => {
-            setBorrowAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setBorrowAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -225,7 +227,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
           }}
           disabled={isTransactionInProgress}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
         <Box
           sx={{

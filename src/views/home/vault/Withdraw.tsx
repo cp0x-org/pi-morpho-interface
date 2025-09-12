@@ -13,6 +13,7 @@ import { Vault } from 'types/vaults';
 import { TokenIcon } from 'components/TokenIcon';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
+import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters';
 
 interface WithdrawProps {
   vaultAddress: string;
@@ -179,14 +180,13 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   // Handle percentage button clicks with better formatting
   const handleWithdrawPercentClick = useCallback(
     (percent: number) => {
-      const maxAmount = parseFloat(formattedVaultBalance);
-      const value = (maxAmount * percent) / 100;
-
-      // Ensure we don't exceed available balance by rounding down
-      const roundedValue = Math.floor(value * 10000) / 10000; // 4 decimal places
+      const decimals = vaultData?.asset?.decimals || 0;
+      const rawValue = (parseFloat(formattedVaultBalance) * percent) / 100;
+      const factor = 10 ** decimals;
+      const roundedValue = Math.floor(rawValue * factor) / factor;
 
       setWithdrawAmount(roundedValue.toString());
-      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(roundedValue.toFixed(INPUT_DECIMALS).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -268,12 +268,13 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
           value={inputAmount}
           onChange={(e) => {
-            setWithdrawAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setWithdrawAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -284,54 +285,9 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
 
-        {/*<TextField*/}
-        {/*  label="Withdraw Amount"*/}
-        {/*  variant="outlined"*/}
-        {/*  type="number"*/}
-        {/*  fullWidth*/}
-        {/*  value={withdrawAmount}*/}
-        {/*  onChange={(e) => {*/}
-        {/*    setWithdrawAmount(e.target.value);*/}
-        {/*    if (withdrawTxState === 'error' || withdrawTxState === 'confirmed') {*/}
-        {/*      resetWithdrawTx();*/}
-        {/*    }*/}
-        {/*  }}*/}
-        {/*  disabled={isInputDisabled}*/}
-        {/*  InputProps={{*/}
-        {/*    endAdornment: <InputAdornment position="end">{vaultData.asset.symbol}</InputAdornment>*/}
-        {/*  }}*/}
-        {/*/>*/}
-
-        {/*  <Typography variant="body2" color="text.secondary">*/}
-        {/*    Vault Balance: {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}*/}
-        {/*  </Typography>*/}
-
-        {/*  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
-        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(25)} disabled={isInputDisabled}>*/}
-        {/*      25%*/}
-        {/*    </Button>*/}
-        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(50)} disabled={isInputDisabled}>*/}
-        {/*      50%*/}
-        {/*    </Button>*/}
-        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(75)} disabled={isInputDisabled}>*/}
-        {/*      75%*/}
-        {/*    </Button>*/}
-        {/*    <Button variant="outlined" size="small" onClick={() => handleWithdrawPercentClick(100)} disabled={isInputDisabled}>*/}
-        {/*      Max*/}
-        {/*    </Button>*/}
-        {/*  </Box>*/}
-        {/*  {txError && (*/}
-        {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
-        {/*      {txError}*/}
-        {/*    </Typography>*/}
-        {/*  )}*/}
-        {/*  <Button variant="contained" color="primary" onClick={handleWithdraw} disabled={isButtonDisabled()}>*/}
-        {/*    {getButtonText()}*/}
-        {/*  </Button>*/}
-        {/*</Box>*/}
         <Box
           sx={{
             display: 'flex',
@@ -418,7 +374,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             Withdrawable:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedVaultBalance).toFixed(6)} {vaultData.asset.symbol}
+            {formatAssetOutput(Number(formattedVaultBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
+            {vaultData.asset.symbol}
           </Typography>
         </Box>
         <Button

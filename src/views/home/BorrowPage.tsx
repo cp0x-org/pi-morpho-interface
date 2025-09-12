@@ -151,8 +151,6 @@ export default function BorrowPage() {
   const getUniqueLoanAssetSymbols = (markets: MarketInterface[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
-      console.log('market');
-      console.log(market.loanAsset);
       if (market.loanAsset?.symbol) {
         symbolsSet.add(market.loanAsset?.symbol);
       }
@@ -250,7 +248,7 @@ export default function BorrowPage() {
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
       {morphoPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
@@ -308,12 +306,12 @@ export default function BorrowPage() {
           </TableContainer>
         </Box>
       )}
-      <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
         Available Markets
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="loan-asset-symbols-filter"
@@ -350,7 +348,7 @@ export default function BorrowPage() {
             fullWidth
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="collateral-asset-symbols-filter"

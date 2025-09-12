@@ -2,13 +2,14 @@ import Box from '@mui/material/Box';
 import { Typography, Paper, Tabs, Tab, CircularProgress } from '@mui/material';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawTab } from './components';
 import { useTheme } from '@mui/material/styles';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
+  sdkMarket: Market | null;
   market?: MarketInterface;
   uniqueKey?: string;
   onPositionUpdate?: () => void;
@@ -19,8 +20,9 @@ interface MarketProps {
 export default function ActionForms(props: MarketProps) {
   const theme = useTheme();
   const uniqueKey = props.uniqueKey;
-  const market = props.market;
   const accrualPosition = props.accrualPosition;
+  const sdkMarket = props.sdkMarket;
+  const market = props.market;
   const [tabValue, setTabValue] = useState(0);
 
   const [txError, setTxError] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export default function ActionForms(props: MarketProps) {
           market={market}
           accrualPosition={accrualPosition}
           uniqueKey={uniqueKey}
+          sdkMarket={sdkMarket}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);

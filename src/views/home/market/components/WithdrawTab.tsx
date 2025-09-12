@@ -14,6 +14,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
+import { formatAssetOutput } from 'utils/formatters';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -139,7 +140,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
 
       // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
       setWithdrawAmount(value.toString());
-      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -226,12 +227,13 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
           value={inputAmount}
           onChange={(e) => {
-            setWithdrawAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setWithdrawAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -239,7 +241,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
           }}
           disabled={txState === 'submitting' || txState === 'submitted'}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
         <Box
           sx={{

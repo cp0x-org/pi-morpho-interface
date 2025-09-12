@@ -75,13 +75,6 @@ export const formatShortUSDS = (value: string | number) => {
   })} B`;
 };
 
-export const formatUSDS = (value: string | number) => {
-  return `${Number(value).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
-};
-
 export const formatLLTV = (lltv: string): number | null => {
   if (!lltv) return null;
   try {
@@ -91,4 +84,12 @@ export const formatLLTV = (lltv: string): number | null => {
     console.error(e);
     return null;
   }
+};
+
+export const formatAssetOutput = (val: string): string => {
+  val = val.replace(/\./g, ',');
+  val = val.replace(/[^0-9,]/g, '');
+  val = val.replace(/,(?=.*,)/g, '');
+
+  return val;
 };

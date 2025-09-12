@@ -15,6 +15,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { styled, useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
+import { formatAssetOutput } from 'utils/formatters';
 
 interface AddTabProps {
   market: MarketInterface;
@@ -72,7 +73,6 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   });
 
   useEffect(() => {
-    console.log('Add debouncedAmount');
     if (!market) {
       console.log('Market data not available');
       return;
@@ -87,8 +87,6 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     // Calculate amount with decimals
     const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    console.log('Amount:', roundedAmount, 'Wei:', amountBN.toString());
 
     onCollateralAmountChange(amountBN);
   }, [debouncedAddAmount, market, onCollateralAmountChange]);
@@ -146,7 +144,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     (percent: number) => {
       const value = (parseFloat(formattedCollateralBalance) * percent) / 100;
       setAddAmount(value.toString());
-      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -411,12 +409,13 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
           value={inputAmount}
           onChange={(e) => {
-            setAddAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setAddAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -424,7 +423,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
         <Box
           sx={{
@@ -513,7 +512,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
             Balance:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedCollateralBalance).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
+            {formatAssetOutput(Number(formattedCollateralBalance).toFixed(6))} {market.collateralAsset?.symbol || 'N/A'}
           </Typography>
         </Box>
         <Button

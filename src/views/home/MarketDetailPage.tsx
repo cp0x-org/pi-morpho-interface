@@ -55,12 +55,10 @@ export default function MarketDetailPage() {
   });
 
   const onBorrowAmountChange = (amount: bigint) => {
-    console.log('onBorrowAmountChange', amount);
     setDiffBorrowAmount(amount);
   };
 
   const onCollateralAmountChange = (amount: bigint) => {
-    console.log('onCollateralAmountChange', amount);
     setDiffCollateralAmount(amount);
   };
 
@@ -395,6 +393,7 @@ export default function MarketDetailPage() {
           <Grid size={{ xs: 12, md: 5 }}>
             <ActionForms
               market={marketData}
+              sdkMarket={market}
               uniqueKey={uniqueKey}
               accrualPosition={accrualPosition}
               onPositionUpdate={refreshPositionData}

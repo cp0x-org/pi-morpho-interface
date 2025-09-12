@@ -40,7 +40,6 @@ export const useFuturePosition = ({
     if (diffCollateralAmount && diffCollateralAmount !== 0n) {
       newCollateral += diffCollateralAmount;
     }
-    console.log(newCollateral);
 
     // Если изменений нет
     if ((!diffBorrowAmount || diffBorrowAmount === 0n) && (!diffCollateralAmount || diffCollateralAmount === 0n)) {

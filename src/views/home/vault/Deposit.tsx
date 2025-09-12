@@ -13,7 +13,8 @@ import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { parseUnits } from 'viem';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
-import { INPUT_DECIMALS } from '@/appconfig'; // или ethers.js
+import { INPUT_DECIMALS } from '@/appconfig';
+import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters'; // или ethers.js
 
 interface DepositProps {
   vaultAddress: string;
@@ -55,7 +56,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     if (depositAmount && vaultData?.asset?.decimals) {
       try {
         // Parse the string value to BigInt before formatting
-        const amountBN = parseUnits(depositAmount, vaultData.asset.decimals);
+        const amountBN = parseUnits(depositAmount.replace(/\,/g, '.'), vaultData.asset.decimals);
         setFormattedDepositAmount(formatUnits(amountBN, vaultData.asset.decimals));
       } catch (error) {
         console.error('Error formatting deposit amount:', error);
@@ -83,12 +84,9 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   useEffect(() => {
     if (userAddress && debouncedDepositAmount && allowanceData && vaultAddress) {
       try {
-        const amountBigInt = parseUnits(debouncedDepositAmount, vaultData?.asset?.decimals || 18);
+        const amountBigInt = parseUnits(debouncedDepositAmount.replace(/\,/g, '.'), vaultData?.asset?.decimals || 18);
         const shouldBeApproved = allowanceData >= amountBigInt;
-        console.log('shouldBeApproved:', shouldBeApproved);
-        console.log('allowanceData:', allowanceData);
-        console.log('amountBigInt:', amountBigInt);
-        console.log('debouncedDepositAmount:', debouncedDepositAmount);
+
         // Only update state if it's different to avoid unnecessary re-renders
         if (shouldBeApproved !== isApproved) {
           setIsApproved(shouldBeApproved);
@@ -145,7 +143,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       const valueStr = formatUnits(rawValue, vaultData?.asset.decimals || 18);
 
       setDepositAmount(valueStr);
-      setInputAmount(Number(valueStr).toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(Number(valueStr).toFixed(INPUT_DECIMALS).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -389,12 +387,13 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
-          value={depositAmount}
+          value={inputAmount}
           onChange={(e) => {
-            setDepositAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setDepositAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -402,7 +401,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
         <Box
           sx={{
@@ -491,7 +490,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             Balance:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedTokenBalance).toFixed(vaultData.asset.decimals / 3)} {vaultData.asset.symbol || 'N/A'}
+            {formatAssetOutput(Number(formattedTokenBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
+            {vaultData.asset.symbol || 'N/A'}
           </Typography>
         </Box>
         <Button
@@ -511,46 +511,6 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           {getButtonText()}
         </Button>
       </Box>
-      {/*<TextField*/}
-      {/*  label="Deposit Amount"*/}
-      {/*  variant="outlined"*/}
-      {/*  type="number"*/}
-      {/*  fullWidth*/}
-      {/*  value={depositAmount}*/}
-      {/*  onChange={(e) => setDepositAmount(e.target.value)}*/}
-      {/*  disabled={isInputDisabled}*/}
-      {/*  InputProps={{*/}
-      {/*    endAdornment: <InputAdornment position="end">{vaultData.asset.symbol || vaultData.symbol}</InputAdornment>*/}
-      {/*  }}*/}
-      {/*/>*/}
-
-      {/*<Typography variant="body2" color="text.secondary">*/}
-      {/*  Balance: {Number(formattedTokenBalance).toFixed(6)} {vaultData.asset.symbol || vaultData.symbol}*/}
-      {/*</Typography>*/}
-
-      {/*<Box sx={{ display: 'flex', gap: 1, mb: 2 }}>*/}
-      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(25)} disabled={isInputDisabled}>*/}
-      {/*    25%*/}
-      {/*  </Button>*/}
-      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(50)} disabled={isInputDisabled}>*/}
-      {/*    50%*/}
-      {/*  </Button>*/}
-      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(75)} disabled={isInputDisabled}>*/}
-      {/*    75%*/}
-      {/*  </Button>*/}
-      {/*  <Button variant="outlined" size="small" onClick={() => handleDepositPercentClick(100)} disabled={isInputDisabled}>*/}
-      {/*    Max*/}
-      {/*  </Button>*/}
-      {/*</Box>*/}
-      {/*  {txError && (*/}
-      {/*    <Typography color="error" variant="body2" sx={{ mb: 2 }}>*/}
-      {/*      {txError}*/}
-      {/*    </Typography>*/}
-      {/*  )}*/}
-      {/*  <Button variant="contained" color="primary" onClick={handleDeposit} disabled={isButtonDisabled()}>*/}
-      {/*    {getButtonText()}*/}
-      {/*  </Button>*/}
-      {/*</Box>*/}
     </Box>
   );
 };

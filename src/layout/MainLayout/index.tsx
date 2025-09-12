@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 // material-ui
@@ -54,7 +54,7 @@ const AntTab = styled((props: TabProps) => <Tab disableRipple {...props} />)(({ 
   fontWeight: theme.typography.fontWeightRegular,
   fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   // fontWeight: 500, // Medium
-  fontSize: '18px',
+  fontSize: '16px',
   color: theme.palette.grey[100],
   '&.MuiTab-root': {
     borderRight: '1px solid #3F3F3F',

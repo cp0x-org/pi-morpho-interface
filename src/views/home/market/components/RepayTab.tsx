@@ -7,7 +7,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
-import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
@@ -16,17 +16,19 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS } from '@/appconfig';
+import { formatAssetOutput } from 'utils/formatters';
 
 interface RepayTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
+  sdkMarket: Market | null;
   uniqueKey: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBorrowAmountChange, onSuccess }) => {
+const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqueKey, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
   const theme = useTheme();
   const [repayAmount, setRepayAmount] = useState('');
@@ -58,9 +60,10 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
 
   // Format balances for display
   const formattedLoanBalance = useMemo(() => {
-    if (!accrualPosition?.borrowAssets) return '0';
-    return formatUnits(accrualPosition?.borrowAssets as bigint, market?.loanAsset?.decimals ? market?.loanAsset?.decimals : 0);
-  }, [accrualPosition?.borrowAssets, market]);
+    // (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+    if (!accrualPosition?.borrowShares || !sdkMarket || !market?.loanAsset?.decimals) return '0';
+    return formatUnits(sdkMarket?.toBorrowAssets(accrualPosition.borrowShares), market?.loanAsset?.decimals);
+  }, [accrualPosition?.borrowShares, market?.loanAsset?.decimals, sdkMarket]);
 
   const formattedUserBalance = useMemo(() => {
     if (!userBalance) return '0';
@@ -79,7 +82,6 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   });
 
   useEffect(() => {
-    console.log('Add debouncedAmount');
     if (!market) {
       console.log('Market data not available');
       return;
@@ -94,8 +96,6 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     // Calculate amount with decimals
     const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    console.log('Amount:', roundedAmount, 'Wei:', amountBN.toString());
 
     onBorrowAmountChange(-amountBN);
   }, [debouncedRepayAmount, market]);
@@ -119,7 +119,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   useEffect(() => {
     if (userAddress && debouncedRepayAmount && allowanceData && market?.loanAsset) {
       try {
-        const amountBigInt = parseUnits(debouncedRepayAmount, market.loanAsset.decimals);
+        let amountBigInt = parseUnits(debouncedRepayAmount, market.loanAsset.decimals);
+
+        if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
+          amountBigInt = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+        }
+
         const shouldBeApproved = allowanceData >= amountBigInt;
 
         // Only update state if it's different to avoid unnecessary re-renders
@@ -142,13 +147,27 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   const handlePercentClick = useCallback(
     (percent: number) => {
       const decimals = market?.loanAsset?.decimals || 0;
-      const rawValue = (parseFloat(formattedLoanBalance) * percent) / 100;
-      const factor = 10 ** decimals;
-      const value = Math.floor(rawValue * factor) / factor;
+      let value: number;
 
-      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
+      if (percent == 100) {
+        if (parseFloat(formattedUserBalance) >= parseFloat(formattedLoanBalance)) {
+          value = parseFloat(formattedLoanBalance);
+        } else {
+          value = parseFloat(formattedUserBalance);
+        }
+      } else {
+        const rawLoanValue = (parseFloat(formattedLoanBalance) * percent) / 100;
+        const userBalanceValue = parseFloat(formattedUserBalance);
+        if (rawLoanValue > userBalanceValue) {
+          value = userBalanceValue;
+        } else {
+          value = rawLoanValue;
+        }
+      }
+
+      let inputDecimals = INPUT_DECIMALS > decimals && decimals != 0 ? decimals : INPUT_DECIMALS;
       setRepayAmount(value.toString());
-      setInputAmount(value.toFixed(INPUT_DECIMALS).toString());
+      setInputAmount(formatAssetOutput(value.toFixed(inputDecimals).toString()));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -203,7 +222,6 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
 
       // Show success message
       dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} repaid successfully`);
-      console.log('Repay loan confirmed!');
 
       // After successful transaction, we might want to refresh any balances
       if (refetchAllowance) {
@@ -255,10 +273,17 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
 
     // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    let isShares = false;
+    let sharesAmountBN = BigInt(0);
+    let amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    console.log('Attempting transaction with amount:', roundedAmount, 'Wei:', amountBN.toString());
-    console.log('Current states - Approved:', isApproved);
+    if (activePercentage == 100) {
+      if (accrualPosition != null && sdkMarket != null) {
+        amountBN = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+        sharesAmountBN = accrualPosition.borrowShares;
+        isShares = true;
+      }
+    }
 
     try {
       // Step 1: Approve tokens if not already approved
@@ -286,8 +311,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
               irm: market.irmAddress as `0x${string}`,
               lltv: BigInt(market.lltv)
             },
-            amountBN,
-            0n,
+            !isShares ? amountBN : 0n,
+            isShares ? sharesAmountBN : 0n,
             userAddress as `0x${string}`,
             '' as `0x${string}`
           ]
@@ -424,12 +449,13 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
         </Box>
         <CustomInput
           autoFocus
-          type="number"
+          type="text"
           fullWidth
           value={inputAmount}
           onChange={(e) => {
-            setRepayAmount(e.target.value);
-            setInputAmount(e.target.value);
+            let val = formatAssetOutput(e.target.value);
+            setRepayAmount(val);
+            setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
@@ -437,7 +463,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'numeric' }}
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
 
         <Box
@@ -535,7 +561,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
               Loan:
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+              {formatAssetOutput(Number(formattedLoanBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
             </Typography>
           </Box>
           <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
@@ -553,7 +579,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
               Your Balance:
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {Number(formattedUserBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+              {formatAssetOutput(Number(formattedUserBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
             </Typography>
           </Box>
         </Box>
