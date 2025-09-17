@@ -16,7 +16,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS } from '@/appconfig';
-import { formatAssetOutput } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface RepayTabProps {
   market: MarketInterface;
@@ -32,9 +32,10 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
   // State for input and transactions
   const theme = useTheme();
   const [repayAmount, setRepayAmount] = useState('');
+  const debouncedRepayAmount = useDebounce(repayAmount, 500);
   const [txError, setTxError] = useState<string | null>(null);
   const [allowanceChecking, setAllowanceChecking] = useState(false);
-  const debouncedRepayAmount = useDebounce(repayAmount, 500);
+
   const [isApproved, setIsApproved] = useState(false);
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [inputAmount, setInputAmount] = useState('');
@@ -87,7 +88,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
       return;
     }
 
-    let amount = debouncedRepayAmount ? debouncedRepayAmount : '0';
+    let amount = repayAmount ? normalizePointAmount(repayAmount) : '0';
 
     const amountFloat = parseFloat(amount);
     const assetDecimals = market.loanAsset.decimals;
@@ -98,7 +99,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
     const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     onBorrowAmountChange(-amountBN);
-  }, [debouncedRepayAmount, market]);
+  }, [repayAmount, market]);
 
   // Refetch allowance when input amount changes
   useEffect(() => {
@@ -119,7 +120,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
   useEffect(() => {
     if (userAddress && debouncedRepayAmount && allowanceData && market?.loanAsset) {
       try {
-        let amountBigInt = parseUnits(debouncedRepayAmount, market.loanAsset.decimals);
+        let amountBigInt = parseUnits(normalizePointAmount(debouncedRepayAmount), market.loanAsset.decimals);
 
         if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
           amountBigInt = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
@@ -205,6 +206,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
       dispatchError(`Failed to approve ${market?.loanAsset.symbol || 'token'}`);
       setTxError(`Approval failed. Please try again.`);
       console.error('Approval transaction failed');
+      console.error(approveTx.txError);
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
@@ -268,20 +270,25 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
     const assetDecimals = market.loanAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
-    const amountFloat = parseFloat(repayAmount);
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-
-    // Calculate amount with decimals
+    // const amountFloat = parseFloat(normalizePointAmount(debouncedRepayAmount));
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    //
+    // // Calculate amount with decimals
     let isShares = false;
     let sharesAmountBN = BigInt(0);
-    let amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    let amountBN = parseUnits(normalizePointAmount(debouncedRepayAmount), assetDecimals);
+    // let amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    if (activePercentage == 100) {
-      if (accrualPosition != null && sdkMarket != null) {
-        amountBN = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+    if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
+      let userBalanceLocal = userBalance ? userBalance : 0n;
+      const fullAmountBN = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+      if (fullAmountBN <= userBalanceLocal) {
+        amountBN = fullAmountBN;
         sharesAmountBN = accrualPosition.borrowShares;
         isShares = true;
+      } else {
+        amountBN = userBalanceLocal;
       }
     }
 

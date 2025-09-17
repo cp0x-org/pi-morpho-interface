@@ -273,7 +273,11 @@ export default function MarketDetailPage() {
                                 <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
                                 <Typography variant="h3">
                                   {futurePosition?.borrowAssets
-                                    ? parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
+                                    ? futurePosition?.borrowAssets <= 0
+                                      ? '0'
+                                      : parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(
+                                          4
+                                        )
                                     : '0'}
                                 </Typography>
                               </>
@@ -312,9 +316,11 @@ export default function MarketDetailPage() {
                                 <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
                                 <Typography variant="h3">
                                   {futurePosition?.collateral
-                                    ? parseFloat(
-                                        formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)
-                                      ).toFixed(4)
+                                    ? futurePosition?.collateral <= 0
+                                      ? '0'
+                                      : parseFloat(
+                                          formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)
+                                        ).toFixed(4)
                                     : '0'}
                                 </Typography>
                               </>
@@ -350,7 +356,11 @@ export default function MarketDetailPage() {
                               <>
                                 <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
                                 <Typography variant="h3">
-                                  {futurePosition?.ltv ? (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2) : '0'}
+                                  {futurePosition?.ltv
+                                    ? futurePosition?.ltv <= 0
+                                      ? '0'
+                                      : (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2)
+                                    : '0'}
                                 </Typography>
                               </>
                             )}

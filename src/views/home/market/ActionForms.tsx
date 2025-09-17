@@ -31,6 +31,8 @@ export default function ActionForms(props: MarketProps) {
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setTxError(null);
+    props.onBorrowAmountChange(0n);
+    props.onCollateralAmountChange(0n);
   };
 
   if (!uniqueKey || !market) {

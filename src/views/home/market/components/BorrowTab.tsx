@@ -16,7 +16,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
 import Divider from '@mui/material/Divider';
-import { formatAssetOutput } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface BorrowTabProps {
   market: MarketInterface;
@@ -43,14 +43,14 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       return;
     }
 
-    let amount = borrowAmount ? borrowAmount : '0';
-
-    const amountFloat = parseFloat(amount);
+    let amount = borrowAmount ? normalizePointAmount(borrowAmount) : '0';
     const assetDecimals = market.loanAsset.decimals;
+    // const amountFloat = parseFloat(amount);
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    const amountBN = parseUnits(amount, assetDecimals);
 
     onBorrowAmountChange(amountBN);
   }, [borrowAmount, market]);
@@ -120,7 +120,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
     }
 
     try {
-      const amountFloat = parseFloat(borrowAmount);
+      const amountFloat = parseFloat(normalizePointAmount(borrowAmount));
       const assetDecimals = market.loanAsset.decimals;
 
       const multiplier = Math.pow(10, assetDecimals);
@@ -352,8 +352,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
           onClick={handleBorrow}
           disabled={
             !borrowAmount ||
-            parseFloat(borrowAmount) <= 0 ||
-            parseFloat(borrowAmount) > parseFloat(formattedSafeMaxBorrowable) ||
+            parseFloat(normalizePointAmount(borrowAmount)) <= 0 ||
+            parseFloat(normalizePointAmount(borrowAmount)) > parseFloat(formattedSafeMaxBorrowable) ||
             isTransactionInProgress
           }
           sx={{

@@ -12,10 +12,10 @@ import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
-import { styled, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
-import { formatAssetOutput } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface AddTabProps {
   market: MarketInterface;
@@ -78,18 +78,18 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       return;
     }
 
-    let amount = debouncedAddAmount ? debouncedAddAmount : '0';
+    let amount = addAmount ? normalizePointAmount(addAmount) : '0';
 
-    const amountFloat = parseFloat(amount);
     const assetDecimals = market.collateralAsset.decimals;
-
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    const amountBN = parseUnits(amount, assetDecimals);
+    // const amountFloat = parseFloat(amount);
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     onCollateralAmountChange(amountBN);
-  }, [debouncedAddAmount, market, onCollateralAmountChange]);
+  }, [addAmount, market, onCollateralAmountChange]);
 
   useEffect(() => {
     if (debouncedAddAmount && refetchAllowance) {
@@ -97,8 +97,9 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       setAllowanceChecking(false); // Clear checking state when debounced value is processed
     }
   }, [debouncedAddAmount, refetchAllowance]);
+
   const safeDecimal = (value: string, decimals: number) => {
-    const floatValue = parseFloat(value);
+    const floatValue = parseFloat(normalizePointAmount(value));
     if (floatValue === 0) return '0';
     // используем toFixed с количеством знаков >= decimals
     return floatValue.toFixed(decimals);
@@ -113,12 +114,14 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   useEffect(() => {
     if (userAddress && debouncedAddAmount && allowanceData && market?.collateralAsset) {
       try {
-        const amountStr = safeDecimal(debouncedAddAmount, market.collateralAsset.decimals);
+        const amountStr = safeDecimal(normalizePointAmount(debouncedAddAmount), market.collateralAsset.decimals);
         const amountBN = parseUnits(amountStr, market.collateralAsset.decimals);
         const shouldBeApproved = allowanceData >= amountBN;
 
         // Only update state if it's different to avoid unnecessary re-renders
         if (shouldBeApproved !== isApproved) {
+          console.log('Checking, allowanceData:', allowanceData);
+          console.log('Checking, amountBN:', amountBN);
           setIsApproved(shouldBeApproved);
         }
       } catch (error) {
@@ -174,6 +177,8 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     } else if (approveTx.txState === 'error') {
       dispatchError(`Failed to approve ${market?.collateralAsset.symbol || 'token'}`);
       setTxError(`Approval failed. Please try again.`);
+      console.log(approveTx.txError);
+
       console.error('Approval transaction failed');
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
@@ -210,7 +215,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess]);
 
   const handleAddCollateral = useCallback(async () => {
-    if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(debouncedAddAmount) <= 0) {
+    if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
       return;
     }
 
@@ -237,14 +242,19 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     const assetDecimals = market.collateralAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
-    const amountFloat = parseFloat(debouncedAddAmount);
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-
+    // const amountFloat = parseFloat(normalizePointAmount(debouncedAddAmount));
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = BigInt(Math.floor(amountFloat * multiplier));
+    const amountBN = parseUnits(normalizePointAmount(debouncedAddAmount), assetDecimals);
     // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    // const amountBN = Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    console.log('Attempting transaction with amount:', roundedAmount, 'Wei:', amountBN.toString());
+    console.log('Attempting transaction with amount:', amountBN.toString());
+    // console.log(debouncedAddAmount);
+    // console.log(amountFloat);
+    // console.log(multiplier);
+    // console.log(roundedAmount);
+    // console.log(Math.floor(roundedAmount * 10 ** assetDecimals).toFixed(18));
     console.log('Current states - Approved:', isApproved);
 
     try {

@@ -4,7 +4,7 @@ import Button from '@mui/material/Button';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
@@ -14,7 +14,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
-import { formatAssetOutput } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -52,14 +52,14 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
       return;
     }
 
-    let amount = withdrawAmount ? withdrawAmount : '0';
+    let amount = withdrawAmount ? normalizePointAmount(withdrawAmount) : '0';
 
-    const amountFloat = parseFloat(amount);
     const assetDecimals = market.collateralAsset.decimals;
-
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    const amountBN = parseUnits(amount, assetDecimals);
+    // const amountFloat = parseFloat(amount);
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
     onCollateralAmountChange(-amountBN);
   }, [withdrawAmount, market]);
 
@@ -88,7 +88,7 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
 
   // Handle withdraw collateral
   const handleWithdraw = async () => {
-    if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+    if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
       return;
     }
 
@@ -96,13 +96,12 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
       dispatchError('Market Not Found');
       return;
     }
-
-    const amountFloat = parseFloat(withdrawAmount);
     const assetDecimals = market.collateralAsset.decimals;
-
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    const amountBN = parseUnits(normalizePointAmount(withdrawAmount), assetDecimals);
+    // const amountFloat = parseFloat(normalizePointAmount(withdrawAmount));
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     try {
       // Execute transaction using the custom hook
@@ -151,8 +150,8 @@ export default function WithdrawTab({ market, accrualPosition, uniqueKey, onColl
   // Determine if the button should be disabled
   const isButtonDisabled =
     !withdrawAmount ||
-    parseFloat(withdrawAmount) <= 0 ||
-    parseFloat(withdrawAmount) > parseFloat(formattedWithdrawableCollateral) ||
+    parseFloat(normalizePointAmount(withdrawAmount)) <= 0 ||
+    parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral) ||
     txState === 'submitting' ||
     txState === 'submitted';
 

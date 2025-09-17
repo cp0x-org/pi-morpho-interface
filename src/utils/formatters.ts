@@ -93,3 +93,9 @@ export const formatAssetOutput = (val: string): string => {
 
   return val;
 };
+
+export const normalizePointAmount = (val: string) => val.replace(',', '.');
+
+export const normalizeCommaAmount = (val: string) => {
+  return val.replace(/\s/g, '').replace(/,/g, '');
+};
