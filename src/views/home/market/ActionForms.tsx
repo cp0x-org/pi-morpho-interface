@@ -1,11 +1,12 @@
 import Box from '@mui/material/Box';
 import { Typography, Paper, Tabs, Tab, CircularProgress } from '@mui/material';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawTab } from './components';
 import { useTheme } from '@mui/material/styles';
+import SupplyTab from 'views/home/market/components/SupplyTab';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
@@ -69,23 +70,20 @@ export default function ActionForms(props: MarketProps) {
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
-          aria-label="market transaction tabs"
+          variant="fullWidth"
           sx={{
-            height: '58px',
-            minHeight: '58px',
-            borderColor: 'black',
-            width: '100%',
-            '& .MuiTabs-flexContainer': {
-              border: 0,
-              height: '100%',
-              width: '100%'
+            '& .MuiTab-root': {
+              minWidth: 0,
+              px: 1.5,
+              fontSize: '14px'
             }
           }}
         >
-          <Tab label="Add" id="market-tab-0" aria-controls="market-tabpanel-0" sx={{ height: '100%', flex: 1 }} />
-          <Tab label="Borrow" id="market-tab-1" aria-controls="market-tabpanel-1" sx={{ height: '100%', flex: 1 }} />
-          <Tab label="Repay" id="market-tab-2" aria-controls="market-tabpanel-2" sx={{ height: '100%', flex: 1 }} />
-          <Tab label="Withdraw" id="market-tab-3" aria-controls="market-tabpanel-3" sx={{ height: '100%', flex: 1 }} />
+          <Tab label="Add" />
+          <Tab label="Borrow" />
+          <Tab label="Repay" />
+          <Tab label="Withdraw" />
+          <Tab label="Supply" />
         </Tabs>
       </Box>
 
@@ -146,6 +144,23 @@ export default function ActionForms(props: MarketProps) {
         <WithdrawTab
           market={market}
           accrualPosition={accrualPosition}
+          uniqueKey={uniqueKey}
+          onSuccess={() => {
+            // Refresh market data or any other necessary updates
+            setTxError(null);
+            if (props.onPositionUpdate) {
+              props.onPositionUpdate();
+            }
+          }}
+          onBorrowAmountChange={props.onBorrowAmountChange}
+          onCollateralAmountChange={props.onCollateralAmountChange}
+        />
+      </TabPanel>
+
+      {/* Supply Tab */}
+      <TabPanel value={tabValue} index={4} sx={{ bgcolor: theme.palette.background.paper }}>
+        <SupplyTab
+          market={market}
           uniqueKey={uniqueKey}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
