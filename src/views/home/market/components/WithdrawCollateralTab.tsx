@@ -7,7 +7,7 @@ import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
+import { AccrualPosition } from '@morpho-org/blue-sdk';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { TokenIcon } from 'components/TokenIcon';
@@ -18,16 +18,21 @@ import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface WithdrawTabProps {
   market: MarketInterface;
-  sdkMarket: Market | null;
   accrualPosition: AccrualPosition | null;
   uniqueKey: string;
   onSuccess?: () => void;
 
   onBorrowAmountChange: (amount: bigint) => void;
-  onLoanAmountChange: (amount: bigint) => void;
+  onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function WithdrawTab({ market, sdkMarket, accrualPosition, uniqueKey, onLoanAmountChange, onSuccess }: WithdrawTabProps) {
+export default function WithdrawCollateralTab({
+  market,
+  accrualPosition,
+  uniqueKey,
+  onCollateralAmountChange,
+  onSuccess
+}: WithdrawTabProps) {
   // Internal state management
   const theme = useTheme();
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -38,11 +43,12 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
   const [txError, setTxError] = useState<string | null>(null);
   // Use the custom transaction hook
   const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
-  const formattedWithdrawable = useMemo(() => {
-    if (!accrualPosition?.supplyShares) return '0';
+
+  const formattedWithdrawableCollateral = useMemo(() => {
+    if (!accrualPosition?.withdrawableCollateral) return '0';
     return formatUnits(
-      sdkMarket?.toSupplyAssets(accrualPosition?.supplyShares) as bigint,
-      market?.loanAsset?.decimals ? market.loanAsset.decimals : 0
+      accrualPosition?.withdrawableCollateral as bigint,
+      market?.collateralAsset?.decimals ? market.collateralAsset.decimals : 0
     );
   }, [accrualPosition, market]);
 
@@ -54,19 +60,19 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
 
     let amount = withdrawAmount ? normalizePointAmount(withdrawAmount) : '0';
 
-    const assetDecimals = market.loanAsset.decimals;
+    const assetDecimals = market.collateralAsset.decimals;
     const amountBN = parseUnits(amount, assetDecimals);
     // const amountFloat = parseFloat(amount);
     // const multiplier = Math.pow(10, assetDecimals);
     // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-    onLoanAmountChange(-amountBN);
+    onCollateralAmountChange(-amountBN);
   }, [withdrawAmount, market]);
 
   // Handle successful transaction completion
   useEffect(() => {
     if (isCompleted && txState === 'confirmed') {
-      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.loanAsset.symbol}`);
+      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.collateralAsset.symbol}`);
       setWithdrawAmount('');
 
       // Call onSuccess to refresh the position data
@@ -76,7 +82,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
 
       resetTx();
     }
-  }, [isCompleted, txState, withdrawAmount, market.loanAsset.symbol, onSuccess, resetTx]);
+  }, [isCompleted, txState, withdrawAmount, market.collateralAsset.symbol, onSuccess, resetTx]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -86,7 +92,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
     }
   }, [txState, txRawError]);
 
-  // Handle withdraw loan
+  // Handle withdraw collateral
   const handleWithdraw = async () => {
     if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
       return;
@@ -96,7 +102,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
       dispatchError('Market Not Found');
       return;
     }
-    const assetDecimals = market.loanAsset.decimals;
+    const assetDecimals = market.collateralAsset.decimals;
     const amountBN = parseUnits(normalizePointAmount(withdrawAmount), assetDecimals);
     // const amountFloat = parseFloat(normalizePointAmount(withdrawAmount));
     // const multiplier = Math.pow(10, assetDecimals);
@@ -108,7 +114,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
       await sendTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,
         abi: morphoContractConfig.abi,
-        functionName: 'withdraw',
+        functionName: 'withdrawCollateral',
         args: [
           {
             loanToken: market.loanAsset.address as `0x${string}`,
@@ -118,13 +124,12 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
             lltv: BigInt(market.lltv)
           },
           amountBN,
-          0n,
           userAddress as `0x${string}`,
           userAddress as `0x${string}`
         ]
       });
     } catch (error) {
-      console.error('Error withdrawing loan token:', error);
+      console.error('Error withdrawing collateral:', error);
       dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
       setTxError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -133,8 +138,8 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const decimals = market?.loanAsset?.decimals || 0;
-      const rawValue = (parseFloat(formattedWithdrawable) * percent) / 100;
+      const decimals = market?.collateralAsset?.decimals || 0;
+      const rawValue = (parseFloat(formattedWithdrawableCollateral) * percent) / 100;
       const factor = 10 ** decimals;
       const value = Math.floor(rawValue * factor) / factor;
 
@@ -145,14 +150,14 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
       // Set active percentage
       setActivePercentage(percent);
     },
-    [formattedWithdrawable, market?.loanAsset?.decimals]
+    [formattedWithdrawableCollateral, market?.collateralAsset?.decimals]
   );
 
   // Determine if the button should be disabled
   const isButtonDisabled =
     !withdrawAmount ||
     parseFloat(normalizePointAmount(withdrawAmount)) <= 0 ||
-    parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawable) ||
+    parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral) ||
     txState === 'submitting' ||
     txState === 'submitted';
 
@@ -202,9 +207,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Withdraw Loan
+              Withdraw Collateral
             </Typography>
-            <Typography variant="body2">Withdraw Loan Token Amount:</Typography>
+            <Typography variant="body2">Withdraw Amount:</Typography>
           </Box>
           <Box
             sx={{
@@ -215,14 +220,14 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
               alignItems: 'center'
             }}
           >
-            {market.loanAsset?.symbol && (
+            {market.collateralAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
                 avatarProps={{ sx: { width: 45, height: 45 } }}
-                symbol={market.loanAsset?.symbol}
+                symbol={market.collateralAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -329,7 +334,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
             Withdrawable:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedWithdrawable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
           </Typography>
         </Box>
         <Button
