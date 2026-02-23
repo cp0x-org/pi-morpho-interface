@@ -401,7 +401,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollate
             <Typography variant="body2" color="text.main" fontWeight="bold">
               Supply Loan
             </Typography>
-            <Typography variant="body2">Supply Loan Amount:</Typography>
+            <Typography variant="body2">Supply Loan Token Amount:</Typography>
           </Box>
           <Box
             sx={{
@@ -527,7 +527,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollate
             Balance:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {formatAssetOutput(Number(formattedLoanBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
+            {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
           </Typography>
         </Box>
         <Button

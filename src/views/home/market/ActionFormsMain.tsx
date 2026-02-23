@@ -4,9 +4,8 @@ import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
-import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawTab } from './components';
+import { TabPanel, AddTab, BorrowTab, RepayTab, WithdrawCollateralTab } from './components';
 import { useTheme } from '@mui/material/styles';
-import SupplyTab from 'views/home/market/components/SupplyTab';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
@@ -18,7 +17,7 @@ interface MarketProps {
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function ActionForms(props: MarketProps) {
+export default function ActionFormsMain(props: MarketProps) {
   const theme = useTheme();
   const uniqueKey = props.uniqueKey;
   const accrualPosition = props.accrualPosition;
@@ -79,11 +78,10 @@ export default function ActionForms(props: MarketProps) {
             }
           }}
         >
-          <Tab label="Add" />
+          <Tab label="Add Collateral" />
           <Tab label="Borrow" />
           <Tab label="Repay" />
-          <Tab label="Withdraw" />
-          <Tab label="Supply" />
+          <Tab label="Withdraw Collateral" />
         </Tabs>
       </Box>
 
@@ -141,26 +139,9 @@ export default function ActionForms(props: MarketProps) {
 
       {/* Withdraw Tab */}
       <TabPanel value={tabValue} index={3} sx={{ bgcolor: theme.palette.background.paper }}>
-        <WithdrawTab
+        <WithdrawCollateralTab
           market={market}
           accrualPosition={accrualPosition}
-          uniqueKey={uniqueKey}
-          onSuccess={() => {
-            // Refresh market data or any other necessary updates
-            setTxError(null);
-            if (props.onPositionUpdate) {
-              props.onPositionUpdate();
-            }
-          }}
-          onBorrowAmountChange={props.onBorrowAmountChange}
-          onCollateralAmountChange={props.onCollateralAmountChange}
-        />
-      </TabPanel>
-
-      {/* Supply Tab */}
-      <TabPanel value={tabValue} index={4} sx={{ bgcolor: theme.palette.background.paper }}>
-        <SupplyTab
-          market={market}
           uniqueKey={uniqueKey}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
