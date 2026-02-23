@@ -160,6 +160,7 @@ export default function EarnPage() {
   const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
     // Filter first
     const filteredVaults = vaults.filter((vault) => {
+      if (vault.address == '0x7f838C4c70B841A4979aF44053c8965f4694F9E5') return false; // TODO add bad addresses filter (bad vault name)
       // Filter by symbol (match any of selected symbols)
       const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset?.symbol);
 
