@@ -1,12 +1,13 @@
 import { formatEther, formatUnits } from 'viem';
 
+export const DECIMALS_SCALE_FACTOR = 3;
 /**
  * Formats a blockchain amount (in wei) to a human-readable format
  * @param amount - Amount in wei as string
  * @param decimals - Number of decimal places to display
  * @returns Formatted amount as string
  */
-export const formatTokenAmount = (amount: string | undefined, decimals: number = 4): string => {
+export const formatTokenAmount = (amount: string | undefined, decimals: number = 4, fractionDigits: number = 6): string => {
   if (!amount) {
     amount = '0';
   }
@@ -16,8 +17,8 @@ export const formatTokenAmount = (amount: string | undefined, decimals: number =
       Number(formatUnits(BigInt(amount), decimals))
         // .toFixed(decimals)
         .toLocaleString('en-US', {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals
+          minimumFractionDigits: fractionDigits,
+          maximumFractionDigits: fractionDigits
         })
     );
 
@@ -74,13 +75,6 @@ export const formatShortUSDS = (value: string | number) => {
   })} B`;
 };
 
-export const formatUSDS = (value: string | number) => {
-  return `${Number(value).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
-};
-
 export const formatLLTV = (lltv: string): number | null => {
   if (!lltv) return null;
   try {
@@ -90,4 +84,18 @@ export const formatLLTV = (lltv: string): number | null => {
     console.error(e);
     return null;
   }
+};
+
+export const formatAssetOutput = (val: string): string => {
+  val = val.replace(/\./g, ',');
+  val = val.replace(/[^0-9,]/g, '');
+  val = val.replace(/,(?=.*,)/g, '');
+
+  return val;
+};
+
+export const normalizePointAmount = (val: string) => val.replace(',', '.');
+
+export const normalizeCommaAmount = (val: string) => {
+  return val.replace(/\s/g, '').replace(/,/g, '');
 };

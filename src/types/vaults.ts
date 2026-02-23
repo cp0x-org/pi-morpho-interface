@@ -16,6 +16,7 @@ export interface CuratorAddresses {
 }
 
 export interface Curators {
+  id: string;
   name: string;
   image: string;
   addresses: CuratorAddresses[];

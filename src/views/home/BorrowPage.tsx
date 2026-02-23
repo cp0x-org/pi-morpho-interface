@@ -31,7 +31,7 @@ import { useAccount } from 'wagmi';
 import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { appoloClients } from '@/api/apollo-client';
-import { formatTokenAmount } from 'utils/formatters';
+import { DECIMALS_SCALE_FACTOR, formatTokenAmount } from 'utils/formatters';
 import { MarketData, MarketInterface } from 'types/market';
 
 type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
@@ -151,8 +151,6 @@ export default function BorrowPage() {
   const getUniqueLoanAssetSymbols = (markets: MarketInterface[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
-      console.log('market');
-      console.log(market.loanAsset);
       if (market.loanAsset?.symbol) {
         symbolsSet.add(market.loanAsset?.symbol);
       }
@@ -250,7 +248,7 @@ export default function BorrowPage() {
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
       {morphoPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
@@ -278,7 +276,11 @@ export default function BorrowPage() {
                       {parseFloat(position.collateralBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.collateralSymbol} />
-                          {Number(formatTokenAmount(position.collateralBalance, position.collateralDecimal)).toFixed(6)}{' '}
+                          {formatTokenAmount(
+                            position.collateralBalance,
+                            position.collateralDecimal,
+                            position.collateralDecimal / DECIMALS_SCALE_FACTOR
+                          )}{' '}
                           {position.collateralSymbol}
                         </Box>
                       ) : (
@@ -289,7 +291,8 @@ export default function BorrowPage() {
                       {parseFloat(position.loanBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={position.loanSymbol} />
-                          {Number(formatTokenAmount(position.loanBalance, position.loanDecimal)).toFixed(6)} {position.loanSymbol}
+                          {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
+                          {position.loanSymbol}
                         </Box>
                       ) : (
                         '-'
@@ -303,12 +306,12 @@ export default function BorrowPage() {
           </TableContainer>
         </Box>
       )}
-      <Typography variant="h4" gutterBottom sx={{ marginBottom: 1 }}>
+      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
         Available Markets
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="loan-asset-symbols-filter"
@@ -345,7 +348,7 @@ export default function BorrowPage() {
             fullWidth
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="collateral-asset-symbols-filter"

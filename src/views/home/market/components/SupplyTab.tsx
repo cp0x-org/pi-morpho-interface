@@ -17,15 +17,15 @@ import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
-interface AddTabProps {
+interface SupplyTabProps {
   market: MarketInterface;
   uniqueKey: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
-
-const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
+// accrualPosition.supplyShares, marketSdk.toSupplyShares/ toSupplyAssets...
+const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
@@ -42,33 +42,33 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
 
   // Use transaction hooks
   const approveTx = useWriteTransaction();
-  const addCollateralTx = useWriteTransaction();
+  const supplyTx = useWriteTransaction();
 
-  // Read user's collateral token balance
-  const { data: collateralBalance } = useReadContract({
+  // Read user's loan token balance
+  const { data: loanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
-    address: market?.collateralAsset.address as `0x${string}` | undefined,
+    address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
     query: {
-      enabled: !!userAddress && !!market?.collateralAsset
+      enabled: !!userAddress && !!market?.loanAsset
     }
   });
 
   // Format balances for display
-  const formattedCollateralBalance = useMemo(() => {
-    if (!collateralBalance) return '0';
-    return formatUnits(collateralBalance as bigint, market?.collateralAsset?.decimals ? market.collateralAsset.decimals : 0);
-  }, [collateralBalance, market]);
+  const formattedLoanBalance = useMemo(() => {
+    if (!loanBalance) return '0';
+    return formatUnits(loanBalance as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
+  }, [loanBalance, market]);
 
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     abi: erc20ABIConfig.abi,
-    address: market?.collateralAsset.address as `0x${string}` | undefined,
+    address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'allowance',
     args: [userAddress as `0x${string}`, chainConfig.contracts.Morpho as `0x${string}`],
     query: {
-      enabled: !!userAddress && !!market?.collateralAsset && !!chainConfig.contracts.Morpho
+      enabled: !!userAddress && !!market?.loanAsset && !!chainConfig.contracts.Morpho
     }
   });
 
@@ -80,7 +80,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
 
     let amount = addAmount ? normalizePointAmount(addAmount) : '0';
 
-    const assetDecimals = market.collateralAsset.decimals;
+    const assetDecimals = market.loanAsset.decimals;
     const amountBN = parseUnits(amount, assetDecimals);
     // const amountFloat = parseFloat(amount);
     // const multiplier = Math.pow(10, assetDecimals);
@@ -112,10 +112,10 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
 
   // Check if approval is needed
   useEffect(() => {
-    if (userAddress && debouncedAddAmount && allowanceData && market?.collateralAsset) {
+    if (userAddress && debouncedAddAmount && allowanceData !== undefined && market?.loanAsset) {
       try {
-        const amountStr = safeDecimal(normalizePointAmount(debouncedAddAmount), market.collateralAsset.decimals);
-        const amountBN = parseUnits(amountStr, market.collateralAsset.decimals);
+        const amountStr = safeDecimal(normalizePointAmount(debouncedAddAmount), market.loanAsset.decimals);
+        const amountBN = parseUnits(amountStr, market.loanAsset.decimals);
         const shouldBeApproved = allowanceData >= amountBN;
 
         // Only update state if it's different to avoid unnecessary re-renders
@@ -133,19 +133,19 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   // Reset transaction states
   const resetTransactionStates = useCallback(() => {
     approveTx.resetTx();
-    addCollateralTx.resetTx();
-  }, [approveTx, addCollateralTx]);
+    supplyTx.resetTx();
+  }, [approveTx, supplyTx]);
 
   useEffect(() => {
-    if (addCollateralTx.txState === 'confirmed') {
+    if (supplyTx.txState === 'confirmed') {
       resetTransactionStates();
     }
-  }, [addCollateralTx, addCollateralTx.txState, resetTransactionStates]);
+  }, [supplyTx, supplyTx.txState, resetTransactionStates]);
 
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const value = (parseFloat(formattedCollateralBalance) * percent) / 100;
+      const value = (parseFloat(formattedLoanBalance) * percent) / 100;
       setAddAmount(value.toString());
       setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
 
@@ -158,7 +158,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       resetTransactionStates();
       setIsApproved(false);
     },
-    [formattedCollateralBalance, addAmount, debouncedAddAmount, resetTransactionStates]
+    [formattedLoanBalance, addAmount, debouncedAddAmount, resetTransactionStates]
   );
 
   // Handle success/error notifications and update states
@@ -172,10 +172,10 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
         refetchAllowance();
       }
 
-      dispatchSuccess(`${market?.collateralAsset.symbol || 'Token'} approved successfully`);
+      dispatchSuccess(`${market?.loanAsset.symbol || 'Token'} approved successfully`);
       console.log('Approval confirmed!');
     } else if (approveTx.txState === 'error') {
-      dispatchError(`Failed to approve ${market?.collateralAsset.symbol || 'token'}`);
+      dispatchError(`Failed to approve ${market?.loanAsset.symbol || 'token'}`);
       setTxError(`Approval failed. Please try again.`);
       console.log(approveTx.txError);
 
@@ -183,10 +183,10 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
-  }, [approveTx.txState, market?.collateralAsset.symbol, refetchAllowance]);
+  }, [approveTx.txState, market?.loanAsset.symbol, refetchAllowance]);
 
   useEffect(() => {
-    if (addCollateralTx.txState === 'confirmed') {
+    if (supplyTx.txState === 'confirmed') {
       // Clear input and update states
       setAddAmount('');
       setInputAmount('');
@@ -194,8 +194,8 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       setActivePercentage(null);
 
       // Show success message
-      dispatchSuccess(`${market?.collateralAsset.symbol || 'Collateral'} added successfully`);
-      console.log('Add collateral confirmed!');
+      dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} supplied successfully`);
+      console.log('Supply confirmed!');
 
       // After successful transaction, we might want to refresh any balances
       if (refetchAllowance) {
@@ -205,16 +205,16 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       if (onSuccess) {
         onSuccess();
       }
-    } else if (addCollateralTx.txState === 'error') {
-      dispatchError(`Failed to add ${market?.collateralAsset.symbol || 'collateral'}`);
-      setTxError(`Add collateral failed. Please try again.`);
-      console.error('Add collateral transaction failed');
-    } else if (addCollateralTx.txState === 'submitted') {
-      console.log('Add collateral transaction submitted');
+    } else if (supplyTx.txState === 'error') {
+      dispatchError(`Failed to supply ${market?.loanAsset.symbol || 'loan'}`);
+      setTxError(`Supply failed. Please try again.`);
+      console.error('Supply transaction failed');
+    } else if (supplyTx.txState === 'submitted') {
+      console.log('Supply transaction submitted');
     }
-  }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess]);
+  }, [supplyTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess]);
 
-  const handleAddCollateral = useCallback(async () => {
+  const handleSupply = useCallback(async () => {
     if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
       return;
     }
@@ -228,18 +228,18 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
 
     // Reset error states if trying again
     console.log('Resetting transaction states...');
-    if (approveTx.txState === 'error' || addCollateralTx.txState === 'error') {
+    if (approveTx.txState === 'error' || supplyTx.txState === 'error') {
       if (approveTx.txState === 'error') {
         approveTx.resetTx();
       }
-      if (addCollateralTx.txState === 'error') {
-        addCollateralTx.resetTx();
+      if (supplyTx.txState === 'error') {
+        supplyTx.resetTx();
       }
     }
 
-    const assetAddress = market.collateralAsset.address;
+    const assetAddress = market.loanAsset.address;
     const marketAddress = chainConfig.contracts.Morpho;
-    const assetDecimals = market.collateralAsset.decimals;
+    const assetDecimals = market.loanAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
     // const amountFloat = parseFloat(normalizePointAmount(debouncedAddAmount));
@@ -268,13 +268,13 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
           args: [marketAddress as `0x${string}`, amountBN]
         });
       }
-      // Step 2: Add collateral if already approved
-      else if (isApproved && market && uniqueKey && userAddress && debouncedAddAmount && !addCollateralTx.isCompleted) {
-        console.log('Initiating add collateral transaction...');
-        await addCollateralTx.sendTransaction({
+      // Step 2: Supply loan asset if already approved
+      else if (isApproved && market && uniqueKey && userAddress && debouncedAddAmount && !supplyTx.isCompleted) {
+        console.log('Initiating supply transaction...');
+        await supplyTx.sendTransaction({
           address: chainConfig.contracts.Morpho,
           abi: morphoContractConfig.abi,
-          functionName: 'supplyCollateral',
+          functionName: 'supply',
           args: [
             {
               loanToken: market.loanAsset.address as `0x${string}`,
@@ -284,29 +284,34 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
               lltv: BigInt(market.lltv)
             },
             amountBN,
+            0n,
             userAddress as `0x${string}`,
             '' as `0x${string}`
           ]
         });
       }
+      // uint256 assets,
+      //   uint256 shares,
+      //   address onBehalf,
+      //   bytes calldata data
     } catch (error) {
       console.error('Transaction failed:', error);
       if (!isApproved) {
-        dispatchError(`Failed to approve ${market.collateralAsset.symbol}`);
+        dispatchError(`Failed to approve ${market.loanAsset.symbol}`);
       } else {
-        dispatchError(`Failed to add ${market.collateralAsset.symbol} collateral`);
+        dispatchError(`Failed to supply ${market.loanAsset.symbol}`);
       }
       resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [userAddress, uniqueKey, debouncedAddAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
+  }, [userAddress, uniqueKey, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
     approveTx.txState === 'submitting' ||
     approveTx.txState === 'submitted' ||
-    addCollateralTx.txState === 'submitting' ||
-    addCollateralTx.txState === 'submitted';
+    supplyTx.txState === 'submitting' ||
+    supplyTx.txState === 'submitted';
 
   // Get button text based on transaction states
   const getButtonText = useCallback(() => {
@@ -326,23 +331,23 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       if (approveTx.txState === 'error') {
         return 'Approval Failed - Try again';
       }
-      return `Approve ${market?.collateralAsset.symbol || ''}`;
+      return `Approve ${market?.loanAsset.symbol || ''}`;
     }
 
-    if (addCollateralTx.txState === 'submitting' || addCollateralTx.txState === 'submitted') {
-      return 'Adding Collateral...';
+    if (supplyTx.txState === 'submitting' || supplyTx.txState === 'submitted') {
+      return 'Supplying...';
     }
-    if (addCollateralTx.txState === 'error') {
-      return 'Add Failed - Try again';
+    if (supplyTx.txState === 'error') {
+      return 'Supply Failed - Try again';
     }
 
-    return 'Add Collateral';
-  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, addCollateralTx.txState, market?.collateralAsset.symbol]);
+    return 'Supply';
+  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, supplyTx.txState, market?.loanAsset.symbol]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
     if (!addAmount || parseFloat(addAmount) <= 0) return true;
-    if (parseFloat(addAmount) > parseFloat(formattedCollateralBalance)) return true;
+    if (parseFloat(addAmount) > parseFloat(formattedLoanBalance)) return true;
 
     // Disable during allowance checking (debounce period)
     if (allowanceChecking) return true;
@@ -351,7 +356,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
     if (isTransactionInProgress) return true;
 
     return false;
-  }, [addAmount, formattedCollateralBalance, allowanceChecking, isTransactionInProgress]);
+  }, [addAmount, formattedLoanBalance, allowanceChecking, isTransactionInProgress]);
 
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
@@ -394,9 +399,9 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Supply Collateral
+              Supply Loan
             </Typography>
-            <Typography variant="body2">Add Collateral Amount:</Typography>
+            <Typography variant="body2">Supply Loan Token Amount:</Typography>
           </Box>
           <Box
             sx={{
@@ -407,14 +412,14 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
               alignItems: 'center'
             }}
           >
-            {market.collateralAsset?.symbol && (
+            {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
                 avatarProps={{ sx: { width: 45, height: 45 } }}
-                symbol={market.collateralAsset?.symbol}
+                symbol={market.loanAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -522,13 +527,13 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
             Balance:
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {formatAssetOutput(Number(formattedCollateralBalance).toFixed(6))} {market.collateralAsset?.symbol || 'N/A'}
+            {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
           </Typography>
         </Box>
         <Button
           variant="contained"
           color="primary"
-          onClick={handleAddCollateral}
+          onClick={handleSupply}
           disabled={isButtonDisabled()}
           sx={{
             height: '58px',
@@ -546,4 +551,4 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   );
 };
 
-export default AddTab;
+export default SupplyTab;

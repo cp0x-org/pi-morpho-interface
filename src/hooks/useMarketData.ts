@@ -62,9 +62,6 @@ export const useMarketData = ({
   });
 
   const oracleAddress = marketConfig?.[2];
-  console.log('marketConfig');
-  console.log(marketConfig);
-
   const {
     data: oraclePrice,
     isLoading: isOpLoading,
@@ -78,11 +75,8 @@ export const useMarketData = ({
     args: [],
     query: { enabled: !!oracleAddress }
   });
-  console.log('oraclePrice');
-  console.log(oraclePrice);
 
   const irmAddress = marketConfig?.[3];
-  console.log(irmAddress);
   const {
     data: rateAtTarget,
     isLoading: isRatLoading,
@@ -96,8 +90,6 @@ export const useMarketData = ({
     args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
     query: { enabled: !!irmAddress && !!userAddress }
   });
-  console.log('irmAddress');
-  console.log(irmAddress);
   const {
     data: marketState,
     isLoading: isMsLoading,
@@ -119,8 +111,6 @@ export const useMarketData = ({
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!userAddress && !!marketItemData }
   });
-  console.log('collateralBalance');
-  console.log(collateralBalance);
   const { data: loanBalance, refetch: refetchLoanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.loanAsset.address as `0x${string}` | undefined,
@@ -128,8 +118,6 @@ export const useMarketData = ({
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!userAddress && !!marketItemData }
   });
-  console.log('loanBalance');
-  console.log(loanBalance);
   const [marketParams, setMarketParams] = useState<MarketParams | null>(null);
   const [market, setMarket] = useState<Market | null>(null);
   const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
@@ -201,8 +189,7 @@ export const useMarketData = ({
     setAccrualPosition(tmpAccrualPosition);
     setIsLoading(false);
   }, [position, marketConfig, oraclePrice, rateAtTarget, marketState, userAddress, marketIdParam]);
-  console.log('accrualPosition');
-  console.log(accrualPosition);
+
   return {
     position,
     marketConfig,

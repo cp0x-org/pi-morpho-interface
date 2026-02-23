@@ -66,6 +66,7 @@ export default function MainCard({
         ':hover': {
           boxShadow: boxShadow ? shadow || defaultShadow : 'inherit'
         },
+        backgroundColor: 'primary.secondary.main',
         ...(typeof sx === 'function' ? sx(theme) : sx || {})
       })}
     >

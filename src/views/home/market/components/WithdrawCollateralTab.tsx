@@ -1,41 +1,56 @@
 import Box from '@mui/material/Box';
-import { InputAdornment, TextField, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import Button from '@mui/material/Button';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition } from '@morpho-org/blue-sdk';
-import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
-import { useDebounce } from 'hooks/useDebounce';
-import { useTheme } from '@mui/material/styles';
+import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
+import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
-import Divider from '@mui/material/Divider';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
-interface BorrowTabProps {
+interface WithdrawTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
+  uniqueKey: string;
   onSuccess?: () => void;
 
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function BorrowTab({ market, accrualPosition, onBorrowAmountChange, onSuccess }: BorrowTabProps) {
+export default function WithdrawCollateralTab({
+  market,
+  accrualPosition,
+  uniqueKey,
+  onCollateralAmountChange,
+  onSuccess
+}: WithdrawTabProps) {
+  // Internal state management
   const theme = useTheme();
-  const [borrowAmount, setBorrowAmount] = useState<string>('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
-  const [txError, setTxError] = useState<string | null>(null);
-
   const { address: userAddress } = useAccount();
   const { config: chainConfig } = useConfigChainId();
+  const [txError, setTxError] = useState<string | null>(null);
+  // Use the custom transaction hook
+  const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
+
+  const formattedWithdrawableCollateral = useMemo(() => {
+    if (!accrualPosition?.withdrawableCollateral) return '0';
+    return formatUnits(
+      accrualPosition?.withdrawableCollateral as bigint,
+      market?.collateralAsset?.decimals ? market.collateralAsset.decimals : 0
+    );
+  }, [accrualPosition, market]);
 
   useEffect(() => {
     if (!market) {
@@ -43,94 +58,63 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       return;
     }
 
-    let amount = borrowAmount ? normalizePointAmount(borrowAmount) : '0';
-    const assetDecimals = market.loanAsset.decimals;
+    let amount = withdrawAmount ? normalizePointAmount(withdrawAmount) : '0';
+
+    const assetDecimals = market.collateralAsset.decimals;
+    const amountBN = parseUnits(amount, assetDecimals);
     // const amountFloat = parseFloat(amount);
     // const multiplier = Math.pow(10, assetDecimals);
     // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    onCollateralAmountChange(-amountBN);
+  }, [withdrawAmount, market]);
 
-    const amountBN = parseUnits(amount, assetDecimals);
-
-    onBorrowAmountChange(amountBN);
-  }, [borrowAmount, market]);
-
-  // Use the transaction hook
-  const borrowTx = useWriteTransaction();
-
-  const formattedMaxBorrowable = useMemo(() => {
-    if (!accrualPosition?.maxBorrowableAssets) return '0';
-
-    return formatUnits(accrualPosition?.maxBorrowableAssets as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
-  }, [accrualPosition, market]);
-
-  const formattedSafeMaxBorrowable = useMemo(() => {
-    if (!accrualPosition?.maxBorrowableAssets) return '0';
-
-    let borrowable = formatUnits(
-      accrualPosition?.maxBorrowableAssets as bigint,
-      market?.loanAsset?.decimals ? market.loanAsset.decimals : 0
-    );
-
-    let safeBorrowable = Number(borrowable) * 0.94; // 6% safety margin
-
-    return safeBorrowable.toFixed(market?.loanAsset?.decimals ? market.loanAsset.decimals / 3 : 6);
-  }, [accrualPosition, market]);
-
-  const handlePercentClick = useCallback(
-    (percent: number) => {
-      const value = (parseFloat(formattedSafeMaxBorrowable) * percent) / 100;
-      setBorrowAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
-
-      // Set active percentage
-      setActivePercentage(percent);
-    },
-    [formattedSafeMaxBorrowable]
-  );
-
-  // Handle transaction state changes
+  // Handle successful transaction completion
   useEffect(() => {
-    if (borrowTx.txState === 'confirmed') {
-      setBorrowAmount('');
-      setInputAmount('');
-      dispatchSuccess(`${market.loanAsset?.symbol || 'Tokens'} borrowed successfully`);
+    if (isCompleted && txState === 'confirmed') {
+      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.collateralAsset.symbol}`);
+      setWithdrawAmount('');
+
+      // Call onSuccess to refresh the position data
       if (onSuccess) {
         onSuccess();
       }
-      borrowTx.resetTx();
-    } else if (borrowTx.txState === 'error') {
-      setTxError(`Transaction failed`);
-      dispatchError(`Cannot borrow ${market.loanAsset?.symbol || 'tokens'}: 'Transaction failed'}`);
-    }
-  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess, borrowTx]);
 
-  // Handle borrow loan asset
-  const handleBorrow = useCallback(async () => {
-    if (!userAddress || !market.uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
+      resetTx();
+    }
+  }, [isCompleted, txState, withdrawAmount, market.collateralAsset.symbol, onSuccess, resetTx]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (txState === 'error' && txRawError) {
+      dispatchError(`Failed to withdraw`);
+      setTxError('Failed to withdraw');
+    }
+  }, [txState, txRawError]);
+
+  // Handle withdraw collateral
+  const handleWithdraw = async () => {
+    if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
       return;
     }
-
-    setTxError(null);
 
     if (!market) {
-      console.error('Market Not Found');
-      setTxError(`Market Not Found`);
+      dispatchError('Market Not Found');
       return;
     }
+    const assetDecimals = market.collateralAsset.decimals;
+    const amountBN = parseUnits(normalizePointAmount(withdrawAmount), assetDecimals);
+    // const amountFloat = parseFloat(normalizePointAmount(withdrawAmount));
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     try {
-      const amountFloat = parseFloat(normalizePointAmount(borrowAmount));
-      const assetDecimals = market.loanAsset.decimals;
-
-      const multiplier = Math.pow(10, assetDecimals);
-      const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-      const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-      await borrowTx.sendTransaction({
+      // Execute transaction using the custom hook
+      await sendTransaction({
         address: chainConfig.contracts.Morpho as `0x${string}`,
         abi: morphoContractConfig.abi,
-        functionName: 'borrow',
+        functionName: 'withdrawCollateral',
         args: [
           {
             loanToken: market.loanAsset.address as `0x${string}`,
@@ -140,19 +124,54 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             lltv: BigInt(market.lltv)
           },
           amountBN,
-          0n,
           userAddress as `0x${string}`,
           userAddress as `0x${string}`
         ]
       });
     } catch (error) {
-      console.error('Error borrowing tokens:', error);
-      setTxError(`Failed to borrow: ${error instanceof Error ? error.message : ''}`);
+      console.error('Error withdrawing collateral:', error);
+      dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
+      setTxError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [userAddress, market, borrowAmount, borrowTx, chainConfig.contracts.Morpho]);
+  };
 
-  // Check if transaction is in progress
-  const isTransactionInProgress = borrowTx.txState === 'submitting' || borrowTx.txState === 'submitted';
+  // Handle percentage button clicks
+  const handlePercentClick = useCallback(
+    (percent: number) => {
+      const decimals = market?.collateralAsset?.decimals || 0;
+      const rawValue = (parseFloat(formattedWithdrawableCollateral) * percent) / 100;
+      const factor = 10 ** decimals;
+      const value = Math.floor(rawValue * factor) / factor;
+
+      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
+      setWithdrawAmount(value.toString());
+      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
+
+      // Set active percentage
+      setActivePercentage(percent);
+    },
+    [formattedWithdrawableCollateral, market?.collateralAsset?.decimals]
+  );
+
+  // Determine if the button should be disabled
+  const isButtonDisabled =
+    !withdrawAmount ||
+    parseFloat(normalizePointAmount(withdrawAmount)) <= 0 ||
+    parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral) ||
+    txState === 'submitting' ||
+    txState === 'submitted';
+
+  // Determine button text based on transaction state
+  const getButtonText = () => {
+    switch (txState) {
+      case 'submitting':
+        return 'Preparing Transaction...';
+      case 'submitted':
+        return 'Withdrawing...';
+      default:
+        return 'Withdraw';
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
@@ -188,9 +207,9 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Borrow
+              Withdraw Collateral
             </Typography>
-            <Typography variant="body2">Borrow Amount:</Typography>
+            <Typography variant="body2">Withdraw Amount:</Typography>
           </Box>
           <Box
             sx={{
@@ -201,14 +220,14 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
               alignItems: 'center'
             }}
           >
-            {market.loanAsset?.symbol && (
+            {market.collateralAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
                 avatarProps={{ sx: { width: 45, height: 45 } }}
-                symbol={market.loanAsset?.symbol}
+                symbol={market.collateralAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -218,14 +237,14 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setBorrowAmount(val);
+            setWithdrawAmount(val);
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
               setActivePercentage(null);
             }
           }}
-          disabled={isTransactionInProgress}
+          disabled={txState === 'submitting' || txState === 'submitted'}
           placeholder="0"
           inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
         />
@@ -240,7 +259,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(25)}
-            disabled={isTransactionInProgress}
+            disabled={txState === 'submitting' || txState === 'submitted'}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -253,7 +272,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(50)}
-            disabled={isTransactionInProgress}
+            disabled={txState === 'submitting' || txState === 'submitted'}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -266,7 +285,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(75)}
-            disabled={isTransactionInProgress}
+            disabled={txState === 'submitting' || txState === 'submitted'}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -279,7 +298,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(100)}
-            disabled={isTransactionInProgress}
+            disabled={txState === 'submitting' || txState === 'submitted'}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -305,57 +324,24 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
         <Box
           sx={{
             display: 'flex',
-            flexDirection: 'column',
+            justifyContent: 'space-between',
             width: '100%',
             backgroundColor: theme.palette.background.paper,
             margin: '10px 0'
           }}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              width: '100%',
-              backgroundColor: theme.palette.background.paper,
-              margin: '10px 0 20px 0'
-            }}
-          >
-            <Typography variant="h4" fontWeight="normal">
-              Max Borrowable:
-            </Typography>
-            <Typography variant="h4" fontWeight="normal">
-              {Number(formattedMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-            </Typography>
-          </Box>
-          <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
-
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              width: '100%',
-              backgroundColor: theme.palette.background.paper,
-              margin: '20px 0 0 0'
-            }}
-          >
-            <Typography variant="h4" fontWeight="normal">
-              Safe Borrowable:
-            </Typography>
-            <Typography variant="h4" fontWeight="normal">
-              {Number(formattedSafeMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-            </Typography>
-          </Box>
+          <Typography variant="h4" fontWeight="normal">
+            Withdrawable:
+          </Typography>
+          <Typography variant="h4" fontWeight="normal">
+            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
+          </Typography>
         </Box>
         <Button
           variant="contained"
           color="primary"
-          onClick={handleBorrow}
-          disabled={
-            !borrowAmount ||
-            parseFloat(normalizePointAmount(borrowAmount)) <= 0 ||
-            parseFloat(normalizePointAmount(borrowAmount)) > parseFloat(formattedSafeMaxBorrowable) ||
-            isTransactionInProgress
-          }
+          onClick={handleWithdraw}
+          disabled={isButtonDisabled}
           sx={{
             height: '58px',
             width: '100%',
@@ -365,7 +351,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             fontWeight: 700
           }}
         >
-          {borrowTx.txState === 'submitting' ? 'Preparing...' : borrowTx.txState === 'submitted' ? 'Borrowing...' : 'Borrow'}
+          {getButtonText()}
         </Button>
       </Box>
     </Box>

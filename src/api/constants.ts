@@ -26,8 +26,16 @@ export const MorphoRequests = {
             id
             network
           }
+          asset {
+            id
+            symbol
+            address
+            decimals
+            name
+          }
           state {
             dailyNetApy
+            totalAssetsUsd
             curators {
               id
               name

@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Typography, TextField, InputAdornment } from '@mui/material';
+import { Typography, useTheme } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
@@ -7,28 +7,38 @@ import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits, parseUnits } from 'viem';
 import { useConfigChainId } from 'hooks/useConfigChainId';
-import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { TokenIcon } from 'components/TokenIcon';
+import { CustomInput } from 'components/CustomInput';
+import Divider from '@mui/material/Divider';
+import { INPUT_DECIMALS } from '@/appconfig';
+import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface RepayTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
+  sdkMarket: Market | null;
   uniqueKey: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBorrowAmountChange, onSuccess }) => {
+const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqueKey, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
+  const theme = useTheme();
   const [repayAmount, setRepayAmount] = useState('');
+  const debouncedRepayAmount = useDebounce(repayAmount, 500);
   const [txError, setTxError] = useState<string | null>(null);
   const [allowanceChecking, setAllowanceChecking] = useState(false);
-  const debouncedRepayAmount = useDebounce(repayAmount, 500);
+
   const [isApproved, setIsApproved] = useState(false);
+  const [activePercentage, setActivePercentage] = useState<number | null>(null);
+  const [inputAmount, setInputAmount] = useState('');
 
   // Hooks
   const { address: userAddress } = useAccount();
@@ -51,9 +61,10 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
 
   // Format balances for display
   const formattedLoanBalance = useMemo(() => {
-    if (!accrualPosition?.borrowAssets) return '0';
-    return formatUnits(accrualPosition?.borrowAssets as bigint, market?.loanAsset?.decimals ? market?.loanAsset?.decimals : 0);
-  }, [accrualPosition?.borrowAssets, market]);
+    // (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+    if (!accrualPosition?.borrowShares || !sdkMarket || !market?.loanAsset?.decimals) return '0';
+    return formatUnits(sdkMarket?.toBorrowAssets(accrualPosition.borrowShares), market?.loanAsset?.decimals);
+  }, [accrualPosition?.borrowShares, market?.loanAsset?.decimals, sdkMarket]);
 
   const formattedUserBalance = useMemo(() => {
     if (!userBalance) return '0';
@@ -72,13 +83,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   });
 
   useEffect(() => {
-    console.log('Add debouncedAmount');
     if (!market) {
       console.log('Market data not available');
       return;
     }
 
-    let amount = debouncedRepayAmount ? debouncedRepayAmount : '0';
+    let amount = repayAmount ? normalizePointAmount(repayAmount) : '0';
 
     const amountFloat = parseFloat(amount);
     const assetDecimals = market.loanAsset.decimals;
@@ -88,10 +98,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     // Calculate amount with decimals
     const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    console.log('Amount:', roundedAmount, 'Wei:', amountBN.toString());
-
     onBorrowAmountChange(-amountBN);
-  }, [debouncedRepayAmount, market]);
+  }, [repayAmount, market]);
 
   // Refetch allowance when input amount changes
   useEffect(() => {
@@ -112,7 +120,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   useEffect(() => {
     if (userAddress && debouncedRepayAmount && allowanceData && market?.loanAsset) {
       try {
-        const amountBigInt = parseUnits(debouncedRepayAmount, market.loanAsset.decimals);
+        let amountBigInt = parseUnits(normalizePointAmount(debouncedRepayAmount), market.loanAsset.decimals);
+
+        if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
+          amountBigInt = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+        }
+
         const shouldBeApproved = allowanceData >= amountBigInt;
 
         // Only update state if it's different to avoid unnecessary re-renders
@@ -135,12 +148,30 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   const handlePercentClick = useCallback(
     (percent: number) => {
       const decimals = market?.loanAsset?.decimals || 0;
-      const rawValue = (parseFloat(formattedLoanBalance) * percent) / 100;
-      const factor = 10 ** decimals;
-      const value = Math.floor(rawValue * factor) / factor;
+      let value: number;
 
-      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
+      if (percent == 100) {
+        if (parseFloat(formattedUserBalance) >= parseFloat(formattedLoanBalance)) {
+          value = parseFloat(formattedLoanBalance);
+        } else {
+          value = parseFloat(formattedUserBalance);
+        }
+      } else {
+        const rawLoanValue = (parseFloat(formattedLoanBalance) * percent) / 100;
+        const userBalanceValue = parseFloat(formattedUserBalance);
+        if (rawLoanValue > userBalanceValue) {
+          value = userBalanceValue;
+        } else {
+          value = rawLoanValue;
+        }
+      }
+
+      let inputDecimals = INPUT_DECIMALS > decimals && decimals != 0 ? decimals : INPUT_DECIMALS;
       setRepayAmount(value.toString());
+      setInputAmount(formatAssetOutput(value.toFixed(inputDecimals).toString()));
+
+      // Set active percentage
+      setActivePercentage(percent);
 
       if (repayAmount !== debouncedRepayAmount) {
         setAllowanceChecking(true);
@@ -175,6 +206,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
       dispatchError(`Failed to approve ${market?.loanAsset.symbol || 'token'}`);
       setTxError(`Approval failed. Please try again.`);
       console.error('Approval transaction failed');
+      console.error(approveTx.txError);
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
@@ -185,10 +217,13 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     if (repayTx.txState === 'confirmed') {
       // Clear input and update states
       setRepayAmount('');
+      setInputAmount('');
+
+      // Set active percentage
+      setActivePercentage(null);
 
       // Show success message
       dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} repaid successfully`);
-      console.log('Repay loan confirmed!');
 
       // After successful transaction, we might want to refresh any balances
       if (refetchAllowance) {
@@ -235,15 +270,27 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
     const assetDecimals = market.loanAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
-    const amountFloat = parseFloat(repayAmount);
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    // const amountFloat = parseFloat(normalizePointAmount(debouncedRepayAmount));
+    // const multiplier = Math.pow(10, assetDecimals);
+    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    //
+    // // Calculate amount with decimals
+    let isShares = false;
+    let sharesAmountBN = BigInt(0);
+    let amountBN = parseUnits(normalizePointAmount(debouncedRepayAmount), assetDecimals);
+    // let amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
-    // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    console.log('Attempting transaction with amount:', roundedAmount, 'Wei:', amountBN.toString());
-    console.log('Current states - Approved:', isApproved);
+    if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
+      let userBalanceLocal = userBalance ? userBalance : 0n;
+      const fullAmountBN = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
+      if (fullAmountBN <= userBalanceLocal) {
+        amountBN = fullAmountBN;
+        sharesAmountBN = accrualPosition.borrowShares;
+        isShares = true;
+      } else {
+        amountBN = userBalanceLocal;
+      }
+    }
 
     try {
       // Step 1: Approve tokens if not already approved
@@ -271,8 +318,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
               irm: market.irmAddress as `0x${string}`,
               lltv: BigInt(market.lltv)
             },
-            amountBN,
-            0n,
+            !isShares ? amountBN : 0n,
+            isShares ? sharesAmountBN : 0n,
             userAddress as `0x${string}`,
             '' as `0x${string}`
           ]
@@ -351,56 +398,215 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, uniqueKey, onBor
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-        <Typography variant="body2" color="text.secondary">
-          Repay Loan {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
-      </Box>
-      <TextField
-        label="Repay Amount"
-        variant="outlined"
-        type="number"
-        fullWidth
-        value={repayAmount}
-        onChange={(e) => setRepayAmount(e.target.value)}
-        disabled={isInputDisabled}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">{market.loanAsset?.symbol || 'N/A'}</InputAdornment>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '20px',
+          bgcolor: theme.palette.background.default,
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
         }}
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="body2" color="text.secondary">
-          Loan: {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+            height: '80px',
+            alignItems: 'center',
+            marginBottom: '20px',
+            marginTop: '15px'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '100%',
+              width: '100%'
+            }}
+          >
+            <Typography variant="body2" color="text.main" fontWeight="bold">
+              Repay Loan
+            </Typography>
+            <Typography variant="body2">Repay Amount:</Typography>
+          </Box>
+          <Box
+            sx={{
+              paddingRight: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {market.loanAsset?.symbol && (
+              <TokenIcon
+                sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
+                avatarProps={{ sx: { width: 45, height: 45 } }}
+                symbol={market.loanAsset?.symbol}
+              />
+            )}
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+          </Box>
+        </Box>
+        <CustomInput
+          autoFocus
+          type="text"
+          fullWidth
+          value={inputAmount}
+          onChange={(e) => {
+            let val = formatAssetOutput(e.target.value);
+            setRepayAmount(val);
+            setInputAmount(val);
+            // Clear active percentage when user manually enters a value
+            if (activePercentage !== null) {
+              setActivePercentage(null);
+            }
+          }}
+          disabled={isInputDisabled}
+          placeholder="0"
+          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+        />
+
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: 2
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(25)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 25 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            25%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(50)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 50 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            50%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(75)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 75 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            75%
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handlePercentClick(100)}
+            disabled={isTransactionInProgress}
+            sx={{
+              flex: 1,
+              bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
+              color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
+            }}
+          >
+            Max
+          </Button>
+        </Box>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="body2" color="text.secondary">
-          Your Balance: {Number(formattedUserBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
-        </Typography>
+      <Box
+        sx={{
+          width: '100%',
+          padding: '25px 20px',
+          border: '1px solid',
+          borderTop: 'none',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderColor: theme.palette.grey[800],
+          mt: '-25px'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            backgroundColor: theme.palette.background.paper,
+            margin: '10px 0'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '10px 0 20px 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              Loan:
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {formatAssetOutput(Number(formattedLoanBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
+            </Typography>
+          </Box>
+          <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
+
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '20px 0 0 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              Your Balance:
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {formatAssetOutput(Number(formattedUserBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleRepay}
+          disabled={isButtonDisabled()}
+          sx={{
+            height: '58px',
+            width: '100%',
+            marginTop: '20px',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontSize: '18px',
+            fontWeight: 700
+          }}
+        >
+          {getButtonText()}
+        </Button>
       </Box>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(25)} disabled={isInputDisabled}>
-          25%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(50)} disabled={isInputDisabled}>
-          50%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(75)} disabled={isInputDisabled}>
-          75%
-        </Button>
-        <Button variant="outlined" size="small" onClick={() => handlePercentClick(100)} disabled={isInputDisabled}>
-          Max
-        </Button>
-      </Box>
-      {txError && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {txError}
-        </Typography>
-      )}
-      <Button variant="contained" color="primary" onClick={handleRepay} disabled={isButtonDisabled()}>
-        {getButtonText()}
-      </Button>
     </Box>
   );
 };
