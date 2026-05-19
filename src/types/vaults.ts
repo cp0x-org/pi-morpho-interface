@@ -24,6 +24,7 @@ export interface Curators {
 
 export interface State {
   dailyNetApy: number;
+  totalAssets: string;
   totalAssetsUsd: number;
   curators: Curators[];
 }

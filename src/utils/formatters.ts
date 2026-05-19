@@ -55,24 +55,24 @@ export const formatShortUSDS = (value: string | number) => {
   // For thousands (1K - 999K)
   if (num < 1000000) {
     return `${(num / 1000).toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1
-    })} K`;
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}K`;
   }
 
   // For millions (1M - 999M)
   if (num < 1000000000) {
     return `${(num / 1000000).toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1
-    })} M`;
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}M`;
   }
 
   // For billions and above
   return `${(num / 1000000000).toLocaleString('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 1
-  })} B`;
+    maximumFractionDigits: 2
+  })}B`;
 };
 
 export const formatLLTV = (lltv: string): number | null => {

@@ -2,7 +2,8 @@ import { gql } from '@apollo/client';
 
 export const ApiUrls = {
   // morphoApi: 'https://api.morpho.org/graphql', // original with restrictions
-  morphoApi: 'https://pi.cp0x.com/proxymorpho/', // cp0x proxy, no restrictions
+  morphoApi: 'https://pi.cp0x.com/proxymorpho/', // cp0x proxy, no restrictions, base
+  // morphoApi: 'https://pi.cp0x.com/proxymorpho/graphql', // cp0x proxy, no restrictions
   ethGraphApi:
     'https://gateway.thegraph.com/api/ae52646e3d3487806a739c9a253a358d/subgraphs/id/8Lz789DP5VKLXumTMTgygjU2xtuzx8AhbaacgN5PYCAs',
   baseGraphApi:
@@ -16,8 +17,8 @@ export const ApiUrls = {
 export const MorphoRequests = {
   //EarnPage
   GetVaultsData: gql`
-    query GetVaults($chainId: Int!) {
-      vaults(where: { chainId_in: [$chainId] }, first: 1000) {
+    query GetVaults {
+      vaults(first: 1000) {
         items {
           address
           symbol
@@ -35,6 +36,7 @@ export const MorphoRequests = {
           }
           state {
             dailyNetApy
+            totalAssets
             totalAssetsUsd
             curators {
               id
@@ -52,13 +54,16 @@ export const MorphoRequests = {
   `,
   // borrowpage
   GetMorphoMarkets: gql`
-    query GetMarkets($chainId: Int!) {
-      markets(where: { chainId_in: [$chainId], whitelisted: true }, first: 1000) {
+    query GetMarkets {
+      markets(where: { whitelisted: true }, first: 1000) {
         items {
           uniqueKey
           lltv
-          oracleAddress
           irmAddress
+          chain {
+            id
+            network
+          }
           loanAsset {
             address
             symbol
@@ -74,14 +79,14 @@ export const MorphoRequests = {
             dailyNetSupplyApy
             fee
             utilization
-            dailyNetBorrowApy
-            dailyNetSupplyApy
-            fee
-            utilization
             netBorrowApy
             avgNetBorrowApy
             avgNetSupplyApy
             netSupplyApy
+            totalLiquidity
+            totalLiquidityUsd
+            size
+            sizeUsd
           }
         }
       }
@@ -89,8 +94,8 @@ export const MorphoRequests = {
   `,
   // vaultdetailpage
   GetMorprhoVaultByAddress: gql`
-    query GetVaultDetails($address: String!, $chain: Int!) {
-      vaults(where: { address_in: [$address], chainId_in: [$chain] }, first: 1) {
+    query GetVaultDetails($address: String!) {
+      vaults(where: { address_in: [$address] }, first: 1) {
         items {
           address
           symbol
@@ -206,122 +211,122 @@ export const MorphoRequests = {
   `
 };
 
-export const SubgraphRequests = {
-  // GetVaults: gql``,
-  // GetMarkets: gql``,
-  // GetVaultByAddress: gql``,
-  // GetMarketByAddress: gql``,
-  GetMetaMorphos: gql`
-    query GetMetaMorphos {
-      metaMorphos(first: 1000) {
-        id
-        name
-        symbol
-        asset {
-          id
-          name
-          symbol
-        }
-        timelock
-      }
-    }
-  `,
-  GetMetamorphoPositions: gql`
-    query GetMetamorphoPositions($account: String!) {
-      metaMorphoPositions(where: { account: $account }) {
-        id
-        lastAssetsBalance
-        lastAssetsBalanceUSD
-        metaMorpho {
-          id
-          name
-          asset {
-            symbol
-            name
-            decimals
-            id
-          }
-          curator {
-            id
-          }
-        }
-      }
-    }
-  `,
-  GetMorphoMarkets: gql`
-    query GetMorphoMarkets {
-      markets(first: 1000) {
-        maximumLTV
-        lltv
-        name
-        rates {
-          rate
-          side
-          type
-        }
-        id
-        irm
-        totalCollateral
-        totalSupply
-        totalSupplyShares
-        totalValueLockedUSD
-        isActive
-        borrowedToken {
-          name
-          symbol
-          id
-          decimals
-        }
-        inputToken {
-          decimals
-          id
-          name
-          symbol
-        }
-        totalBorrow
-      }
-    }
-  `,
-  GetMorphoMarketPositions: gql`
-    query GetMorphoMarketPositions($account: String!) {
-      account(id: $account) {
-        id
-        positionCount
-        openPositionCount
-        positions {
-          id
-          market {
-            id
-            name
-            inputToken {
-              id
-              name
-              symbol
-              decimals
-            }
-            borrowedToken {
-              id
-              decimals
-              name
-              symbol
-            }
-          }
-          asset {
-            id
-            symbol
-            name
-            decimals
-          }
-          side
-          isCollateral
-          balance
-          hashClosed
-          hashOpened
-        }
-      }
-    }
-  `
-};
+// export const SubgraphRequests = {
+//   // GetVaults: gql``,
+//   // GetMarkets: gql``,
+//   // GetVaultByAddress: gql``,
+//   // GetMarketByAddress: gql``,
+//   GetMetaMorphos: gql`
+//     query GetMetaMorphos {
+//       metaMorphos(first: 1000) {
+//         id
+//         name
+//         symbol
+//         asset {
+//           id
+//           name
+//           symbol
+//         }
+//         timelock
+//       }
+//     }
+//   `,
+//   GetMetamorphoPositions: gql`
+//     query GetMetamorphoPositions($account: String!) {
+//       metaMorphoPositions(where: { account: $account }) {
+//         id
+//         lastAssetsBalance
+//         lastAssetsBalanceUSD
+//         metaMorpho {
+//           id
+//           name
+//           asset {
+//             symbol
+//             name
+//             decimals
+//             id
+//           }
+//           curator {
+//             id
+//           }
+//         }
+//       }
+//     }
+//   `,
+//   GetMorphoMarkets: gql`
+//     query GetMorphoMarkets {
+//       markets(first: 1000) {
+//         maximumLTV
+//         lltv
+//         name
+//         rates {
+//           rate
+//           side
+//           type
+//         }
+//         id
+//         irm
+//         totalCollateral
+//         totalSupply
+//         totalSupplyShares
+//         totalValueLockedUSD
+//         isActive
+//         borrowedToken {
+//           name
+//           symbol
+//           id
+//           decimals
+//         }
+//         inputToken {
+//           decimals
+//           id
+//           name
+//           symbol
+//         }
+//         totalBorrow
+//       }
+//     }
+//   `,
+//   GetMorphoMarketPositions: gql`
+//     query GetMorphoMarketPositions($account: String!) {
+//       account(id: $account) {
+//         id
+//         positionCount
+//         openPositionCount
+//         positions {
+//           id
+//           market {
+//             id
+//             name
+//             inputToken {
+//               id
+//               name
+//               symbol
+//               decimals
+//             }
+//             borrowedToken {
+//               id
+//               decimals
+//               name
+//               symbol
+//             }
+//           }
+//           asset {
+//             id
+//             symbol
+//             name
+//             decimals
+//           }
+//           side
+//           isCollateral
+//           balance
+//           hashClosed
+//           hashOpened
+//         }
+//       }
+//     }
+//   `
+// };
 
 // export const MorphoRequests = {
 //   // GetVaultsApy: gql``,

@@ -28,9 +28,9 @@ import {
   Typography
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
-import { formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
+import { formatShortUSDS, shortenAddress } from 'utils/formatters';
 import { CopyableAddress } from 'components/CopyableAddress';
-import { MorphoRequests, SubgraphRequests } from '@/api/constants';
+import { MorphoRequests } from '@/api/constants';
 import { Vault, VaultsData } from 'types/vaults';
 import { appoloClients } from '@/api/apollo-client';
 import { useConfigChainId } from 'hooks/useConfigChainId';
@@ -38,9 +38,16 @@ import { useAccount } from 'wagmi';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
+import { ChainIcon } from 'components/ChainIcon';
 import { formatUnits } from 'viem';
 
-type SortableField = 'name' | 'apy' | 'totalAssetsUsd';
+const toTokenAmount = (raw: string, decimals: number): number =>
+  parseFloat(raw || '0') / Math.pow(10, decimals);
+
+const truncateName = (name: string, maxLen = 20): string =>
+  name && name.length > maxLen ? `${name.slice(0, maxLen)}...` : name;
+
+type SortableField = 'chain' | 'name' | 'apy' | 'totalAssetsUsd';
 type SortOrder = 'asc' | 'desc';
 interface MorphoPositionsData {
   marketId: string;
@@ -60,6 +67,7 @@ export default function EarnPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [networkFilter, setNetworkFilter] = useState<string[]>([]);
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
@@ -88,8 +96,7 @@ export default function EarnPage() {
     error: morphoError,
     data: morphoData
   } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
-    client: appoloClients.morphoApi,
-    variables: { chainId }
+    client: appoloClients.morphoApi
   });
 
   // Combine data from both sources
@@ -142,8 +149,14 @@ export default function EarnPage() {
     setPage(1); // Reset to first page when sorting
   };
 
-  const handleVaultClick = (vaultAddress: string) => {
-    navigate(`/earn/vault/${vaultAddress}`);
+  const handleVaultClick = (vaultAddress: string, chainId?: number) => {
+    navigate(`/earn/vault/${vaultAddress}${chainId ? `?chainId=${chainId}` : ''}`);
+  };
+
+  const getUniqueNetworks = (vaults: Vault[]): string[] => {
+    const set = new Set<string>();
+    vaults.forEach((v) => { if (v.chain?.network) set.add(v.chain.network); });
+    return Array.from(set).sort();
   };
 
   // Get unique symbols from vaults data
@@ -158,30 +171,28 @@ export default function EarnPage() {
   };
 
   const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
-    // Filter first
     const filteredVaults = vaults.filter((vault) => {
-      if (vault.address == '0x7f838C4c70B841A4979aF44053c8965f4694F9E5') return false; // TODO add bad addresses filter (bad vault name)
-      // Filter by symbol (match any of selected symbols)
+      if (vault.address == '0x7f838C4c70B841A4979aF44053c8965f4694F9E5') return false;
+      if (!vault.state) return false;
+      const networkMatch = networkFilter.length === 0 || networkFilter.includes(vault.chain?.network);
       const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset?.symbol);
-
-      // Filter by name (case insensitive)
-      const nameMatch = nameFilter === '' || vault.name.toLowerCase().includes(nameFilter.toLowerCase());
-
-      return symbolMatch && nameMatch;
+      const nameMatch = nameFilter === '' || vault.name?.toLowerCase().includes(nameFilter.toLowerCase());
+      return networkMatch && symbolMatch && nameMatch;
     });
 
-    // Then sort
     return filteredVaults.sort((a, b) => {
-      if (sortField === 'name') {
-        return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+      if (sortField === 'chain') {
+        return sortOrder === 'asc' ? (a.chain?.id ?? 0) - (b.chain?.id ?? 0) : (b.chain?.id ?? 0) - (a.chain?.id ?? 0);
+      } else if (sortField === 'name') {
+        return sortOrder === 'asc' ? (a.name ?? '').localeCompare(b.name ?? '') : (b.name ?? '').localeCompare(a.name ?? '');
       } else if (sortField === 'apy') {
-        const apyA = a.state.dailyNetApy || 0;
-        const apyB = b.state.dailyNetApy || 0;
+        const apyA = a.state?.dailyNetApy ?? 0;
+        const apyB = b.state?.dailyNetApy ?? 0;
         return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       } else if (sortField === 'totalAssetsUsd') {
-        const apyA = a.state.totalAssetsUsd || 0;
-        const apyB = b.state.totalAssetsUsd || 0;
-        return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
+        const totA = a.state?.totalAssetsUsd ?? 0;
+        const totB = b.state?.totalAssetsUsd ?? 0;
+        return sortOrder === 'asc' ? totA - totB : totB - totA;
       }
       return 0;
     });
@@ -221,7 +232,7 @@ export default function EarnPage() {
                   <TableCell>Vault</TableCell>
                   <TableCell>Balance</TableCell>
                   <TableCell>APY</TableCell>
-                  <TableCell>Total Deposits (USD)</TableCell>
+                  <TableCell>Total Deposits</TableCell>
                   <TableCell>Curators</TableCell>
                 </TableRow>
               </TableHead>
@@ -230,13 +241,15 @@ export default function EarnPage() {
                   <TableRow
                     key={position.vault.address}
                     hover
-                    onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
+                    onClick={() => handleVaultClick(position.vault.address)}
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TokenIcon symbol={position.vault.asset?.symbol} />
-                        {position.vault.name || shortenAddress(position.vault.address)}
+                        <Tooltip title={position.vault.name || ''} arrow disableHoverListener={!position.vault.name || position.vault.name.length <= 40}>
+                          <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
+                        </Tooltip>
                       </Box>
                     </TableCell>
 
@@ -245,7 +258,16 @@ export default function EarnPage() {
                       {Number(position.state.assetsUsd).toFixed(2)} $)
                     </TableCell>
                     <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
-                    <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2">
+                          {formatShortUSDS(toTokenAmount(position.vault.state.totalAssets, position.vault.asset.decimals))} {position.vault.asset.symbol}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          ${formatShortUSDS(position.vault.state.totalAssetsUsd || 0)}
+                        </Typography>
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {position.vault.state.curators?.map((curator) => (
@@ -268,6 +290,24 @@ export default function EarnPage() {
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Autocomplete
+            multiple
+            id="network-filter"
+            options={morphoData ? getUniqueNetworks(morphoData.vaults.items) : []}
+            value={networkFilter}
+            onChange={(event, newValue) => {
+              setNetworkFilter(newValue);
+              setPage(1);
+            }}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => <Chip label={option} {...getTagProps({ index })} size="small" />)
+            }
+            renderInput={(params) => <TextField {...params} label="Filter By Network" placeholder="Select networks" size="small" fullWidth />}
+            size="small"
+            fullWidth
+          />
+        </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
@@ -326,6 +366,19 @@ export default function EarnPage() {
         <Table sx={{ minWidth: 650 }} aria-label="vaults table">
           <TableHead>
             <TableRow>
+              <TableCell>
+                <Tooltip title="Click to sort by network" arrow>
+                  <TableSortLabel
+                    active={sortField === 'chain'}
+                    direction={sortField === 'chain' ? sortOrder : 'asc'}
+                    onClick={() => handleRequestSort('chain')}
+                    IconComponent={sortField === 'chain' ? undefined : UnfoldMore}
+                    sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
+                  >
+                    Network
+                  </TableSortLabel>
+                </Tooltip>
+              </TableCell>
               <TableCell>
                 <Tooltip title="Click to sort by name" arrow>
                   <TableSortLabel
@@ -397,10 +450,14 @@ export default function EarnPage() {
           </TableHead>
           <TableBody>
             {paginatedVaults.map((vault) => (
-              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address)} sx={{ cursor: 'pointer' }}>
+              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address, vault.chain?.id)} sx={{ cursor: 'pointer' }}>
+                <TableCell>{vault.chain?.id ? <ChainIcon chainId={vault.chain.id} /> : '-'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TokenIcon symbol={vault.asset?.symbol} /> {vault.name ? vault.name : shortenAddress(vault.address)}
+                    <TokenIcon symbol={vault.asset?.symbol} />
+                    <Tooltip title={vault.name || ''} arrow disableHoverListener={!vault.name || vault.name.length <= 40}>
+                      <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
+                    </Tooltip>
                   </Box>
                 </TableCell>
 
@@ -409,7 +466,7 @@ export default function EarnPage() {
                     address={vault.address}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.address, vault.chain?.id);
                     }}
                   />
                 </TableCell>
@@ -419,12 +476,23 @@ export default function EarnPage() {
                     address={vault.asset?.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address);
+                      handleVaultClick(vault.address, vault.chain?.id);
                     }}
                   />
                 </TableCell>
-                <TableCell>{vault.state.dailyNetApy !== undefined ? `${(vault.state.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
-                <TableCell>$ {vault.state.totalAssetsUsd !== undefined ? `${formatShortUSDS(vault.state.totalAssetsUsd)}` : '-'}</TableCell>
+                <TableCell>{vault.state?.dailyNetApy != null ? `${(vault.state.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                <TableCell>
+                  <Box>
+                    <Typography variant="body2">
+                      {vault.state?.totalAssets != null
+                        ? `${formatShortUSDS(toTokenAmount(vault.state.totalAssets, vault.asset.decimals))} ${vault.asset.symbol}`
+                        : '-'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {vault.state?.totalAssetsUsd != null ? `$${formatShortUSDS(vault.state.totalAssetsUsd)}` : '-'}
+                    </Typography>
+                  </Box>
+                </TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {vault.state.curators?.map((curator) => (
