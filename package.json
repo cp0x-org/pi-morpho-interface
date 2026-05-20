@@ -52,7 +52,7 @@
     "slick-carousel": "1.8.1",
     "stylis-plugin-rtl": "2.1.1",
     "swr": "2.3.3",
-    "viem": "^2.29.3",
+    "viem": "^2.50.4",
     "vite": "6.3.3",
     "wagmi": "^2.15.3",
     "web-vitals": "4.2.4",

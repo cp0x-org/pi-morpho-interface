@@ -31,10 +31,11 @@ import { useAccount } from 'wagmi';
 import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { appoloClients } from '@/api/apollo-client';
-import { DECIMALS_SCALE_FACTOR, formatTokenAmount } from 'utils/formatters';
+import { DECIMALS_SCALE_FACTOR, formatTokenAmount, formatShortUSDS } from 'utils/formatters';
 import { MarketData, MarketInterface } from 'types/market';
+import { ChainIcon } from 'components/ChainIcon';
 
-type SortableField = 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy';
+type SortableField = 'chain' | 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy' | 'sizeUsd' | 'totalLiquidityUsd';
 type SortOrder = 'asc' | 'desc';
 interface MorphoPositionsData {
   marketId: string;
@@ -54,6 +55,7 @@ export default function BorrowPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('borrowApy');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [networkFilter, setNetworkFilter] = useState<string[]>([]);
   const [loanAssetSymbolFilter, setLoanAssetSymbolFilter] = useState<string[]>([]);
   const [collateralAssetSymbolFilter, setCollateralAssetSymbolFilter] = useState<string[]>([]);
 
@@ -97,10 +99,7 @@ export default function BorrowPage() {
     error: graphError,
     data: graphData
   } = useQuery<MarketData>(MorphoRequests.GetMorphoMarkets, {
-    client: appoloClients.morphoApi,
-    variables: {
-      chainId: Number(chain?.id || 1)
-    }
+    client: appoloClients.morphoApi
   });
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
@@ -124,6 +123,9 @@ export default function BorrowPage() {
     setPage(1); // Reset to first page when sorting
   };
 
+  const toTokenAmount = (raw: string, decimals: number): number =>
+    parseFloat(raw || '0') / Math.pow(10, decimals);
+
   // Format LLTV to percentage
   const formatLLTV = (lltv: string) => {
     if (!lltv) return 'N/A';
@@ -145,6 +147,12 @@ export default function BorrowPage() {
       console.error(e);
       return 0;
     }
+  };
+
+  const getUniqueNetworks = (markets: MarketInterface[]): string[] => {
+    const set = new Set<string>();
+    markets.forEach((m) => { if (m.chain?.network) set.add(m.chain.network); });
+    return Array.from(set).sort();
   };
 
   // Get unique loan asset symbols
@@ -177,20 +185,21 @@ export default function BorrowPage() {
         return false;
       }
 
-      // Apply loan asset symbol filter
+      const networkMatch = networkFilter.length === 0 || networkFilter.includes(market.chain?.network);
       const loanAssetMatch = loanAssetSymbolFilter.length === 0 || loanAssetSymbolFilter.includes(market.loanAsset?.symbol);
-
-      // Apply collateral asset symbol filter
       const collateralAssetMatch =
         collateralAssetSymbolFilter.length === 0 || collateralAssetSymbolFilter.includes(market.collateralAsset?.symbol);
 
-      return loanAssetMatch && collateralAssetMatch;
+      return networkMatch && loanAssetMatch && collateralAssetMatch;
     });
 
     return [...filteredMarkets].sort((a, b) => {
       const multiplier = sortOrder === 'asc' ? 1 : -1;
 
       switch (sortField) {
+        case 'chain':
+          return multiplier * (a.chain?.id - b.chain?.id);
+
         case 'loanAsset':
           return multiplier * (a.loanAsset?.symbol || '').localeCompare(b.loanAsset?.symbol || '');
 
@@ -208,6 +217,12 @@ export default function BorrowPage() {
 
         case 'supplyApy':
           return multiplier * ((a.state.netSupplyApy || 0) - (b.state.netSupplyApy || 0));
+
+        case 'sizeUsd':
+          return multiplier * ((a.state.sizeUsd || 0) - (b.state.sizeUsd || 0));
+
+        case 'totalLiquidityUsd':
+          return multiplier * ((a.state.totalLiquidityUsd || 0) - (b.state.totalLiquidityUsd || 0));
 
         default:
           return 0;
@@ -314,6 +329,24 @@ export default function BorrowPage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
+            id="network-filter"
+            options={graphData ? getUniqueNetworks(graphData.markets.items) : []}
+            value={networkFilter}
+            onChange={(event, newValue) => {
+              setNetworkFilter(newValue);
+              setPage(1);
+            }}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => <Chip label={option} {...getTagProps({ index })} size="small" />)
+            }
+            renderInput={(params) => <TextField {...params} label="Filter By Network" placeholder="Select networks" size="small" fullWidth />}
+            size="small"
+            fullWidth
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Autocomplete
+            multiple
             id="loan-asset-symbols-filter"
             options={graphData ? getUniqueLoanAssetSymbols(graphData.markets.items) : []}
             value={loanAssetSymbolFilter}
@@ -393,6 +426,19 @@ export default function BorrowPage() {
         <Table sx={{ minWidth: 650 }} aria-label="markets table">
           <TableHead>
             <TableRow>
+              <TableCell>
+                <Tooltip title="Click to sort by network" arrow>
+                  <TableSortLabel
+                    active={sortField === 'chain'}
+                    direction={sortField === 'chain' ? sortOrder : 'asc'}
+                    onClick={() => handleRequestSort('chain')}
+                    IconComponent={sortField === 'chain' ? undefined : UnfoldMore}
+                    sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
+                  >
+                    Network
+                  </TableSortLabel>
+                </Tooltip>
+              </TableCell>
               <TableCell>
                 <Tooltip title="Click to sort by loan asset" arrow>
                   <TableSortLabel
@@ -483,6 +529,32 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
+              <TableCell>
+                <Tooltip title="Click to sort by market size" arrow>
+                  <TableSortLabel
+                    active={sortField === 'sizeUsd'}
+                    direction={sortField === 'sizeUsd' ? sortOrder : 'desc'}
+                    onClick={() => handleRequestSort('sizeUsd')}
+                    IconComponent={sortField === 'sizeUsd' ? undefined : UnfoldMore}
+                    sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
+                  >
+                    Market Size
+                  </TableSortLabel>
+                </Tooltip>
+              </TableCell>
+              <TableCell>
+                <Tooltip title="Click to sort by total liquidity" arrow>
+                  <TableSortLabel
+                    active={sortField === 'totalLiquidityUsd'}
+                    direction={sortField === 'totalLiquidityUsd' ? sortOrder : 'desc'}
+                    onClick={() => handleRequestSort('totalLiquidityUsd')}
+                    IconComponent={sortField === 'totalLiquidityUsd' ? undefined : UnfoldMore}
+                    sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
+                  >
+                    Total Liquidity
+                  </TableSortLabel>
+                </Tooltip>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -491,8 +563,9 @@ export default function BorrowPage() {
                 key={market.uniqueKey}
                 hover
                 sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/borrow/market/${market.uniqueKey}`)}
+                onClick={() => navigate(`/borrow/market/${market.uniqueKey}?chainId=${market.chain?.id}`)}
               >
+                <TableCell>{market.chain?.id ? <ChainIcon chainId={market.chain.id} /> : '-'}</TableCell>
                 <TableCell>
                   {market.loanAsset?.symbol ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -516,6 +589,26 @@ export default function BorrowPage() {
                 {/*<TableCell>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</TableCell>*/}
                 <TableCell>{((market.state.netBorrowApy || 0) * 100).toFixed(2)}%</TableCell>
                 <TableCell>{((market.state.netSupplyApy || 0) * 100).toFixed(2)}%</TableCell>
+                <TableCell>
+                  <Box>
+                    <Typography variant="body2">
+                      {formatShortUSDS(toTokenAmount(market.state.size, market.loanAsset.decimals))} {market.loanAsset.symbol}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ${formatShortUSDS(market.state.sizeUsd || 0)}
+                    </Typography>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Box>
+                    <Typography variant="body2">
+                      {formatShortUSDS(toTokenAmount(market.state.totalLiquidity, market.loanAsset.decimals))} {market.loanAsset.symbol}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ${formatShortUSDS(market.state.totalLiquidityUsd || 0)}
+                    </Typography>
+                  </Box>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

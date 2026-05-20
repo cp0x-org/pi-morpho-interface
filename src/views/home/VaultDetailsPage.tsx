@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Grid, Tabs, Tab, Tooltip, IconButton, Stack, useTheme, Card } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { VaultsData } from 'types/vaults';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
@@ -12,7 +12,10 @@ import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
 import SubCard from 'ui-component/cards/SubCard';
-import { useAccount, useChainId, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
+import { dispatchInfo, dispatchSuccess, dispatchError } from 'utils/snackbar';
+import { getChainName } from 'utils/chains';
+import { useSearchParams } from 'react-router-dom';
 import { formatShortUSDS } from 'utils/formatters';
 import { TokenIcon } from 'components/TokenIcon';
 import { vaultConfig } from '@/appconfig/abi/Vault';
@@ -21,15 +24,31 @@ import TabPanel from './components/TabPanel';
 
 export default function VaultDetailsPage() {
   const theme = useTheme();
-  const chainId = useChainId();
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
+  const [searchParams] = useSearchParams();
+  const targetChainId = Number(searchParams.get('chainId')) || undefined;
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { address: userAddress } = useAccount();
+  const { address: userAddress, chainId: currentChainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+
+  useEffect(() => {
+    if (targetChainId && currentChainId !== targetChainId) {
+      const networkName = getChainName(targetChainId);
+      dispatchInfo(`Switching network to ${networkName}...`);
+      switchChain(
+        { chainId: targetChainId },
+        {
+          onSuccess: () => dispatchSuccess(`Switched to ${networkName}`),
+          onError: (err) => dispatchError(`Failed to switch to ${networkName}: ${err.message}`)
+        }
+      );
+    }
+  }, [targetChainId, currentChainId]);
 
   const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
-    variables: { address: vaultAddress, chain: chainId },
+    variables: { address: vaultAddress },
     client: appoloClients.morphoApi
   });
 

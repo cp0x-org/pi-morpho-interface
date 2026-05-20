@@ -1,6 +1,20 @@
 // import { http, createConfig } from 'wagmi'
 // import { mainnet, sepolia, Chain } from 'wagmi/chains';
-import { mainnet, base, polygon, unichain, Chain } from 'wagmi/chains';
+import {
+  mainnet,
+  base,
+  polygon,
+  unichain,
+  arbitrum,
+  optimism,
+  worldchain,
+  hyperEvm,
+  katana,
+  monad,
+  stable,
+  tempo,
+  Chain
+} from 'wagmi/chains';
 // import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
@@ -87,7 +101,7 @@ export const config = getDefaultConfig({
   appName: 'Morpho Interface',
   projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
   // chains: [mainnet, sepolia, mainTest],
-  chains: [mainnetCustom, baseCustom, polygonCustom],
+  chains: [mainnetCustom, baseCustom, polygonCustom, unichain, arbitrum, optimism, worldchain, hyperEvm, katana, monad, stable, tempo],
   // chains: [mainnet, mainAnvil, mainTest],
   ssr: false
 });

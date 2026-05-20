@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card } from '@mui/material';
@@ -6,7 +6,7 @@ import Grid from '@mui/material/Grid';
 
 import { formatLLTV, formatShortUSDS } from '@/utils/formatters';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
 import { MarketData } from 'types/market';
 import ActionFormsSecondary from 'views/home/market/ActionFormsSecondary';
@@ -15,7 +15,9 @@ import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 import { useFuturePosition } from 'hooks/useFuturePosition';
-import { useAccount } from 'wagmi';
+import { useAccount, useSwitchChain } from 'wagmi';
+import { dispatchInfo, dispatchSuccess, dispatchError } from 'utils/snackbar';
+import { getChainName } from 'utils/chains';
 import SubCard from 'ui-component/cards/SubCard';
 import { TokenIcon } from 'components/TokenIcon';
 import { ArrowRightAlt } from '@mui/icons-material';
@@ -25,9 +27,26 @@ export default function MarketDetailPage() {
   const theme = useTheme();
 
   const { uniqueKey } = useParams<{ uniqueKey: string }>();
+  const [searchParams] = useSearchParams();
+  const targetChainId = Number(searchParams.get('chainId')) || undefined;
   // const navigate = useNavigate();
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { address: userAddress } = useAccount();
+  const { address: userAddress, chainId: currentChainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+
+  useEffect(() => {
+    if (targetChainId && currentChainId !== targetChainId) {
+      const networkName = getChainName(targetChainId);
+      dispatchInfo(`Switching network to ${networkName}...`);
+      switchChain(
+        { chainId: targetChainId },
+        {
+          onSuccess: () => dispatchSuccess(`Switched to ${networkName}`),
+          onError: (err) => dispatchError(`Failed to switch to ${networkName}: ${err.message}`)
+        }
+      );
+    }
+  }, [targetChainId, currentChainId]);
   const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
   const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
 

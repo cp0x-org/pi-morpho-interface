@@ -61,6 +61,7 @@ export interface VaultPositionState {
 }
 
 export interface VaultState {
+  totalAssets: string;
   totalAssetsUsd: string;
   avgNetApy: string;
   curators: VaultCurator[];
