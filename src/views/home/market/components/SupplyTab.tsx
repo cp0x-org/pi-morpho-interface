@@ -19,13 +19,13 @@ import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface SupplyTabProps {
   market: MarketInterface;
-  uniqueKey: string;
+  marketId: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 // accrualPosition.supplyShares, marketSdk.toSupplyShares/ toSupplyAssets...
-const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
+const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
@@ -215,7 +215,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollate
   }, [supplyTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess]);
 
   const handleSupply = useCallback(async () => {
-    if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
+    if (!userAddress || !marketId || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
       return;
     }
 
@@ -269,7 +269,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollate
         });
       }
       // Step 2: Supply loan asset if already approved
-      else if (isApproved && market && uniqueKey && userAddress && debouncedAddAmount && !supplyTx.isCompleted) {
+      else if (isApproved && market && marketId && userAddress && debouncedAddAmount && !supplyTx.isCompleted) {
         console.log('Initiating supply transaction...');
         await supplyTx.sendTransaction({
           address: chainConfig.contracts.Morpho,
@@ -304,7 +304,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, uniqueKey, onSuccess, onCollate
       resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [userAddress, uniqueKey, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates]);
+  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =

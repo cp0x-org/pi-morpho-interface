@@ -60,7 +60,7 @@ export default function DashboardPage() {
 
     return morphoPositionsData.userByAddress.marketPositions.map((position) => {
       return {
-        marketId: position.market.uniqueKey,
+        marketId: position.market.marketId,
         collateralSymbol: position.market.collateralAsset.symbol,
         loanSymbol: position.market.loanAsset.symbol,
         collateralBalance: position.state.collateral || '0',

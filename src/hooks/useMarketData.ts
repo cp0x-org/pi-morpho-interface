@@ -14,10 +14,10 @@ import { isMarketId } from '@morpho-org/blue-sdk/lib/types';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 
 export const useMarketData = ({
-  uniqueKey,
+  marketId,
   marketItemData
 }: {
-  uniqueKey?: string;
+  marketId?: string;
   marketItemData?: {
     collateralAsset: { address: string };
     loanAsset: { address: string };
@@ -27,11 +27,11 @@ export const useMarketData = ({
   const { config: chainConfig, chainId } = useConfigChainId();
 
   const marketIdParam = useMemo(() => {
-    if (uniqueKey && isMarketId(uniqueKey)) {
-      return uniqueKey as MarketId;
+    if (marketId && isMarketId(marketId)) {
+      return marketId as MarketId;
     }
     return undefined;
-  }, [uniqueKey]);
+  }, [marketId]);
 
   const {
     data: position,
@@ -43,8 +43,8 @@ export const useMarketData = ({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
     functionName: 'position',
-    args: [uniqueKey as `0x${string}`, userAddress as `0x${string}`],
-    query: { enabled: !!uniqueKey }
+    args: [marketId as `0x${string}`, userAddress as `0x${string}`],
+    query: { enabled: !!marketId }
   });
 
   const {
@@ -57,8 +57,8 @@ export const useMarketData = ({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
     functionName: 'idToMarketParams',
-    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
-    query: { enabled: !!uniqueKey }
+    args: marketId ? [marketId as `0x${string}`] : undefined,
+    query: { enabled: !!marketId }
   });
 
   const oracleAddress = marketConfig?.[2];
@@ -87,7 +87,7 @@ export const useMarketData = ({
     abi: curveIrmConfig.abi,
     address: irmAddress ?? '0x0000000000000000000000000000000000000000',
     functionName: 'rateAtTarget',
-    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
+    args: marketId ? [marketId as `0x${string}`] : undefined,
     query: { enabled: !!irmAddress && !!userAddress }
   });
   const {
@@ -100,8 +100,8 @@ export const useMarketData = ({
     abi: morphoContractConfig.abi,
     address: chainConfig.contracts.Morpho,
     functionName: 'market',
-    args: uniqueKey ? [uniqueKey as `0x${string}`] : undefined,
-    query: { enabled: !!uniqueKey }
+    args: marketId ? [marketId as `0x${string}`] : undefined,
+    query: { enabled: !!marketId }
   });
 
   const { data: collateralBalance, refetch: refetchCollateralBalance } = useReadContract({

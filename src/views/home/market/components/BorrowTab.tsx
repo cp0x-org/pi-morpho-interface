@@ -107,7 +107,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
 
   // Handle borrow loan asset
   const handleBorrow = useCallback(async () => {
-    if (!userAddress || !market.uniqueKey || !borrowAmount || parseFloat(borrowAmount) <= 0) {
+    if (!userAddress || !market.marketId || !borrowAmount || parseFloat(borrowAmount) <= 0) {
       return;
     }
 

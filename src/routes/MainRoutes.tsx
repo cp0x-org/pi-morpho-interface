@@ -33,7 +33,7 @@ const MainRoutes = {
       element: <BorrowPage />
     },
     {
-      path: '/borrow/market/:uniqueKey',
+      path: '/borrow/market/:marketId',
       element: <MarketDetailPage />
     }
   ]

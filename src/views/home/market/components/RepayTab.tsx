@@ -22,13 +22,13 @@ interface RepayTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
   sdkMarket: Market | null;
-  uniqueKey: string;
+  marketId: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqueKey, onBorrowAmountChange, onSuccess }) => {
+const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marketId, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
   const theme = useTheme();
   const [repayAmount, setRepayAmount] = useState('');
@@ -244,7 +244,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
 
   // Handle repay loan
   const handleRepay = useCallback(async () => {
-    if (!userAddress || !uniqueKey || !repayAmount || parseFloat(repayAmount) <= 0) {
+    if (!userAddress || !marketId || !repayAmount || parseFloat(repayAmount) <= 0) {
       return;
     }
 
@@ -304,7 +304,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
         });
       }
       // Step 2: Repay loan if already approved
-      else if (isApproved && market && uniqueKey && userAddress && repayAmount && !repayTx.isCompleted) {
+      else if (isApproved && market && marketId && userAddress && repayAmount && !repayTx.isCompleted) {
         console.log('Initiating repay loan transaction...');
         await repayTx.sendTransaction({
           address: chainConfig.contracts.Morpho,
@@ -335,7 +335,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, uniqu
       resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [userAddress, uniqueKey, repayAmount, market, isApproved, chainConfig, approveTx, repayTx, resetTransactionStates]);
+  }, [userAddress, marketId, repayAmount, market, isApproved, chainConfig, approveTx, repayTx, resetTransactionStates]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =

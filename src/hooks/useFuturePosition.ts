@@ -6,23 +6,23 @@ export const useFuturePosition = ({
   currentPosition,
   market,
   userAddress,
-  uniqueKey,
+  marketId: marketIdProp,
   diffBorrowAmount,
   diffCollateralAmount
 }: {
   currentPosition: AccrualPosition | null;
   market: Market | null;
-  uniqueKey?: string;
+  marketId?: string;
   userAddress: `0x${string}` | undefined;
   diffBorrowAmount?: bigint;
   diffCollateralAmount?: bigint;
 }) => {
   const marketId = useMemo(() => {
-    if (uniqueKey && isMarketId(uniqueKey)) {
-      return uniqueKey as MarketId;
+    if (marketIdProp && isMarketId(marketIdProp)) {
+      return marketIdProp as MarketId;
     }
     return undefined;
-  }, [uniqueKey]);
+  }, [marketIdProp]);
   return useMemo(() => {
     if (!currentPosition || !market || !marketId || !userAddress) {
       return { futurePosition: null, isChanged: false };
