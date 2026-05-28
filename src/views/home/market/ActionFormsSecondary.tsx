@@ -11,7 +11,7 @@ interface MarketProps {
   accrualPosition: AccrualPosition | null;
   sdkMarket: Market | null;
   market?: MarketInterface;
-  uniqueKey?: string;
+  marketId?: string;
   onPositionUpdate?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onLoanAmountChange: (amount: bigint) => void;
@@ -19,7 +19,7 @@ interface MarketProps {
 
 export default function ActionFormsSecondary(props: MarketProps) {
   const theme = useTheme();
-  const uniqueKey = props.uniqueKey;
+  const marketId = props.marketId;
   const accrualPosition = props.accrualPosition;
   const sdkMarket = props.sdkMarket;
   const market = props.market;
@@ -35,7 +35,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
     props.onLoanAmountChange(0n);
   };
 
-  if (!uniqueKey || !market) {
+  if (!marketId || !market) {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography variant="h5" color="error">
@@ -55,7 +55,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
     );
   }
 
-  if (!market || !uniqueKey) {
+  if (!market || !marketId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress />
@@ -87,7 +87,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
       <TabPanel value={tabValue} index={0} sx={{ bgcolor: theme.palette.background.paper }}>
         <SupplyTab
           market={market}
-          uniqueKey={uniqueKey}
+          marketId={marketId}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);
@@ -106,7 +106,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
           market={market}
           sdkMarket={sdkMarket}
           accrualPosition={accrualPosition}
-          uniqueKey={uniqueKey}
+          marketId={marketId}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
             setTxError(null);

@@ -12,7 +12,7 @@ export interface MorphoAsset {
  * Market data in a user's market position
  */
 export interface UserMarket {
-  uniqueKey: string;
+  marketId: string;
   collateralAsset: MorphoAsset;
   loanAsset: MorphoAsset;
   state: MarketState;

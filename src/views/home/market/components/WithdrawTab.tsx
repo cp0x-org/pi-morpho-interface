@@ -20,14 +20,14 @@ interface WithdrawTabProps {
   market: MarketInterface;
   sdkMarket: Market | null;
   accrualPosition: AccrualPosition | null;
-  uniqueKey: string;
+  marketId: string;
   onSuccess?: () => void;
 
   onBorrowAmountChange: (amount: bigint) => void;
   onLoanAmountChange: (amount: bigint) => void;
 }
 
-export default function WithdrawTab({ market, sdkMarket, accrualPosition, uniqueKey, onLoanAmountChange, onSuccess }: WithdrawTabProps) {
+export default function WithdrawTab({ market, sdkMarket, accrualPosition, marketId, onLoanAmountChange, onSuccess }: WithdrawTabProps) {
   // Internal state management
   const theme = useTheme();
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -88,7 +88,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, unique
 
   // Handle withdraw loan
   const handleWithdraw = async () => {
-    if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
+    if (!userAddress || !marketId || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
       return;
     }
 

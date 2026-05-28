@@ -55,9 +55,9 @@ export const MorphoRequests = {
   // borrowpage
   GetMorphoMarkets: gql`
     query GetMarkets {
-      markets(where: { whitelisted: true }, first: 1000) {
+      markets(where: { listed: true }, first: 1000) {
         items {
-          uniqueKey
+          marketId
           lltv
           irmAddress
           chain {
@@ -100,7 +100,7 @@ export const MorphoRequests = {
           address
           symbol
           name
-          whitelisted
+          listed
           asset {
             id
             symbol
@@ -121,10 +121,10 @@ export const MorphoRequests = {
   `,
   // marketDetailPage
   GetMorphoMarketByAddress: gql`
-    query GetMarketByAddress($uniqueKey: String!) {
-      markets(where: { uniqueKey_in: [$uniqueKey] }, first: 1) {
+    query GetMarketByAddress($marketId: String!) {
+      markets(where: { uniqueKey_in: [$marketId] }, first: 1) {
         items {
-          uniqueKey
+          marketId
           lltv
           oracleAddress
           irmAddress
@@ -157,7 +157,7 @@ export const MorphoRequests = {
         address
         marketPositions {
           market {
-            uniqueKey
+            marketId
             collateralAsset {
               address
               name

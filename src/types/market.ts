@@ -25,7 +25,7 @@ export interface MarketChain {
 
 export interface MarketInterface {
   price: string;
-  uniqueKey: string;
+  marketId: string;
   lltv: string;
   oracleAddress: string;
   irmAddress: string;

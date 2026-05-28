@@ -19,7 +19,7 @@ import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 interface WithdrawTabProps {
   market: MarketInterface;
   accrualPosition: AccrualPosition | null;
-  uniqueKey: string;
+  marketId: string;
   onSuccess?: () => void;
 
   onBorrowAmountChange: (amount: bigint) => void;
@@ -29,7 +29,7 @@ interface WithdrawTabProps {
 export default function WithdrawCollateralTab({
   market,
   accrualPosition,
-  uniqueKey,
+  marketId,
   onCollateralAmountChange,
   onSuccess
 }: WithdrawTabProps) {
@@ -94,7 +94,7 @@ export default function WithdrawCollateralTab({
 
   // Handle withdraw collateral
   const handleWithdraw = async () => {
-    if (!userAddress || !uniqueKey || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
+    if (!userAddress || !marketId || !withdrawAmount || parseFloat(normalizePointAmount(withdrawAmount)) <= 0) {
       return;
     }
 

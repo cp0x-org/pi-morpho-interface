@@ -26,7 +26,7 @@ import ActionFormsMain from 'views/home/market/ActionFormsMain';
 export default function MarketDetailPage() {
   const theme = useTheme();
 
-  const { uniqueKey } = useParams<{ uniqueKey: string }>();
+  const { marketId } = useParams<{ marketId: string }>();
   const [searchParams] = useSearchParams();
   const targetChainId = Number(searchParams.get('chainId')) || undefined;
   // const navigate = useNavigate();
@@ -51,13 +51,13 @@ export default function MarketDetailPage() {
   const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
 
   const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
-    variables: { uniqueKey: uniqueKey },
-    skip: !uniqueKey,
+    variables: { marketId: marketId },
+    skip: !marketId,
     client: appoloClients.morphoApi
   });
 
   const { accrualPosition, market, refreshPositionData } = useMarketData({
-    uniqueKey,
+    marketId,
     marketItemData: data?.markets?.items[0]
   });
 
@@ -65,7 +65,7 @@ export default function MarketDetailPage() {
     currentPosition: accrualPosition,
     market,
     userAddress,
-    uniqueKey,
+    marketId,
     diffBorrowAmount,
     diffCollateralAmount
   });
@@ -409,7 +409,7 @@ export default function MarketDetailPage() {
             <ActionFormsMain
               market={marketData}
               sdkMarket={market}
-              uniqueKey={uniqueKey}
+              marketId={marketId}
               accrualPosition={accrualPosition}
               onPositionUpdate={refreshPositionData}
               onBorrowAmountChange={onBorrowAmountChange}
@@ -420,7 +420,7 @@ export default function MarketDetailPage() {
             <ActionFormsSecondary
               market={marketData}
               sdkMarket={market}
-              uniqueKey={uniqueKey}
+              marketId={marketId}
               accrualPosition={accrualPosition}
               onPositionUpdate={refreshPositionData}
               onBorrowAmountChange={onBorrowAmountChange}

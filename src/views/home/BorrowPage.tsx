@@ -80,7 +80,7 @@ export default function BorrowPage() {
 
     return morphoPositionsData.userByAddress.marketPositions.map((position) => {
       return {
-        marketId: position.market.uniqueKey,
+        marketId: position.market.marketId,
         collateralSymbol: position.market.collateralAsset?.symbol,
         loanSymbol: position.market.loanAsset?.symbol,
         collateralBalance: position.state.collateral || '0',
@@ -560,10 +560,10 @@ export default function BorrowPage() {
           <TableBody>
             {paginatedMarkets.map((market) => (
               <TableRow
-                key={market.uniqueKey}
+                key={market.marketId}
                 hover
                 sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/borrow/market/${market.uniqueKey}?chainId=${market.chain?.id}`)}
+                onClick={() => navigate(`/borrow/market/${market.marketId}?chainId=${market.chain?.id}`)}
               >
                 <TableCell>{market.chain?.id ? <ChainIcon chainId={market.chain.id} /> : '-'}</TableCell>
                 <TableCell>

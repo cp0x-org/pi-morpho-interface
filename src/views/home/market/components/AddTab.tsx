@@ -19,13 +19,13 @@ import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 
 interface AddTabProps {
   market: MarketInterface;
-  uniqueKey: string;
+  marketId: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmountChange }) => {
+const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
@@ -215,7 +215,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
   }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess]);
 
   const handleAddCollateral = useCallback(async () => {
-    if (!userAddress || !uniqueKey || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
+    if (!userAddress || !marketId || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
       return;
     }
 
@@ -269,7 +269,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
         });
       }
       // Step 2: Add collateral if already approved
-      else if (isApproved && market && uniqueKey && userAddress && debouncedAddAmount && !addCollateralTx.isCompleted) {
+      else if (isApproved && market && marketId && userAddress && debouncedAddAmount && !addCollateralTx.isCompleted) {
         console.log('Initiating add collateral transaction...');
         await addCollateralTx.sendTransaction({
           address: chainConfig.contracts.Morpho,
@@ -299,7 +299,7 @@ const AddTab: FC<AddTabProps> = ({ market, uniqueKey, onSuccess, onCollateralAmo
       resetTransactionStates();
       setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [userAddress, uniqueKey, debouncedAddAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
+  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
