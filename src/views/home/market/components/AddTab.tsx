@@ -89,7 +89,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
     onCollateralAmountChange(amountBN);
-  }, [addAmount, market, onCollateralAmountChange]);
+  }, [addAmount, market]);
 
   useEffect(() => {
     if (debouncedAddAmount && refetchAllowance) {

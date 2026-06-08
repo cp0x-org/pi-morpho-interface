@@ -1,12 +1,12 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card } from '@mui/material';
+import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card, Divider } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
 import { formatLLTV, formatShortUSDS } from '@/utils/formatters';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
 import { MarketData } from 'types/market';
 import ActionFormsSecondary from 'views/home/market/ActionFormsSecondary';
@@ -18,7 +18,6 @@ import { useFuturePosition } from 'hooks/useFuturePosition';
 import { useAccount, useSwitchChain } from 'wagmi';
 import { dispatchInfo, dispatchSuccess, dispatchError } from 'utils/snackbar';
 import { getChainName } from 'utils/chains';
-import SubCard from 'ui-component/cards/SubCard';
 import { TokenIcon } from 'components/TokenIcon';
 import { ArrowRightAlt } from '@mui/icons-material';
 import ActionFormsMain from 'views/home/market/ActionFormsMain';
@@ -29,7 +28,6 @@ export default function MarketDetailPage() {
   const { marketId } = useParams<{ marketId: string }>();
   const [searchParams] = useSearchParams();
   const targetChainId = Number(searchParams.get('chainId')) || undefined;
-  // const navigate = useNavigate();
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
   const { address: userAddress, chainId: currentChainId } = useAccount();
   const { switchChain } = useSwitchChain();
@@ -47,6 +45,7 @@ export default function MarketDetailPage() {
       );
     }
   }, [targetChainId, currentChainId]);
+
   const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
   const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
 
@@ -70,13 +69,13 @@ export default function MarketDetailPage() {
     diffCollateralAmount
   });
 
-  const onBorrowAmountChange = (amount: bigint) => {
+  const onBorrowAmountChange = useCallback((amount: bigint) => {
     setDiffBorrowAmount(amount);
-  };
+  }, []);
 
-  const onCollateralAmountChange = (amount: bigint) => {
+  const onCollateralAmountChange = useCallback((amount: bigint) => {
     setDiffCollateralAmount(amount);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -96,16 +95,9 @@ export default function MarketDetailPage() {
 
   const marketData = data?.markets?.items?.[0];
 
-  // const handleBack = () => {
-  //   navigate('/borrow');
-  // };
-
   if (!marketData) {
     return (
       <Box sx={{ padding: 2 }}>
-        {/*<Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>*/}
-        {/*  Back to Borrow*/}
-        {/*</Button>*/}
         <Typography variant="h5" color="error">
           Market not found
         </Typography>
@@ -115,144 +107,136 @@ export default function MarketDetailPage() {
 
   return (
     <Box sx={{ padding: '16px 0px' }}>
-      <Paper sx={{ padding: 0, marginBottom: 3 }}>
-        <Grid container spacing={12.5}>
-          <Grid size={{ xs: 12, md: 7 }}>
-            <Typography variant="h4" gutterBottom sx={{ marginBottom: '40px' }}>
-              Market Details
-            </Typography>
+      {/* Market header — compact top bar */}
+      <Paper sx={{ padding: '20px 24px', marginBottom: 3 }}>
+        <Grid container alignItems="center" spacing={3}>
+          {/* Token pair */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {marketData.collateralAsset?.symbol && (
+                  <TokenIcon
+                    sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', zIndex: 1 }}
+                    avatarProps={{ sx: { width: 38, height: 38 } }}
+                    symbol={marketData.collateralAsset?.symbol}
+                  />
+                )}
+                {marketData.loanAsset?.symbol && (
+                  <TokenIcon
+                    sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', ml: '-18px', zIndex: 2 }}
+                    avatarProps={{ sx: { width: 38, height: 38 } }}
+                    symbol={marketData.loanAsset?.symbol}
+                  />
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
+                  {marketData.collateralAsset?.symbol || 'N/A'}
+                </Typography>
+                {marketData.collateralAsset?.address && (
+                  <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                    <IconButton onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')} sx={{ padding: '3px' }}>
+                      <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Typography variant="h3" sx={{ display: 'inline', mx: 1, color: theme.palette.grey[500] }}>
+                  /
+                </Typography>
+                <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
+                  {marketData.loanAsset?.symbol || 'N/A'}
+                </Typography>
+                {marketData.loanAsset?.address && (
+                  <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                    <IconButton onClick={() => copyToClipboard(marketData.loanAsset?.address || '')} sx={{ padding: '3px' }}>
+                      <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </Box>
+          </Grid>
 
-            <Grid container sx={{ width: '100%', marginBottom: '40px', paddingTop: '20px' }}>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', height: '70px' }}>
-                  {marketData.collateralAsset?.symbol && (
-                    <TokenIcon
-                      sx={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', zIndex: 1 }}
-                      avatarProps={{ sx: { width: 45, height: 45 } }}
-                      symbol={marketData.collateralAsset?.symbol}
-                    />
-                  )}
-                  {marketData.loanAsset?.symbol && (
-                    <TokenIcon
-                      sx={{
-                        width: '50px',
-                        height: '50px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        ml: '-30px', // перекрытие
-                        zIndex: 2
-                      }}
-                      avatarProps={{ sx: { width: 45, height: 45 } }}
-                      symbol={marketData.loanAsset?.symbol}
-                    />
-                  )}
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, md: 10 }}>
-                {/*<Typography*/}
-                {/*  variant="h4"*/}
-                {/*  component="span"*/}
-                {/*  sx={{*/}
-                {/*    display: 'block',*/}
-                {/*    width: '100%',*/}
-                {/*    height: '50%',*/}
-                {/*    fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif',*/}
-                {/*    fontSize: '16px',*/}
-                {/*    color: theme.palette.grey[500]*/}
-                {/*  }}*/}
-                {/*>*/}
-                {/*  Market Details*/}
-                {/*</Typography>*/}
-                <Box display="flex" alignItems="center">
-                  <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
-                    {marketData.collateralAsset?.symbol || 'N/A'}
+          {/* Market stats */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Grid container spacing={1}>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="h4">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
+                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
+                    Utilization
                   </Typography>
-                  {marketData.collateralAsset?.address && (
-                    <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                      <IconButton
-                        onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')}
-                        sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
-                      >
-                        <ContentCopyIcon sx={{ fontSize: '22px', color: theme.palette.grey[500] }} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  <Typography variant="h2" sx={{ display: 'inline', margin: '0px 20px', color: theme.palette.grey[500] }}>
-                    /
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="h4">
+                    {marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : 'n/a'}
                   </Typography>
-                  <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
-                    {marketData.loanAsset?.symbol || 'N/A'}
+                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
+                    Market Size
                   </Typography>
-                  {marketData.loanAsset?.address && (
-                    <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                      <IconButton
-                        onClick={() => copyToClipboard(marketData.loanAsset?.address || '')}
-                        sx={{ ml: 0.2, padding: '2px', marginLeft: '10px' }}
-                      >
-                        <ContentCopyIcon sx={{ fontSize: '22px', color: theme.palette.grey[500] }} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
+                </Stack>
               </Grid>
-            </Grid>
-            <Grid container size={{ xs: 12 }} spacing={2}>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
-                  <Stack spacing={1}>
-                    <Typography variant="h3">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}`}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                      Utilization (%)
-                    </Typography>
-                  </Stack>
-                </SubCard>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="h4">
+                    {marketData.state.totalLiquidityUsd ? formatShortUSDS(marketData.state.totalLiquidityUsd) : 'n/a'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
+                    Liquidity
+                  </Typography>
+                </Stack>
               </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
-                  <Stack spacing={1}>
-                    <Typography variant="h3">{marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : 'n/a'} </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                      Market size ($)
-                    </Typography>
-                  </Stack>
-                </SubCard>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
-                  <Stack spacing={1}>
-                    <Typography variant="h3">
-                      {marketData.state.totalLiquidityUsd ? formatShortUSDS(marketData.state.totalLiquidityUsd) : 'n/a'}
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                      Total Liquidity ($)
-                    </Typography>
-                  </Stack>
-                </SubCard>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
-                  <Stack spacing={1}>
-                    <Typography variant="h3">
-                      {marketData.state.dailyNetBorrowApy ? (marketData.state.dailyNetBorrowApy * 100).toFixed(2) : 'n/a'}
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                      Borrow Rate (%)
-                    </Typography>
-                  </Stack>
-                </SubCard>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="h4">
+                    {marketData.state.dailyNetBorrowApy ? `${(marketData.state.dailyNetBorrowApy * 100).toFixed(2)}%` : 'n/a'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
+                    Borrow Rate
+                  </Typography>
+                </Stack>
               </Grid>
             </Grid>
           </Grid>
+        </Grid>
+      </Paper>
 
-          <Grid size={{ xs: 12, md: 5 }}>
-            {accrualPosition && (
+      {/* Main content: forms left, position right (sticky) */}
+      <Grid container spacing={3} alignItems="flex-start">
+        {/* Left: action forms stacked */}
+        <Grid size={{ xs: 12, md: 7 }}>
+          <ActionFormsMain
+            market={marketData}
+            sdkMarket={market}
+            marketId={marketId}
+            accrualPosition={accrualPosition}
+            onPositionUpdate={refreshPositionData}
+            onBorrowAmountChange={onBorrowAmountChange}
+            onCollateralAmountChange={onCollateralAmountChange}
+          />
+          <ActionFormsSecondary
+            market={marketData}
+            sdkMarket={market}
+            marketId={marketId}
+            accrualPosition={accrualPosition}
+            onPositionUpdate={refreshPositionData}
+            onBorrowAmountChange={() => {}}
+            onLoanAmountChange={() => {}}
+          />
+        </Grid>
+
+        {/* Right: position summary, sticky */}
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Box sx={{ position: 'sticky', top: '24px' }}>
+            {accrualPosition ? (
               <Paper>
-                <Typography variant="h4" gutterBottom sx={{ marginBottom: '40px' }}>
+                <Typography variant="h4" gutterBottom sx={{ marginBottom: '24px' }}>
                   Your Position
                 </Typography>
-                <Grid container spacing={2} sx={{ padding: '0px' }}>
-                  <Grid size={{ xs: 12, sm: 6 }} sx={{ padding: '0px' }}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Card
                       sx={{
                         ...theme.applyStyles('dark', {
@@ -263,15 +247,12 @@ export default function MarketDetailPage() {
                         })
                       }}
                     >
-                      <Stack spacing={'30px'} sx={{ padding: '0px' }}>
-                        <Typography
-                          variant="h5"
-                          sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
-                        >
+                      <Stack spacing={'20px'}>
+                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           Loan ({marketData.loanAsset?.symbol})
                         </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <Typography variant="h3" sx={{ color: theme.palette.grey[500] }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.borrowAssets
                               ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
                               : '0'}
@@ -293,7 +274,7 @@ export default function MarketDetailPage() {
                     </Card>
                   </Grid>
 
-                  <Grid size={{ xs: 12, sm: 6 }} sx={{ padding: '0px' }}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Card
                       sx={{
                         ...theme.applyStyles('dark', {
@@ -304,15 +285,12 @@ export default function MarketDetailPage() {
                         })
                       }}
                     >
-                      <Stack spacing={'30px'} sx={{ padding: '0px' }}>
-                        <Typography
-                          variant="h5"
-                          sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
-                        >
+                      <Stack spacing={'20px'}>
+                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           Collateral ({marketData.collateralAsset?.symbol})
                         </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <Typography variant="h3" sx={{ color: theme.palette.grey[500] }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.collateral
                               ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
                               : '0'}
@@ -347,15 +325,12 @@ export default function MarketDetailPage() {
                         })
                       }}
                     >
-                      <Stack spacing={'30px'} sx={{ padding: '0px' }}>
-                        <Typography
-                          variant="h5"
-                          sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
-                        >
+                      <Stack spacing={'20px'}>
+                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           LTV (%)
                         </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <Typography variant="h3" sx={{ color: theme.palette.grey[500] }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}
                           </Typography>
                           {isChanged && futurePosition && (
@@ -374,6 +349,7 @@ export default function MarketDetailPage() {
                       </Stack>
                     </Card>
                   </Grid>
+
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <Card
                       sx={{
@@ -385,50 +361,32 @@ export default function MarketDetailPage() {
                         })
                       }}
                     >
-                      <Stack spacing={'30px'} sx={{ padding: '0px' }}>
-                        <Typography
-                          variant="h5"
-                          sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
-                        >
-                          LLTV (Loan-to-Value)
+                      <Stack spacing={'20px'}>
+                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                          LLTV
                         </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <Typography variant="h3">
-                            {formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}
-                          </Typography>
-                        </Box>
+                        <Typography variant="h3">
+                          {formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}
+                        </Typography>
                       </Stack>
                     </Card>
                   </Grid>
                 </Grid>
               </Paper>
+            ) : (
+              <Paper>
+                <Typography variant="h4" gutterBottom sx={{ marginBottom: '16px' }}>
+                  Your Position
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="body1" sx={{ color: theme.palette.grey[500] }}>
+                  You have no open position in this market.
+                </Typography>
+              </Paper>
             )}
-          </Grid>
-
-          <Grid size={{ xs: 6 }}>
-            <ActionFormsMain
-              market={marketData}
-              sdkMarket={market}
-              marketId={marketId}
-              accrualPosition={accrualPosition}
-              onPositionUpdate={refreshPositionData}
-              onBorrowAmountChange={onBorrowAmountChange}
-              onCollateralAmountChange={onCollateralAmountChange}
-            />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <ActionFormsSecondary
-              market={marketData}
-              sdkMarket={market}
-              marketId={marketId}
-              accrualPosition={accrualPosition}
-              onPositionUpdate={refreshPositionData}
-              onBorrowAmountChange={onBorrowAmountChange}
-              onLoanAmountChange={onCollateralAmountChange}
-            />
-          </Grid>
+          </Box>
         </Grid>
-      </Paper>
+      </Grid>
     </Box>
   );
 }
