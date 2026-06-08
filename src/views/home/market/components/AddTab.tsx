@@ -418,7 +418,6 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
           </Box>
         </Box>
         <CustomInput
-          autoFocus
           type="text"
           fullWidth
           value={inputAmount}

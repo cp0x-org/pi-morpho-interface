@@ -13,7 +13,7 @@ import {
   Paper,
   Typography,
   CircularProgress,
-  Avatar
+  Chip
 } from '@mui/material';
 import { MorphoRequests } from '@/api/constants';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
@@ -23,6 +23,7 @@ import { appoloClients } from '@/api/apollo-client';
 import { formatUnits } from 'viem';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
+import { getChainName } from 'utils/chains';
 
 interface MorphoPositionsData {
   marketId: string;
@@ -37,65 +38,71 @@ interface MorphoPositionsData {
   borrowApy: string;
 }
 
+// All chains supported by Morpho
+const MORPHO_CHAIN_IDS = [1, 8453, 137, 42161, 130, 10, 480] as const;
+
+function useChainPositions(chainId: number, address: string | undefined) {
+  return useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
+    client: appoloClients.morphoApi,
+    variables: { chainId, address: address || '' },
+    skip: !address
+  });
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { address: userAddress, chain } = useAccount();
+  const { address: userAddress } = useAccount();
 
-  const {
-    loading: morphoPositionsLoading,
-    error: morphoPositionsError,
-    data: morphoPositionsData
-  } = useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
-    client: appoloClients.morphoApi,
-    variables: {
-      chainId: Number(chain?.id || 1),
-      address: userAddress || ''
-    },
-    skip: !userAddress
-  });
+  // Parallel queries for each chain — hooks must be called unconditionally
+  const chain1 = useChainPositions(1, userAddress);
+  const chain8453 = useChainPositions(8453, userAddress);
+  const chain137 = useChainPositions(137, userAddress);
+  const chain42161 = useChainPositions(42161, userAddress);
+  const chain130 = useChainPositions(130, userAddress);
+  const chain10 = useChainPositions(10, userAddress);
+  const chain480 = useChainPositions(480, userAddress);
 
-  // Process Morpho positions data
-  const morphoPositions = React.useMemo<MorphoPositionsData[]>(() => {
-    if (!morphoPositionsData?.userByAddress) return [];
+  const chainResults = [
+    { chainId: 1, result: chain1 },
+    { chainId: 8453, result: chain8453 },
+    { chainId: 137, result: chain137 },
+    { chainId: 42161, result: chain42161 },
+    { chainId: 130, result: chain130 },
+    { chainId: 10, result: chain10 },
+    { chainId: 480, result: chain480 }
+  ];
 
-    return morphoPositionsData.userByAddress.marketPositions.map((position) => {
-      return {
-        marketId: position.market.marketId,
-        collateralSymbol: position.market.collateralAsset.symbol,
-        loanSymbol: position.market.loanAsset.symbol,
-        collateralBalance: position.state.collateral || '0',
-        loanBalance: position.state.borrowAssets || '0',
-        collateralDecimal: position.market.collateralAsset.decimals,
-        loanDecimal: position.market.loanAsset.decimals,
-        borrowUsd: position.state.borrowAssetsUsd || '0',
-        supplyUsd: position.state.supplyAssetsUsd || '0',
-        borrowApy: position.market.state.borrowApy || '0'
-      };
-    });
-  }, [morphoPositionsData]);
+  const anyLoading = chainResults.some((c) => c.result.loading);
 
-  // Process Morpho vault positions data
-  const morphoVaultPositions = React.useMemo(() => {
-    if (!morphoPositionsData?.userByAddress) return [];
+  const chainsWithData = React.useMemo(() => {
+    return chainResults
+      .map(({ chainId, result }) => {
+        const user = result.data?.userByAddress;
+        if (!user) return null;
 
-    return morphoPositionsData.userByAddress.vaultPositions;
-  }, [morphoPositionsData]);
+        const marketPositions: MorphoPositionsData[] = user.marketPositions
+          .filter((p) => parseFloat(p.state.collateral || '0') > 0 || parseFloat(p.state.borrowAssets || '0') > 0)
+          .map((position) => ({
+            marketId: position.market.marketId,
+            collateralSymbol: position.market.collateralAsset.symbol,
+            loanSymbol: position.market.loanAsset.symbol,
+            collateralBalance: position.state.collateral || '0',
+            loanBalance: position.state.borrowAssets || '0',
+            collateralDecimal: position.market.collateralAsset.decimals,
+            loanDecimal: position.market.loanAsset.decimals,
+            borrowUsd: position.state.borrowAssetsUsd || '0',
+            supplyUsd: position.state.supplyAssetsUsd || '0',
+            borrowApy: position.market.state.borrowApy || '0'
+          }));
 
-  if (morphoPositionsLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+        const vaultPositions = user.vaultPositions.filter((p) => parseFloat(p.state.assets || '0') > 0);
 
-  if (morphoPositionsError) {
-    return (
-      <Box sx={{ padding: 2 }}>
-        <Typography variant="h4">Positions not found.</Typography>
-      </Box>
-    );
-  }
+        if (marketPositions.length === 0 && vaultPositions.length === 0) return null;
+
+        return { chainId, marketPositions, vaultPositions };
+      })
+      .filter(Boolean) as { chainId: number; marketPositions: MorphoPositionsData[]; vaultPositions: any[] }[];
+  }, chainResults.map((c) => c.result.data));
 
   if (!userAddress) {
     return (
@@ -106,121 +113,145 @@ export default function DashboardPage() {
   }
 
   return (
-    <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
-      {morphoVaultPositions.length > 0 && (
-        <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
-            Morpho Vaults {chain?.name && <> ({chain?.name})</>}
-          </Typography>
-          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Vault</TableCell>
-                  <TableCell>Balance</TableCell>
-                  <TableCell>APY</TableCell>
-                  <TableCell>Total Deposits (USD)</TableCell>
-                  <TableCell>Curators</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {morphoVaultPositions.map((position) => (
-                  <TableRow
-                    key={position.vault.address}
-                    hover
-                    onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TokenIcon symbol={position.vault.asset.symbol} />
-                        {position.vault.name || shortenAddress(position.vault.address)}
-                      </Box>
-                    </TableCell>
+    <Box sx={{ width: '100%' }}>
+      {anyLoading && chainsWithData.length === 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
 
-                    <TableCell>
-                      {Number(formatUnits(BigInt(position.state.assets), position.vault.asset.decimals)).toFixed(6)} (
-                      {Number(position.state.assetsUsd).toFixed(2)} $)
-                    </TableCell>
-                    <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
-                    <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {position.vault.state.curators?.map((curator) => (
-                          <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+      {!anyLoading && chainsWithData.length === 0 && (
+        <Box sx={{ padding: 2 }}>
+          <Typography variant="h4">No positions found across any network.</Typography>
+        </Box>
+      )}
+
+      {chainsWithData.map(({ chainId, marketPositions, vaultPositions }) => (
+        <Box key={chainId} sx={{ marginBottom: 5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, marginBottom: 2 }}>
+            <Typography variant="h2">{getChainName(chainId)}</Typography>
+            {anyLoading && <CircularProgress size={16} />}
+          </Box>
+
+          {vaultPositions.length > 0 && (
+            <Box sx={{ marginBottom: 3 }}>
+              <Typography variant="h4" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
+                Vaults
+              </Typography>
+              <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+                <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Vault</TableCell>
+                      <TableCell>Balance</TableCell>
+                      <TableCell>APY</TableCell>
+                      <TableCell>Total Deposits (USD)</TableCell>
+                      <TableCell>Curators</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {vaultPositions.map((position) => (
+                      <TableRow
+                        key={position.vault.address}
+                        hover
+                        onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TokenIcon symbol={position.vault.asset.symbol} />
+                            {position.vault.name || shortenAddress(position.vault.address)}
                           </Box>
-                        ))}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
+                        </TableCell>
+                        <TableCell>
+                          {Number(formatUnits(BigInt(position.state.assets), position.vault.asset.decimals)).toFixed(6)} (
+                          {Number(position.state.assetsUsd).toFixed(2)} $)
+                        </TableCell>
+                        <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
+                        <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {position.vault.state.curators?.map((curator: any) => (
+                              <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                              </Box>
+                            ))}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
 
-      {morphoPositions.length > 0 && (
-        <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ marginBottom: 1 }}>
-            Morpho Markets {chain?.name && <> ({chain?.name})</>}
-          </Typography>
-          <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="morpho markets table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Market</TableCell>
-                  <TableCell>Collateral</TableCell>
-                  <TableCell>Loan</TableCell>
-                  <TableCell>Borrow APY</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {morphoPositions.map((position) => (
-                  <TableRow
-                    key={position.marketId}
-                    hover
-                    onClick={() => navigate(`/borrow/market/${position.marketId}`)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    <TableCell>
-                      {position.collateralSymbol}/{position.loanSymbol}
-                    </TableCell>
-                    <TableCell>
-                      {parseFloat(position.collateralBalance) > 0 ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TokenIcon symbol={position.collateralSymbol} />
-                          {formatTokenAmount(
-                            position.collateralBalance,
-                            position.collateralDecimal,
-                            position.collateralDecimal / DECIMALS_SCALE_FACTOR
-                          )}{' '}
-                          {position.collateralSymbol}
-                        </Box>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {parseFloat(position.loanBalance) > 0 ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TokenIcon symbol={position.loanSymbol} />
-                          {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
-                          {position.loanSymbol}
-                        </Box>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>{(Number(position.borrowApy) * 100).toFixed(2)} %</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          {marketPositions.length > 0 && (
+            <Box>
+              <Typography variant="h4" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
+                Markets
+              </Typography>
+              <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="morpho markets table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Market</TableCell>
+                      <TableCell>Collateral</TableCell>
+                      <TableCell>Loan</TableCell>
+                      <TableCell>Borrow APY</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {marketPositions.map((position) => (
+                      <TableRow
+                        key={position.marketId}
+                        hover
+                        onClick={() => navigate(`/borrow/market/${position.marketId}?chainId=${chainId}`)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        <TableCell>
+                          {position.collateralSymbol}/{position.loanSymbol}
+                        </TableCell>
+                        <TableCell>
+                          {parseFloat(position.collateralBalance) > 0 ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <TokenIcon symbol={position.collateralSymbol} />
+                              {formatTokenAmount(
+                                position.collateralBalance,
+                                position.collateralDecimal,
+                                position.collateralDecimal / DECIMALS_SCALE_FACTOR
+                              )}{' '}
+                              {position.collateralSymbol}
+                            </Box>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {parseFloat(position.loanBalance) > 0 ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <TokenIcon symbol={position.loanSymbol} />
+                              {formatTokenAmount(
+                                position.loanBalance,
+                                position.loanDecimal,
+                                position.loanDecimal / DECIMALS_SCALE_FACTOR
+                              )}{' '}
+                              {position.loanSymbol}
+                            </Box>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell>{(Number(position.borrowApy) * 100).toFixed(2)} %</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
         </Box>
-      )}
+      ))}
     </Box>
   );
 }
