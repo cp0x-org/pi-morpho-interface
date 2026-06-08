@@ -148,29 +148,14 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   const handlePercentClick = useCallback(
     (percent: number) => {
       const decimals = market?.loanAsset?.decimals || 0;
-      let value: number;
+      const inputDecimals = INPUT_DECIMALS > decimals && decimals != 0 ? decimals : INPUT_DECIMALS;
+      const loanBalance = parseFloat(formattedLoanBalance);
+      const userBalance = parseFloat(formattedUserBalance);
+      const base = userBalance < loanBalance ? userBalance : loanBalance;
+      const value = (base * percent) / 100;
 
-      if (percent == 100) {
-        if (parseFloat(formattedUserBalance) >= parseFloat(formattedLoanBalance)) {
-          value = parseFloat(formattedLoanBalance);
-        } else {
-          value = parseFloat(formattedUserBalance);
-        }
-      } else {
-        const rawLoanValue = (parseFloat(formattedLoanBalance) * percent) / 100;
-        const userBalanceValue = parseFloat(formattedUserBalance);
-        if (rawLoanValue > userBalanceValue) {
-          value = userBalanceValue;
-        } else {
-          value = rawLoanValue;
-        }
-      }
-
-      let inputDecimals = INPUT_DECIMALS > decimals && decimals != 0 ? decimals : INPUT_DECIMALS;
       setRepayAmount(value.toString());
       setInputAmount(formatAssetOutput(value.toFixed(inputDecimals).toString()));
-
-      // Set active percentage
       setActivePercentage(percent);
 
       if (repayAmount !== debouncedRepayAmount) {
@@ -179,7 +164,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
       resetTransactionStates();
       setIsApproved(false);
     },
-    [formattedLoanBalance, repayAmount, debouncedRepayAmount, resetTransactionStates]
+    [formattedLoanBalance, formattedUserBalance, market, repayAmount, debouncedRepayAmount, resetTransactionStates]
   );
 
   // Reset states when transaction is confirmed
