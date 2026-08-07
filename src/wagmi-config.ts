@@ -8,6 +8,7 @@ import {
   arbitrum,
   optimism,
   worldchain,
+  gnosis,
   hyperEvm,
   katana,
   monad,
@@ -76,7 +77,7 @@ const mainAnvil: Chain = {
 const mainnetCustom = {
   ...mainnet,
   rpcUrls: {
-    default: { http: ['https://mainnet.gateway.tenderly.co/pdi7AAywqnL5vR9UcNZag'] }
+    default: { http: ['https://rpc.ankr.com/eth/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
     // public: { http: ['https://mainnet.gateway.tenderly.co/pdi7AAywqnL5vR9UcNZag'] }
   }
 };
@@ -84,7 +85,7 @@ const mainnetCustom = {
 const baseCustom = {
   ...base,
   rpcUrls: {
-    default: { http: ['https://base.gateway.tenderly.co/4ZBIIWD6nHhRpKjsjBbW76'] }
+    default: { http: ['https://rpc.ankr.com/base/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
     // public: { http: ['https://base.gateway.tenderly.co/4ZBIIWD6nHhRpKjsjBbW76'] }
   }
 };
@@ -92,8 +93,73 @@ const baseCustom = {
 const polygonCustom = {
   ...polygon,
   rpcUrls: {
-    default: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+    default: { http: ['https://rpc.ankr.com/polygon/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
     // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+  }
+};
+
+const unichainCustom = {
+  ...unichain,
+  rpcUrls: {
+    default: { http: ['https://rpc.ankr.com/unichain_mainnet/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
+    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+  }
+};
+const arbitrumCustom = {
+  ...arbitrum,
+  rpcUrls: {
+    default: { http: ['https://rpc.ankr.com/arbitrum/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
+    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+  }
+};
+
+const optimismCustom = {
+  ...optimism,
+  rpcUrls: {
+    default: { http: ['https://rpc.ankr.com/optimism/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
+    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
+  }
+};
+
+const worldchainCustom = {
+  ...worldchain,
+  rpcUrls: {
+    default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] }
+  }
+};
+
+const hyperEvmCustom = {
+  ...hyperEvm,
+  rpcUrls: {
+    default: { http: ['https://rpc.ankr.com/hyperevm/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
+  }
+};
+
+const katanaCustom = {
+  ...katana,
+  rpcUrls: {
+    default: { http: ['https://rpc.katana.network'] }
+  }
+};
+
+const monadCustom = {
+  ...monad,
+  rpcUrls: {
+    default: { http: ['https://rpc.ankr.com/monad_mainnet/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
+  }
+};
+
+const stableCustom = {
+  ...stable,
+  rpcUrls: {
+    default: { http: ['https://rpc.stable.xyz'] }
+  }
+};
+
+const tempoCustom = {
+  ...tempo,
+  rpcUrls: {
+    default: { http: ['https://rpc.tempo.xyz'] }
   }
 };
 
@@ -101,7 +167,20 @@ export const config = getDefaultConfig({
   appName: 'Morpho Interface',
   projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
   // chains: [mainnet, sepolia, mainTest],
-  chains: [mainnetCustom, baseCustom, polygonCustom, unichain, arbitrum, optimism, worldchain, hyperEvm, katana, monad, stable, tempo],
+  chains: [
+    mainnetCustom,
+    baseCustom,
+    polygonCustom,
+    unichainCustom,
+    arbitrumCustom,
+    optimismCustom,
+    worldchainCustom,
+    hyperEvmCustom,
+    katanaCustom,
+    monadCustom,
+    stableCustom,
+    tempoCustom
+  ],
   // chains: [mainnet, mainAnvil, mainTest],
   ssr: false
 });

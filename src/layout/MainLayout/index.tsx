@@ -97,6 +97,14 @@ export default function MainLayout() {
   };
 
   useEffect(() => {
+    window.history.scrollRestoration = 'manual';
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  useEffect(() => {
     handlerDrawerOpen(!miniDrawer);
   }, [miniDrawer]);
 

@@ -423,7 +423,6 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
           </Box>
         </Box>
         <CustomInput
-          autoFocus
           type="text"
           fullWidth
           value={inputAmount}
