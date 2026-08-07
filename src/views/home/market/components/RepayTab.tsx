@@ -18,6 +18,7 @@ import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface RepayTabProps {
   market: MarketInterface;
@@ -32,6 +33,7 @@ interface RepayTabProps {
 const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marketId, onBorrowAmountChange, onSuccess }) => {
   // State for input and transactions
   const theme = useTheme();
+  const intl = useIntl();
   const [repayAmount, setRepayAmount] = useState('');
   const debouncedRepayAmount = useDebounce(repayAmount, 500);
   const [txError, setTxError] = useState<string | null>(null);
@@ -186,17 +188,24 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
         refetchAllowance();
       }
 
-      dispatchSuccess(`${market?.loanAsset.symbol || 'Token'} approved successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'tx.approveSuccess' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'common.token' }) })
+      );
       console.log('Approval confirmed!');
     } else if (approveTx.txState === 'error') {
-      dispatchError(`Failed to approve ${market?.loanAsset.symbol || 'token'}`);
-      setTxError(`Approval failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'tx.approveError' },
+          { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'tx.approveRetry' }));
       console.error('Approval transaction failed');
       console.error(approveTx.txError);
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
-  }, [approveTx.txState, market?.loanAsset.symbol, refetchAllowance]);
+  }, [approveTx.txState, market?.loanAsset.symbol, refetchAllowance, intl]);
 
   // Handle repay transaction success/error
   useEffect(() => {
@@ -209,7 +218,9 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
       setActivePercentage(null);
 
       // Show success message
-      dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} repaid successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'repay.success' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'table.loan' }) })
+      );
 
       // After successful transaction, we might want to refresh any balances
       if (refetchAllowance) {
@@ -220,13 +231,15 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
         onSuccess();
       }
     } else if (repayTx.txState === 'error') {
-      dispatchError(`Failed to repay ${market?.loanAsset.symbol || 'loan'}`);
-      setTxError(`Repay loan failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage({ id: 'repay.error' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'table.loan' }) })
+      );
+      setTxError(intl.formatMessage({ id: 'repay.errorRetry' }));
       console.error('Repay loan transaction failed');
     } else if (repayTx.txState === 'submitted') {
       console.log('Repay loan transaction submitted');
     }
-  }, [repayTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess]);
+  }, [repayTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess, intl]);
 
   // Handle repay loan
   const handleRepay = useCallback(async () => {
@@ -236,7 +249,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
 
     setTxError(null);
     if (!market) {
-      setTxError('Market data not available');
+      setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
 
@@ -314,14 +327,19 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
     } catch (error) {
       console.error('Transaction failed:', error);
       if (!isApproved) {
-        dispatchError(`Failed to approve ${market.loanAsset.symbol}`);
+        dispatchError(intl.formatMessage({ id: 'tx.approveError' }, { symbol: market.loanAsset.symbol }));
       } else {
-        dispatchError(`Failed to repay ${market.loanAsset.symbol} loan`);
+        dispatchError(intl.formatMessage({ id: 'repay.error' }, { symbol: market.loanAsset.symbol }));
       }
       resetTransactionStates();
-      setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTxError(
+        intl.formatMessage(
+          { id: 'tx.failed' },
+          { message: error instanceof Error ? error.message : intl.formatMessage({ id: 'tx.unknownError' }) }
+        )
+      );
     }
-  }, [userAddress, marketId, repayAmount, market, isApproved, chainConfig, approveTx, repayTx, resetTransactionStates]);
+  }, [userAddress, marketId, repayAmount, market, isApproved, chainConfig, approveTx, repayTx, resetTransactionStates, intl]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -334,32 +352,32 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   const getButtonText = useCallback(() => {
     // Show checking status when amount is being debounced
     if (allowanceChecking) {
-      return 'Checking allowance...';
+      return intl.formatMessage({ id: 'common.checkingAllowance' });
     }
 
     if (!repayAmount) {
-      return 'Enter Amount';
+      return intl.formatMessage({ id: 'common.enterAmount' });
     }
 
     if (!isApproved) {
       if (approveTx.txState === 'submitting' || approveTx.txState === 'submitted') {
-        return 'Approving...';
+        return intl.formatMessage({ id: 'common.approving' });
       }
       if (approveTx.txState === 'error') {
-        return 'Approval Failed - Try again';
+        return intl.formatMessage({ id: 'common.approvalFailed' });
       }
-      return `Approve ${market?.loanAsset.symbol || ''}`;
+      return intl.formatMessage({ id: 'common.approve' }, { symbol: market?.loanAsset.symbol || '' });
     }
 
     if (repayTx.txState === 'submitting' || repayTx.txState === 'submitted') {
-      return 'Repaying Loan...';
+      return intl.formatMessage({ id: 'repay.pending' });
     }
     if (repayTx.txState === 'error') {
-      return 'Repay Failed - Try again';
+      return intl.formatMessage({ id: 'repay.failed' });
     }
 
-    return 'Repay Loan';
-  }, [repayAmount, isApproved, allowanceChecking, approveTx.txState, repayTx.txState, market?.loanAsset.symbol]);
+    return intl.formatMessage({ id: 'repay.button' });
+  }, [repayAmount, isApproved, allowanceChecking, approveTx.txState, repayTx.txState, market?.loanAsset.symbol, intl]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
@@ -379,18 +397,22 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
-  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const loanSymbol = market?.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
   const exceedsLoan = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedLoanBalance);
   const exceedsWallet = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedUserBalance);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
   const statusMessage =
     txError ||
-    (exceedsLoan ? `Amount exceeds your outstanding ${loanSymbol} loan` : '') ||
-    (exceedsWallet ? `Amount exceeds your ${loanSymbol} wallet balance` : '');
+    (exceedsLoan ? intl.formatMessage({ id: 'repay.exceedsLoan' }, { symbol: loanSymbol }) : '') ||
+    (exceedsWallet ? intl.formatMessage({ id: 'repay.exceedsWallet' }, { symbol: loanSymbol }) : '');
 
   if (!market) {
-    return <Box>Incorrect Market Data</Box>;
+    return (
+      <Box>
+        <FormattedMessage id="market.incorrectData" />
+      </Box>
+    );
   }
 
   return (
@@ -427,9 +449,11 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Repay Loan
+              <FormattedMessage id="repay.title" />
             </Typography>
-            <Typography variant="body2">Repay Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="repay.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -447,7 +471,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
                 symbol={market.loanAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -470,7 +494,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             inputMode: 'decimal',
             pattern: '[0-9]*,?[0-9]*',
             id: 'repay-amount',
-            'aria-label': `Amount of ${loanSymbol} to repay`,
+            'aria-label': intl.formatMessage({ id: 'repay.inputAria' }, { symbol: loanSymbol }),
             'aria-describedby': 'repay-balances repay-status',
             'aria-invalid': exceedsLoan || exceedsWallet || undefined
           }}
@@ -489,7 +513,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 25}
-            aria-label={`Repay 25% of your ${loanSymbol} loan`}
+            aria-label={intl.formatMessage({ id: 'repay.percentAria' }, { percent: 25, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -504,7 +528,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 50}
-            aria-label={`Repay 50% of your ${loanSymbol} loan`}
+            aria-label={intl.formatMessage({ id: 'repay.percentAria' }, { percent: 50, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -519,7 +543,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 75}
-            aria-label={`Repay 75% of your ${loanSymbol} loan`}
+            aria-label={intl.formatMessage({ id: 'repay.percentAria' }, { percent: 75, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -534,14 +558,14 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 100}
-            aria-label={`Repay the full ${loanSymbol} loan`}
+            aria-label={intl.formatMessage({ id: 'repay.maxAria' }, { symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -577,10 +601,11 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             }}
           >
             <Typography variant="h4" fontWeight="normal">
-              Loan:
+              <FormattedMessage id="repay.loan" />
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {formatAssetOutput(Number(formattedLoanBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
+              {formatAssetOutput(Number(formattedLoanBalance).toFixed(6))}{' '}
+              {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
             </Typography>
           </Box>
           <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
@@ -595,10 +620,11 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             }}
           >
             <Typography variant="h4" fontWeight="normal">
-              Your Balance:
+              <FormattedMessage id="common.yourBalance" />
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {formatAssetOutput(Number(formattedUserBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
+              {formatAssetOutput(Number(formattedUserBalance).toFixed(6))}{' '}
+              {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
             </Typography>
           </Box>
         </Box>

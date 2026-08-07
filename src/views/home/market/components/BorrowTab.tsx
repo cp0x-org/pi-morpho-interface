@@ -18,6 +18,7 @@ import { INPUT_DECIMALS } from '@/appconfig';
 import Divider from '@mui/material/Divider';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface BorrowTabProps {
   market: MarketInterface;
@@ -30,6 +31,7 @@ interface BorrowTabProps {
 
 export default function BorrowTab({ market, accrualPosition, onBorrowAmountChange, onSuccess }: BorrowTabProps) {
   const theme = useTheme();
+  const intl = useIntl();
   const [borrowAmount, setBorrowAmount] = useState<string>('');
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
@@ -95,16 +97,23 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
     if (borrowTx.txState === 'confirmed') {
       setBorrowAmount('');
       setInputAmount('');
-      dispatchSuccess(`${market.loanAsset?.symbol || 'Tokens'} borrowed successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'borrowForm.success' }, { symbol: market.loanAsset?.symbol || intl.formatMessage({ id: 'common.token' }) })
+      );
       if (onSuccess) {
         onSuccess();
       }
       borrowTx.resetTx();
     } else if (borrowTx.txState === 'error') {
-      setTxError(`Transaction failed`);
-      dispatchError(`Cannot borrow ${market.loanAsset?.symbol || 'tokens'}: 'Transaction failed'}`);
+      setTxError(intl.formatMessage({ id: 'borrowForm.txFailed' }));
+      dispatchError(
+        intl.formatMessage(
+          { id: 'borrowForm.error' },
+          { symbol: market.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
     }
-  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess, borrowTx]);
+  }, [borrowTx.txState, borrowTx.txError, borrowTx.resetTx, market.loanAsset?.symbol, onSuccess, borrowTx, intl]);
 
   // Handle borrow loan asset
   const handleBorrow = useCallback(async () => {
@@ -116,7 +125,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
 
     if (!market) {
       console.error('Market Not Found');
-      setTxError(`Market Not Found`);
+      setTxError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
     }
 
@@ -148,18 +157,19 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       });
     } catch (error) {
       console.error('Error borrowing tokens:', error);
-      setTxError(`Failed to borrow: ${error instanceof Error ? error.message : ''}`);
+      setTxError(intl.formatMessage({ id: 'borrowForm.failedWithReason' }, { message: error instanceof Error ? error.message : '' }));
     }
-  }, [userAddress, market, borrowAmount, borrowTx, chainConfig.contracts.Morpho]);
+  }, [userAddress, market, borrowAmount, borrowTx, chainConfig.contracts.Morpho, intl]);
 
   // Check if transaction is in progress
   const isTransactionInProgress = borrowTx.txState === 'submitting' || borrowTx.txState === 'submitted';
 
-  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const loanSymbol = market?.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
   const exceedsSafeLimit = !!borrowAmount && parseFloat(normalizePointAmount(borrowAmount)) > parseFloat(formattedSafeMaxBorrowable);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
-  const statusMessage = txError || (exceedsSafeLimit ? `Amount exceeds the safe borrowable ${loanSymbol} limit` : '');
+  const statusMessage =
+    txError || (exceedsSafeLimit ? intl.formatMessage({ id: 'borrowForm.exceedsSafeLimit' }, { symbol: loanSymbol }) : '');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
@@ -195,9 +205,11 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Borrow
+              <FormattedMessage id="borrowForm.title" />
             </Typography>
-            <Typography variant="body2">Borrow Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="borrowForm.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -215,7 +227,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
                 symbol={market.loanAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -238,7 +250,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             inputMode: 'decimal',
             pattern: '[0-9]*,?[0-9]*',
             id: 'borrow-amount',
-            'aria-label': `Amount of ${loanSymbol} to borrow`,
+            'aria-label': intl.formatMessage({ id: 'borrowForm.inputAria' }, { symbol: loanSymbol }),
             'aria-describedby': 'borrow-limits borrow-status',
             'aria-invalid': exceedsSafeLimit || undefined
           }}
@@ -256,7 +268,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 25}
-            aria-label={`Borrow 25% of the safe borrowable ${loanSymbol} amount`}
+            aria-label={intl.formatMessage({ id: 'borrowForm.percentAria' }, { percent: 25, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -271,7 +283,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 50}
-            aria-label={`Borrow 50% of the safe borrowable ${loanSymbol} amount`}
+            aria-label={intl.formatMessage({ id: 'borrowForm.percentAria' }, { percent: 50, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -286,7 +298,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 75}
-            aria-label={`Borrow 75% of the safe borrowable ${loanSymbol} amount`}
+            aria-label={intl.formatMessage({ id: 'borrowForm.percentAria' }, { percent: 75, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -301,14 +313,14 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 100}
-            aria-label={`Borrow the maximum safe ${loanSymbol} amount`}
+            aria-label={intl.formatMessage({ id: 'borrowForm.maxAria' }, { symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -344,10 +356,10 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             }}
           >
             <Typography variant="h4" fontWeight="normal">
-              Max Borrowable:
+              <FormattedMessage id="borrowForm.maxBorrowable" />
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {Number(formattedMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+              {Number(formattedMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
             </Typography>
           </Box>
           <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
@@ -362,10 +374,10 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             }}
           >
             <Typography variant="h4" fontWeight="normal">
-              Safe Borrowable:
+              <FormattedMessage id="borrowForm.safeBorrowable" />
             </Typography>
             <Typography variant="h4" fontWeight="normal">
-              {Number(formattedSafeMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+              {Number(formattedSafeMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
             </Typography>
           </Box>
         </Box>
@@ -391,7 +403,11 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             fontWeight: 700
           }}
         >
-          {borrowTx.txState === 'submitting' ? 'Preparing...' : borrowTx.txState === 'submitted' ? 'Borrowing...' : 'Borrow'}
+          {borrowTx.txState === 'submitting'
+            ? intl.formatMessage({ id: 'borrowForm.preparing' })
+            : borrowTx.txState === 'submitted'
+              ? intl.formatMessage({ id: 'borrowForm.pending' })
+              : intl.formatMessage({ id: 'borrowForm.button' })}
         </Button>
       </Box>
     </Box>

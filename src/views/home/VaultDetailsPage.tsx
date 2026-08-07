@@ -21,9 +21,11 @@ import { TokenIcon } from 'components/TokenIcon';
 import { vaultConfig } from '@/appconfig/abi/Vault';
 import { formatUnits } from 'viem';
 import TabPanel from './components/TabPanel';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 export default function VaultDetailsPage() {
   const theme = useTheme();
+  const intl = useIntl();
   const { vaultAddress } = useParams<{ vaultAddress: string }>();
   const [searchParams] = useSearchParams();
   const targetChainId = Number(searchParams.get('chainId')) || undefined;
@@ -36,16 +38,17 @@ export default function VaultDetailsPage() {
   useEffect(() => {
     if (targetChainId && currentChainId !== targetChainId) {
       const networkName = getChainName(targetChainId);
-      dispatchInfo(`Switching network to ${networkName}...`);
+      dispatchInfo(intl.formatMessage({ id: 'network.switching' }, { network: networkName }));
       switchChain(
         { chainId: targetChainId },
         {
-          onSuccess: () => dispatchSuccess(`Switched to ${networkName}`),
-          onError: (err) => dispatchError(`Failed to switch to ${networkName}: ${err.message}`)
+          onSuccess: () => dispatchSuccess(intl.formatMessage({ id: 'network.switched' }, { network: networkName })),
+          onError: (err) =>
+            dispatchError(intl.formatMessage({ id: 'network.switchFailed' }, { network: networkName, message: err.message }))
         }
       );
     }
-  }, [targetChainId, currentChainId]);
+  }, [targetChainId, currentChainId, intl]);
 
   const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
     variables: { address: vaultAddress },
@@ -76,7 +79,7 @@ export default function VaultDetailsPage() {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress aria-label="Loading vault details" />
+        <CircularProgress aria-label={intl.formatMessage({ id: 'vault.loading' })} />
       </Box>
     );
   }
@@ -85,7 +88,7 @@ export default function VaultDetailsPage() {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography role="alert" color="error">
-          Error loading vault details: {error.message}
+          <FormattedMessage id="vault.error" values={{ message: error.message }} />
         </Typography>
       </Box>
     );
@@ -95,7 +98,7 @@ export default function VaultDetailsPage() {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography variant="h5" component="p" role="alert" color="error">
-          Vault not found
+          <FormattedMessage id="vault.notFound" />
         </Typography>
       </Box>
     );
@@ -143,16 +146,16 @@ export default function VaultDetailsPage() {
                       color: theme.palette.grey[500]
                     }}
                   >
-                    Vault Details
+                    <FormattedMessage id="vault.details" />
                   </Typography>
                   <Box display="flex" alignItems="center">
                     <Typography variant="h2" component="h1" sx={{ display: 'inline' }}>
-                      {vault.name || 'N/A'}
+                      {vault.name || intl.formatMessage({ id: 'common.na' })}
                     </Typography>
                     {vault.address && (
-                      <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                      <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
                         <IconButton
-                          aria-label={`Copy vault contract address ${vault.address}`}
+                          aria-label={intl.formatMessage({ id: 'vault.copyVaultAria' }, { address: vault.address })}
                           onClick={() => copyToClipboard(vault.address || '')}
                           sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
                         >
@@ -170,12 +173,15 @@ export default function VaultDetailsPage() {
                     <Stack spacing={1}>
                       <Box display="flex" alignItems="center">
                         <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
-                          {vault.asset.symbol || 'N/A'}
+                          {vault.asset.symbol || intl.formatMessage({ id: 'common.na' })}
                         </Typography>
                         {vault.asset.address && (
-                          <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
+                          <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
                             <IconButton
-                              aria-label={`Copy ${vault.asset.symbol || 'asset'} token address ${vault.asset.address}`}
+                              aria-label={intl.formatMessage(
+                                { id: 'vault.copyAssetAria' },
+                                { symbol: vault.asset.symbol || intl.formatMessage({ id: 'vault.asset' }), address: vault.asset.address }
+                              )}
                               onClick={() => copyToClipboard(vault.asset.address || '')}
                               sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
                             >
@@ -185,7 +191,7 @@ export default function VaultDetailsPage() {
                         )}
                       </Box>
                       <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                        Asset
+                        <FormattedMessage id="vault.asset" />
                       </Typography>
                     </Stack>
                   </SubCard>
@@ -197,7 +203,7 @@ export default function VaultDetailsPage() {
                         {(vault.state.dailyNetApy * 100).toFixed(2)} %
                       </Typography>
                       <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                        APY
+                        <FormattedMessage id="vault.apy" />
                       </Typography>
                     </Stack>
                   </SubCard>
@@ -210,7 +216,7 @@ export default function VaultDetailsPage() {
                         {formatShortUSDS(vault.state.totalAssetsUsd)}
                       </Typography>
                       <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                        Total Deposits ($)
+                        <FormattedMessage id="vault.totalDepositsUsd" />
                       </Typography>
                     </Stack>
                   </SubCard>
@@ -222,7 +228,7 @@ export default function VaultDetailsPage() {
               <Grid size={{ xs: 12 }}>
                 <Paper>
                   <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '40px' }}>
-                    Your Position
+                    <FormattedMessage id="common.yourPosition" />
                   </Typography>
                   <Grid container spacing={2} sx={{ padding: '0px' }}>
                     <Grid size={{ xs: 12, sm: 6 }} sx={{ padding: '0px' }}>
@@ -242,7 +248,7 @@ export default function VaultDetailsPage() {
                             component="div"
                             sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
                           >
-                            Balance ({vault.asset.symbol})
+                            <FormattedMessage id="vault.balanceWithSymbol" values={{ symbol: vault.asset.symbol }} />
                           </Typography>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                             <Typography variant="h3" component="p" sx={{ color: theme.palette.grey[500] }}>
@@ -273,7 +279,7 @@ export default function VaultDetailsPage() {
                 <Tabs
                   value={tabValue}
                   onChange={handleTabChange}
-                  aria-label="Vault deposit and withdraw actions"
+                  aria-label={intl.formatMessage({ id: 'vault.tabsAria' })}
                   sx={{
                     height: '58px',
                     minHeight: '58px',
@@ -286,8 +292,18 @@ export default function VaultDetailsPage() {
                     }
                   }}
                 >
-                  <Tab label="Deposit" id="vault-tab-0" aria-controls="vault-tabpanel-0" sx={{ height: '100%', flex: 1 }} />
-                  <Tab label="Withdraw" id="vault-tab-1" aria-controls="vault-tabpanel-1" sx={{ height: '100%', flex: 1 }} />
+                  <Tab
+                    label={intl.formatMessage({ id: 'vault.tabDeposit' })}
+                    id="vault-tab-0"
+                    aria-controls="vault-tabpanel-0"
+                    sx={{ height: '100%', flex: 1 }}
+                  />
+                  <Tab
+                    label={intl.formatMessage({ id: 'vault.tabWithdraw' })}
+                    id="vault-tab-1"
+                    aria-controls="vault-tabpanel-1"
+                    sx={{ height: '100%', flex: 1 }}
+                  />
                 </Tabs>
               </Box>
               <TabPanel value={tabValue} index={0} idPrefix="vault" sx={{ bgcolor: theme.palette.background.paper }}>

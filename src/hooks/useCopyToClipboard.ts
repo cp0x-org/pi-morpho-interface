@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useIntl } from 'react-intl';
 
 type CopyToClipboardResult = {
   copySuccess: boolean | null;
@@ -11,6 +12,7 @@ type CopyToClipboardResult = {
  * @returns {CopyToClipboardResult} Object containing copySuccess state and copyToClipboard function
  */
 export const useCopyToClipboard = (): CopyToClipboardResult => {
+  const intl = useIntl();
   const [copySuccess, setCopySuccess] = useState<boolean | null>(null);
   const [copySuccessMsg, setCopySuccessMsg] = useState<string | null>(null);
 
@@ -20,12 +22,12 @@ export const useCopyToClipboard = (): CopyToClipboardResult => {
     try {
       await navigator.clipboard.writeText(text);
       setCopySuccess(true);
-      setCopySuccessMsg('Copied');
+      setCopySuccessMsg(intl.formatMessage({ id: 'common.copied' }));
       setTimeout(() => setCopySuccess(null), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
       setCopySuccess(false);
-      setCopySuccessMsg('Failed to copy');
+      setCopySuccessMsg(intl.formatMessage({ id: 'common.copyFailed' }));
     }
   };
 

@@ -6,6 +6,7 @@ import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, WithdrawTab, SupplyTab } from './components';
 import { useTheme } from '@mui/material/styles';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
@@ -19,6 +20,7 @@ interface MarketProps {
 
 export default function ActionFormsSecondary(props: MarketProps) {
   const theme = useTheme();
+  const intl = useIntl();
   const marketId = props.marketId;
   const accrualPosition = props.accrualPosition;
   const sdkMarket = props.sdkMarket;
@@ -39,7 +41,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography variant="h5" component="p" role="alert" color="error">
-          Market not found
+          <FormattedMessage id="market.notFound" />
         </Typography>
       </Box>
     );
@@ -49,7 +51,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography variant="h5" component="p" role="status" color="error">
-          Connect wallet to continue.
+          <FormattedMessage id="market.connectWallet" />
         </Typography>
       </Box>
     );
@@ -58,7 +60,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
   if (!market || !marketId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress aria-label="Loading supply and withdraw actions" />
+        <CircularProgress aria-label={intl.formatMessage({ id: 'market.lendActionsLoading' })} />
       </Box>
     );
   }
@@ -70,7 +72,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
           value={tabValue}
           onChange={handleTabChange}
           variant="fullWidth"
-          aria-label="Loan asset supply and withdraw actions"
+          aria-label={intl.formatMessage({ id: 'market.lendActionsAria' })}
           sx={{
             '& .MuiTab-root': {
               minWidth: 0,
@@ -79,8 +81,8 @@ export default function ActionFormsSecondary(props: MarketProps) {
             }
           }}
         >
-          <Tab label="Supply" id="market-lend-tab-0" aria-controls="market-lend-tabpanel-0" />
-          <Tab label="Withdraw" id="market-lend-tab-1" aria-controls="market-lend-tabpanel-1" />
+          <Tab label={intl.formatMessage({ id: 'market.tabSupply' })} id="market-lend-tab-0" aria-controls="market-lend-tabpanel-0" />
+          <Tab label={intl.formatMessage({ id: 'market.tabWithdraw' })} id="market-lend-tab-1" aria-controls="market-lend-tabpanel-1" />
         </Tabs>
       </Box>
 

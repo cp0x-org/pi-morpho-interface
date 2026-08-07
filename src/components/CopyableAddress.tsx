@@ -1,6 +1,7 @@
 import { ContentCopy } from '@mui/icons-material';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { useIntl } from 'react-intl';
 import { shortenAddress } from 'utils/formatters';
 
 // Component for address with copy functionality
@@ -12,20 +13,21 @@ interface CopyableAddressProps {
 
 export const CopyableAddress = ({ address, symbol, onClick }: CopyableAddressProps) => {
   const { enqueueSnackbar } = useSnackbar();
+  const intl = useIntl();
 
   const copyToClipboard = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click event
     navigator.clipboard
       .writeText(address)
       .then(() => {
-        enqueueSnackbar('Address copied to clipboard!', {
+        enqueueSnackbar(intl.formatMessage({ id: 'common.addressCopied' }), {
           variant: 'success',
           autoHideDuration: 2000
         });
       })
       .catch((err) => {
         console.error('Failed to copy address:', err);
-        enqueueSnackbar('Failed to copy address', {
+        enqueueSnackbar(intl.formatMessage({ id: 'common.addressCopyFailed' }), {
           variant: 'error'
         });
       });
@@ -42,9 +44,13 @@ export const CopyableAddress = ({ address, symbol, onClick }: CopyableAddressPro
       onClick={onClick}
     >
       <Typography component="span">{symbol ? symbol : shortenAddress(address)}</Typography>
-      <Tooltip title="Copy full address">
+      <Tooltip title={intl.formatMessage({ id: 'common.copyFullAddress' })}>
         <IconButton
-          aria-label={symbol ? `Copy ${symbol} token address ${shortenAddress(address)}` : `Copy address ${shortenAddress(address)}`}
+          aria-label={
+            symbol
+              ? intl.formatMessage({ id: 'common.copyTokenAddressAria' }, { symbol, address: shortenAddress(address) })
+              : intl.formatMessage({ id: 'common.copyAddressAria' }, { address: shortenAddress(address) })
+          }
           onClick={copyToClipboard}
           disableRipple
           sx={{

@@ -36,8 +36,18 @@ import { appoloClients } from '@/api/apollo-client';
 import { DECIMALS_SCALE_FACTOR, formatTokenAmount, formatShortUSDS } from 'utils/formatters';
 import { MarketData, MarketInterface } from 'types/market';
 import { ChainIcon } from 'components/ChainIcon';
+import { FormattedMessage, useIntl } from 'react-intl';
 
-type SortableField = 'chain' | 'loanAsset' | 'collateralAsset' | 'lltv' | 'utilization' | 'borrowApy' | 'supplyApy' | 'sizeUsd' | 'totalLiquidityUsd';
+type SortableField =
+  | 'chain'
+  | 'loanAsset'
+  | 'collateralAsset'
+  | 'lltv'
+  | 'utilization'
+  | 'borrowApy'
+  | 'supplyApy'
+  | 'sizeUsd'
+  | 'totalLiquidityUsd';
 type SortOrder = 'asc' | 'desc';
 interface MorphoPositionsData {
   marketId: string;
@@ -53,6 +63,7 @@ interface MorphoPositionsData {
 }
 export default function BorrowPage() {
   const navigate = useNavigate();
+  const intl = useIntl();
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('borrowApy');
@@ -125,18 +136,17 @@ export default function BorrowPage() {
     setPage(1); // Reset to first page when sorting
   };
 
-  const toTokenAmount = (raw: string, decimals: number): number =>
-    parseFloat(raw || '0') / Math.pow(10, decimals);
+  const toTokenAmount = (raw: string, decimals: number): number => parseFloat(raw || '0') / Math.pow(10, decimals);
 
   // Format LLTV to percentage
   const formatLLTV = (lltv: string) => {
-    if (!lltv) return 'N/A';
+    if (!lltv) return intl.formatMessage({ id: 'common.na' });
     try {
       const lltvNumber = parseFloat(lltv) / 1e18;
       return `${(lltvNumber * 100).toFixed(2)}%`;
     } catch (e) {
       console.error(e);
-      return 'N/A';
+      return intl.formatMessage({ id: 'common.na' });
     }
   };
 
@@ -153,7 +163,9 @@ export default function BorrowPage() {
 
   const getUniqueNetworks = (markets: MarketInterface[]): string[] => {
     const set = new Set<string>();
-    markets.forEach((m) => { if (m.chain?.network) set.add(m.chain.network); });
+    markets.forEach((m) => {
+      if (m.chain?.network) set.add(m.chain.network);
+    });
     return Array.from(set).sort();
   };
 
@@ -235,7 +247,7 @@ export default function BorrowPage() {
   if (graphLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress aria-label="Loading markets" />
+        <CircularProgress aria-label={intl.formatMessage({ id: 'borrow.loading' })} />
       </Box>
     );
   }
@@ -244,7 +256,7 @@ export default function BorrowPage() {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography role="alert" color="error">
-          Error loading markets: {graphError.message}
+          <FormattedMessage id="borrow.error" values={{ message: graphError.message }} />
         </Typography>
       </Box>
     );
@@ -259,9 +271,11 @@ export default function BorrowPage() {
     return (
       <Box sx={{ padding: 2 }}>
         <Box component="h1" sx={visuallyHidden}>
-          Borrow: Morpho markets
+          <FormattedMessage id="borrow.title" />
         </Box>
-        <Typography role="status">No markets available</Typography>
+        <Typography role="status">
+          <FormattedMessage id="borrow.noMarkets" />
+        </Typography>
       </Box>
     );
   }
@@ -269,21 +283,29 @@ export default function BorrowPage() {
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
       <Box component="h1" sx={visuallyHidden}>
-        Borrow: Morpho markets
+        <FormattedMessage id="borrow.title" />
       </Box>
       {morphoPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
           <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 1 }}>
-            Your Positions
+            <FormattedMessage id="common.yourPositions" />
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="Your market positions">
+            <Table sx={{ minWidth: 650 }} aria-label={intl.formatMessage({ id: 'borrow.yourPositionsAria' })}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Market</TableCell>
-                  <TableCell>Collateral</TableCell>
-                  <TableCell>Loan</TableCell>
-                  <TableCell>Borrow APY</TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.market" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.collateral" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.loan" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.borrowApy" />
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -301,7 +323,10 @@ export default function BorrowPage() {
                         color="inherit"
                         underline="none"
                         onClick={(e) => e.stopPropagation()}
-                        aria-label={`Open market ${position.collateralSymbol}/${position.loanSymbol}`}
+                        aria-label={intl.formatMessage(
+                          { id: 'borrow.openMarketAria' },
+                          { pair: `${position.collateralSymbol}/${position.loanSymbol}` }
+                        )}
                       >
                         {position.collateralSymbol}/{position.loanSymbol}
                       </Link>
@@ -341,7 +366,7 @@ export default function BorrowPage() {
         </Box>
       )}
       <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 3 }}>
-        Available Markets
+        <FormattedMessage id="borrow.availableMarkets" />
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
@@ -358,7 +383,15 @@ export default function BorrowPage() {
             renderTags={(value, getTagProps) =>
               value.map((option, index) => <Chip label={option} {...getTagProps({ index })} size="small" />)
             }
-            renderInput={(params) => <TextField {...params} label="Filter By Network" placeholder="Select networks" size="small" fullWidth />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'filter.byNetwork' })}
+                placeholder={intl.formatMessage({ id: 'filter.selectNetworks' })}
+                size="small"
+                fullWidth
+              />
+            )}
             size="small"
             fullWidth
           />
@@ -395,7 +428,15 @@ export default function BorrowPage() {
                 </Box>
               </li>
             )}
-            renderInput={(params) => <TextField {...params} label="Filter By Loan" placeholder="Select symbols" size="small" fullWidth />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'filter.byLoan' })}
+                placeholder={intl.formatMessage({ id: 'filter.selectSymbols' })}
+                size="small"
+                fullWidth
+              />
+            )}
             size="small"
             fullWidth
           />
@@ -433,7 +474,13 @@ export default function BorrowPage() {
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label="Filter By Collateral" placeholder="Select symbols" size="small" fullWidth />
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'filter.byCollateral' })}
+                placeholder={intl.formatMessage({ id: 'filter.selectSymbols' })}
+                size="small"
+                fullWidth
+              />
             )}
             size="small"
             fullWidth
@@ -442,11 +489,11 @@ export default function BorrowPage() {
       </Grid>
 
       <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-        <Table sx={{ minWidth: 650 }} aria-label="Available markets">
+        <Table sx={{ minWidth: 650 }} aria-label={intl.formatMessage({ id: 'borrow.availableMarketsAria' })}>
           <TableHead>
             <TableRow>
               <TableCell sortDirection={sortField === 'chain' ? sortOrder : false}>
-                <Tooltip title="Click to sort by network" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byNetwork' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'chain'}
                     direction={sortField === 'chain' ? sortOrder : 'asc'}
@@ -454,12 +501,12 @@ export default function BorrowPage() {
                     IconComponent={sortField === 'chain' ? undefined : UnfoldMore}
                     sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
                   >
-                    Network
+                    <FormattedMessage id="table.network" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'loanAsset' ? sortOrder : false}>
-                <Tooltip title="Click to sort by loan asset" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byLoanAsset' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'loanAsset'}
                     direction={sortField === 'loanAsset' ? sortOrder : 'asc'}
@@ -472,12 +519,12 @@ export default function BorrowPage() {
                       }
                     }}
                   >
-                    Loan Asset
+                    <FormattedMessage id="table.loanAsset" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'collateralAsset' ? sortOrder : false}>
-                <Tooltip title="Click to sort by collateral asset" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byCollateralAsset' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'collateralAsset'}
                     direction={sortField === 'collateralAsset' ? sortOrder : 'asc'}
@@ -490,12 +537,12 @@ export default function BorrowPage() {
                       }
                     }}
                   >
-                    Collateral Asset
+                    <FormattedMessage id="table.collateralAsset" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'lltv' ? sortOrder : false}>
-                <Tooltip title="Click to sort by LLTV" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byLltv' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'lltv'}
                     direction={sortField === 'lltv' ? sortOrder : 'asc'}
@@ -508,12 +555,12 @@ export default function BorrowPage() {
                       }
                     }}
                   >
-                    LLTV
+                    <FormattedMessage id="table.lltv" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'borrowApy' ? sortOrder : false}>
-                <Tooltip title="Click to sort by borrow APY" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byBorrowApy' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'borrowApy'}
                     direction={sortField === 'borrowApy' ? sortOrder : 'asc'}
@@ -526,12 +573,12 @@ export default function BorrowPage() {
                       }
                     }}
                   >
-                    Borrow APY
+                    <FormattedMessage id="table.borrowApy" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'supplyApy' ? sortOrder : false}>
-                <Tooltip title="Click to sort by supply APY" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.bySupplyApy' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'supplyApy'}
                     direction={sortField === 'supplyApy' ? sortOrder : 'asc'}
@@ -544,12 +591,12 @@ export default function BorrowPage() {
                       }
                     }}
                   >
-                    Supply APY
+                    <FormattedMessage id="table.supplyApy" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'sizeUsd' ? sortOrder : false}>
-                <Tooltip title="Click to sort by market size" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byMarketSize' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'sizeUsd'}
                     direction={sortField === 'sizeUsd' ? sortOrder : 'desc'}
@@ -557,12 +604,12 @@ export default function BorrowPage() {
                     IconComponent={sortField === 'sizeUsd' ? undefined : UnfoldMore}
                     sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
                   >
-                    Market Size
+                    <FormattedMessage id="table.marketSize" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell sortDirection={sortField === 'totalLiquidityUsd' ? sortOrder : false}>
-                <Tooltip title="Click to sort by total liquidity" arrow describeChild>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byTotalLiquidity' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'totalLiquidityUsd'}
                     direction={sortField === 'totalLiquidityUsd' ? sortOrder : 'desc'}
@@ -570,7 +617,7 @@ export default function BorrowPage() {
                     IconComponent={sortField === 'totalLiquidityUsd' ? undefined : UnfoldMore}
                     sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
                   >
-                    Total Liquidity
+                    <FormattedMessage id="table.totalLiquidity" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
@@ -595,13 +642,19 @@ export default function BorrowPage() {
                         color="inherit"
                         underline="none"
                         onClick={(e) => e.stopPropagation()}
-                        aria-label={`Open market with loan asset ${market.loanAsset?.symbol} and collateral ${market.collateralAsset?.symbol || 'N/A'}`}
+                        aria-label={intl.formatMessage(
+                          { id: 'borrow.openMarketAssetsAria' },
+                          {
+                            loan: market.loanAsset?.symbol,
+                            collateral: market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })
+                          }
+                        )}
                       >
                         {market.loanAsset?.symbol}
                       </Link>
                     </Box>
                   ) : (
-                    'N/A'
+                    intl.formatMessage({ id: 'common.na' })
                   )}
                 </TableCell>
 
@@ -611,7 +664,7 @@ export default function BorrowPage() {
                       <TokenIcon symbol={market.collateralAsset?.symbol} avatarProps={{ alt: '' }} /> {market.collateralAsset?.symbol}
                     </Box>
                   ) : (
-                    'N/A'
+                    intl.formatMessage({ id: 'common.na' })
                   )}
                 </TableCell>
                 <TableCell>{formatLLTV(market.lltv)}</TableCell>
@@ -646,18 +699,26 @@ export default function BorrowPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <Typography variant="body2" color="text.secondary" role="status">
-          Showing {markets.length} {markets.length === 1 ? 'market' : 'markets'}
-          {loanAssetSymbolFilter.length > 0 || collateralAssetSymbolFilter.length > 0 ? ' (filtered)' : ''}
+          <FormattedMessage id="borrow.summaryCount" values={{ count: markets.length }} />
+          {(loanAssetSymbolFilter.length > 0 || collateralAssetSymbolFilter.length > 0) && (
+            <span>
+              {' '}
+              <FormattedMessage id="common.filtered" />
+            </span>
+          )}
           {loanAssetSymbolFilter.length > 0 && (
             <span>
               {' '}
-              by {loanAssetSymbolFilter.length} loan {loanAssetSymbolFilter.length === 1 ? 'symbol' : 'symbols'}
+              <FormattedMessage id="borrow.summaryByLoanSymbols" values={{ count: loanAssetSymbolFilter.length }} />
             </span>
           )}
           {collateralAssetSymbolFilter.length > 0 && (
             <span>
-              {loanAssetSymbolFilter.length > 0 ? ' and ' : ' by '}
-              {collateralAssetSymbolFilter.length} collateral {collateralAssetSymbolFilter.length === 1 ? 'symbol' : 'symbols'}
+              {' '}
+              <FormattedMessage
+                id={loanAssetSymbolFilter.length > 0 ? 'borrow.summaryAndCollateralSymbols' : 'borrow.summaryByCollateralSymbols'}
+                values={{ count: collateralAssetSymbolFilter.length }}
+              />
             </span>
           )}
         </Typography>
@@ -665,13 +726,15 @@ export default function BorrowPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
         <FormControl variant="outlined" size="small">
-          <InputLabel id="rows-per-page-label">Rows</InputLabel>
+          <InputLabel id="rows-per-page-label">
+            <FormattedMessage id="common.rows" />
+          </InputLabel>
           <Select
             labelId="rows-per-page-label"
             id="rows-per-page"
             value={rowsPerPage}
             onChange={handleChangeRowsPerPage}
-            label="Rows"
+            label={intl.formatMessage({ id: 'common.rows' })}
             sx={{ minWidth: 80 }}
           >
             <MenuItem value={10}>10</MenuItem>
@@ -686,7 +749,7 @@ export default function BorrowPage() {
           onChange={handleChangePage}
           color="primary"
           size="large"
-          aria-label="Markets pagination"
+          aria-label={intl.formatMessage({ id: 'borrow.pagination' })}
         />
       </Box>
     </Box>

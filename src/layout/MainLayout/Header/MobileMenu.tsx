@@ -5,15 +5,22 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Box, IconButton, Drawer, List, ListItemButton, ListItemText, Typography, useTheme } from '@mui/material';
 import { IconMenu2, IconX } from '@tabler/icons-react';
 
+// third party
+import { FormattedMessage, useIntl } from 'react-intl';
+
+// project imports
+import LanguageSwitcher from 'components/LanguageSwitcher';
+
 // types
 interface MobileMenuItemProps {
-  title: string;
+  titleId: string;
   path?: string;
   isExternal?: boolean;
 }
 
 const MobileMenu = () => {
   const theme = useTheme();
+  const intl = useIntl();
   const [open, setOpen] = useState(false);
 
   const handleToggleDrawer = () => {
@@ -22,17 +29,17 @@ const MobileMenu = () => {
 
   const menuItems: MobileMenuItemProps[] = [
     {
-      title: 'Home',
+      titleId: 'nav.home',
       path: '/',
       isExternal: false
     },
     {
-      title: 'Permissionless Interfaces',
+      titleId: 'nav.permissionlessInterfaces',
       path: 'https://pi.cp0x.com',
       isExternal: false
     },
     {
-      title: 'cp0x Referrals',
+      titleId: 'nav.cp0xReferrals',
       path: 'https://cp0x.com',
       isExternal: true
     }
@@ -45,7 +52,7 @@ const MobileMenu = () => {
         onClick={handleToggleDrawer}
         edge="start"
         size="large"
-        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-label={intl.formatMessage({ id: open ? 'nav.closeMenu' : 'nav.openMenu' })}
         aria-expanded={open}
         aria-haspopup="dialog"
         // the drawer is unmounted while closed, so only reference it when it exists
@@ -71,28 +78,38 @@ const MobileMenu = () => {
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" component="h2" id="mobile-menu-title">
-            Menu
+            <FormattedMessage id="nav.menu" />
           </Typography>
-          <IconButton color="inherit" onClick={handleToggleDrawer} edge="end" size="small" aria-label="Close navigation menu">
+          <IconButton
+            color="inherit"
+            onClick={handleToggleDrawer}
+            edge="end"
+            size="small"
+            aria-label={intl.formatMessage({ id: 'nav.closeMenu' })}
+          >
             <IconX aria-hidden="true" />
           </IconButton>
         </Box>
 
-        <List component="nav" aria-label="Site links" sx={{ px: 2, pt: 1 }}>
+        <List component="nav" aria-label={intl.formatMessage({ id: 'nav.siteLinks' })} sx={{ px: 2, pt: 1 }}>
           {menuItems.map((item) => (
-            <React.Fragment key={item.title}>
+            <React.Fragment key={item.titleId}>
               {item.isExternal ? (
                 <ListItemButton component="a" href={item.path} target="_blank" rel="noopener noreferrer" onClick={handleToggleDrawer}>
-                  <ListItemText primary={item.title} />
+                  <ListItemText primary={<FormattedMessage id={item.titleId} />} />
                 </ListItemButton>
               ) : (
                 <ListItemButton component={RouterLink} to={item.path || '#'} onClick={handleToggleDrawer}>
-                  <ListItemText primary={item.title} />
+                  <ListItemText primary={<FormattedMessage id={item.titleId} />} />
                 </ListItemButton>
               )}
             </React.Fragment>
           ))}
         </List>
+
+        <Box sx={{ px: 2, pt: 1 }}>
+          <LanguageSwitcher fullWidth />
+        </Box>
       </Drawer>
     </Box>
   );

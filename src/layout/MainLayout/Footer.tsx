@@ -1,7 +1,10 @@
 import { Stack, Box, Typography, Link } from '@mui/material';
+import { useIntl } from 'react-intl';
 import { ReactComponent as Cp0xLogo } from '@/assets/images/cp0x-logo.svg';
 
 export default function Footer() {
+  const intl = useIntl();
+
   return (
     <Box
       component="footer"
@@ -29,7 +32,12 @@ export default function Footer() {
           gap: { xs: 2, md: 0 }
         }}
       >
-        <Link href="/" className="logo-wrapper" aria-label="cp0x home" sx={{ textDecoration: 'none', mb: { xs: 1, md: 0 } }}>
+        <Link
+          href="/"
+          className="logo-wrapper"
+          aria-label={intl.formatMessage({ id: 'footer.home' })}
+          sx={{ textDecoration: 'none', mb: { xs: 1, md: 0 } }}
+        >
           <Cp0xLogo aria-hidden="true" style={{ width: 70, height: 'auto' }} />
         </Link>
         <Box
@@ -110,7 +118,7 @@ export default function Footer() {
             href="https://t.me/cp0xdotcom"
             target="_blank"
             className="social-icon"
-            aria-label="cp0x on Telegram (opens in a new tab)"
+            aria-label={intl.formatMessage({ id: 'footer.telegram' })}
             sx={{
               color: 'text.secondary',
               '&:hover': { color: 'primary.main' }
@@ -128,7 +136,7 @@ export default function Footer() {
             href="https://twitter.com/cp0xdotcom"
             target="_blank"
             className="social-icon"
-            aria-label="cp0x on X (Twitter) (opens in a new tab)"
+            aria-label={intl.formatMessage({ id: 'footer.twitter' })}
             sx={{
               color: 'text.secondary',
               '&:hover': { color: 'primary.main' }
@@ -146,7 +154,7 @@ export default function Footer() {
             href="https://github.com/cp0x-org"
             target="_blank"
             className="social-icon"
-            aria-label="cp0x on GitHub (opens in a new tab)"
+            aria-label={intl.formatMessage({ id: 'footer.github' })}
             sx={{
               color: 'text.secondary',
               '&:hover': { color: 'primary.main' }

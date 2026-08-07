@@ -26,6 +26,7 @@ import { formatUnits } from 'viem';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface MorphoPositionsData {
   marketId: string;
@@ -53,6 +54,7 @@ function useChainPositions(chainId: number, address: string | undefined) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const intl = useIntl();
   const { address: userAddress } = useAccount();
 
   // Parallel queries for each chain — hooks must be called unconditionally
@@ -76,44 +78,47 @@ export default function DashboardPage() {
 
   const anyLoading = chainResults.some((c) => c.result.loading);
 
-  const chainsWithData = React.useMemo(() => {
-    return chainResults
-      .map(({ chainId, result }) => {
-        const user = result.data?.userByAddress;
-        if (!user) return null;
+  const chainsWithData = React.useMemo(
+    () => {
+      return chainResults
+        .map(({ chainId, result }) => {
+          const user = result.data?.userByAddress;
+          if (!user) return null;
 
-        const marketPositions: MorphoPositionsData[] = user.marketPositions
-          .filter((p) => parseFloat(p.state.collateral || '0') > 0 || parseFloat(p.state.borrowAssets || '0') > 0)
-          .map((position) => ({
-            marketId: position.market.marketId,
-            collateralSymbol: position.market.collateralAsset.symbol,
-            loanSymbol: position.market.loanAsset.symbol,
-            collateralBalance: position.state.collateral || '0',
-            loanBalance: position.state.borrowAssets || '0',
-            collateralDecimal: position.market.collateralAsset.decimals,
-            loanDecimal: position.market.loanAsset.decimals,
-            borrowUsd: position.state.borrowAssetsUsd || '0',
-            supplyUsd: position.state.supplyAssetsUsd || '0',
-            borrowApy: position.market.state.borrowApy || '0'
-          }));
+          const marketPositions: MorphoPositionsData[] = user.marketPositions
+            .filter((p) => parseFloat(p.state.collateral || '0') > 0 || parseFloat(p.state.borrowAssets || '0') > 0)
+            .map((position) => ({
+              marketId: position.market.marketId,
+              collateralSymbol: position.market.collateralAsset.symbol,
+              loanSymbol: position.market.loanAsset.symbol,
+              collateralBalance: position.state.collateral || '0',
+              loanBalance: position.state.borrowAssets || '0',
+              collateralDecimal: position.market.collateralAsset.decimals,
+              loanDecimal: position.market.loanAsset.decimals,
+              borrowUsd: position.state.borrowAssetsUsd || '0',
+              supplyUsd: position.state.supplyAssetsUsd || '0',
+              borrowApy: position.market.state.borrowApy || '0'
+            }));
 
-        const vaultPositions = user.vaultPositions.filter((p) => parseFloat(p.state.assets || '0') > 0);
+          const vaultPositions = user.vaultPositions.filter((p) => parseFloat(p.state.assets || '0') > 0);
 
-        if (marketPositions.length === 0 && vaultPositions.length === 0) return null;
+          if (marketPositions.length === 0 && vaultPositions.length === 0) return null;
 
-        return { chainId, marketPositions, vaultPositions };
-      })
-      .filter(Boolean) as { chainId: number; marketPositions: MorphoPositionsData[]; vaultPositions: any[] }[];
-  }, chainResults.map((c) => c.result.data));
+          return { chainId, marketPositions, vaultPositions };
+        })
+        .filter(Boolean) as { chainId: number; marketPositions: MorphoPositionsData[]; vaultPositions: any[] }[];
+    },
+    chainResults.map((c) => c.result.data)
+  );
 
   if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
         <Box component="h1" sx={visuallyHidden}>
-          Dashboard: your Morpho positions
+          <FormattedMessage id="dashboard.title" />
         </Box>
         <Typography variant="h4" component="p" role="status">
-          Connect wallet to see your positions.
+          <FormattedMessage id="dashboard.connectWallet" />
         </Typography>
       </Box>
     );
@@ -122,18 +127,18 @@ export default function DashboardPage() {
   return (
     <Box sx={{ width: '100%' }}>
       <Box component="h1" sx={visuallyHidden}>
-        Dashboard: your Morpho positions
+        <FormattedMessage id="dashboard.title" />
       </Box>
       {anyLoading && chainsWithData.length === 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-          <CircularProgress aria-label="Loading your positions" />
+          <CircularProgress aria-label={intl.formatMessage({ id: 'dashboard.loading' })} />
         </Box>
       )}
 
       {!anyLoading && chainsWithData.length === 0 && (
         <Box sx={{ padding: 2 }}>
           <Typography variant="h4" component="p" role="status">
-            No positions found across any network.
+            <FormattedMessage id="dashboard.empty" />
           </Typography>
         </Box>
       )}
@@ -144,23 +149,41 @@ export default function DashboardPage() {
             <Typography variant="h2" component="h2">
               {getChainName(chainId)}
             </Typography>
-            {anyLoading && <CircularProgress size={16} aria-label={`Refreshing ${getChainName(chainId)} positions`} />}
+            {anyLoading && (
+              <CircularProgress
+                size={16}
+                aria-label={intl.formatMessage({ id: 'dashboard.refreshing' }, { network: getChainName(chainId) })}
+              />
+            )}
           </Box>
 
           {vaultPositions.length > 0 && (
             <Box sx={{ marginBottom: 3 }}>
               <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
-                Vaults
+                <FormattedMessage id="dashboard.vaults" />
               </Typography>
               <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-                <Table sx={{ minWidth: 650 }} aria-label={`Your vault positions on ${getChainName(chainId)}`}>
+                <Table
+                  sx={{ minWidth: 650 }}
+                  aria-label={intl.formatMessage({ id: 'dashboard.vaultPositionsAria' }, { network: getChainName(chainId) })}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Vault</TableCell>
-                      <TableCell>Balance</TableCell>
-                      <TableCell>APY</TableCell>
-                      <TableCell>Total Deposits (USD)</TableCell>
-                      <TableCell>Curators</TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.vault" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.balance" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.apy" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.totalDepositsUsd" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.curators" />
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -180,7 +203,10 @@ export default function DashboardPage() {
                               color="inherit"
                               underline="none"
                               onClick={(e) => e.stopPropagation()}
-                              aria-label={`Open vault ${position.vault.name || shortenAddress(position.vault.address)} on ${getChainName(chainId)}`}
+                              aria-label={intl.formatMessage(
+                                { id: 'dashboard.openVaultAria' },
+                                { name: position.vault.name || shortenAddress(position.vault.address), network: getChainName(chainId) }
+                              )}
                             >
                               {position.vault.name || shortenAddress(position.vault.address)}
                             </Link>
@@ -212,16 +238,27 @@ export default function DashboardPage() {
           {marketPositions.length > 0 && (
             <Box>
               <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
-                Markets
+                <FormattedMessage id="dashboard.markets" />
               </Typography>
               <TableContainer component={Paper}>
-                <Table sx={{ minWidth: 650 }} aria-label={`Your market positions on ${getChainName(chainId)}`}>
+                <Table
+                  sx={{ minWidth: 650 }}
+                  aria-label={intl.formatMessage({ id: 'dashboard.marketPositionsAria' }, { network: getChainName(chainId) })}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Market</TableCell>
-                      <TableCell>Collateral</TableCell>
-                      <TableCell>Loan</TableCell>
-                      <TableCell>Borrow APY</TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.market" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.collateral" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.loan" />
+                      </TableCell>
+                      <TableCell>
+                        <FormattedMessage id="table.borrowApy" />
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -239,7 +276,10 @@ export default function DashboardPage() {
                             color="inherit"
                             underline="none"
                             onClick={(e) => e.stopPropagation()}
-                            aria-label={`Open market ${position.collateralSymbol}/${position.loanSymbol} on ${getChainName(chainId)}`}
+                            aria-label={intl.formatMessage(
+                              { id: 'dashboard.openMarketAria' },
+                              { pair: `${position.collateralSymbol}/${position.loanSymbol}`, network: getChainName(chainId) }
+                            )}
                           >
                             {position.collateralSymbol}/{position.loanSymbol}
                           </Link>

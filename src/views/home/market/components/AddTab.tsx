@@ -17,6 +17,7 @@ import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface AddTabProps {
   market: MarketInterface;
@@ -28,6 +29,7 @@ interface AddTabProps {
 
 const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
+  const intl = useIntl();
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const [addAmount, setAddAmount] = useState('');
@@ -173,18 +175,28 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
         refetchAllowance();
       }
 
-      dispatchSuccess(`${market?.collateralAsset.symbol || 'Token'} approved successfully`);
+      dispatchSuccess(
+        intl.formatMessage(
+          { id: 'tx.approveSuccess' },
+          { symbol: market?.collateralAsset.symbol || intl.formatMessage({ id: 'common.token' }) }
+        )
+      );
       console.log('Approval confirmed!');
     } else if (approveTx.txState === 'error') {
-      dispatchError(`Failed to approve ${market?.collateralAsset.symbol || 'token'}`);
-      setTxError(`Approval failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'tx.approveError' },
+          { symbol: market?.collateralAsset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'tx.approveRetry' }));
       console.log(approveTx.txError);
 
       console.error('Approval transaction failed');
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
-  }, [approveTx.txState, market?.collateralAsset.symbol, refetchAllowance]);
+  }, [approveTx.txState, market?.collateralAsset.symbol, refetchAllowance, intl]);
 
   useEffect(() => {
     if (addCollateralTx.txState === 'confirmed') {
@@ -195,7 +207,12 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
       setActivePercentage(null);
 
       // Show success message
-      dispatchSuccess(`${market?.collateralAsset.symbol || 'Collateral'} added successfully`);
+      dispatchSuccess(
+        intl.formatMessage(
+          { id: 'addCollateral.success' },
+          { symbol: market?.collateralAsset.symbol || intl.formatMessage({ id: 'table.collateral' }) }
+        )
+      );
       console.log('Add collateral confirmed!');
 
       // After successful transaction, we might want to refresh any balances
@@ -207,13 +224,18 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
         onSuccess();
       }
     } else if (addCollateralTx.txState === 'error') {
-      dispatchError(`Failed to add ${market?.collateralAsset.symbol || 'collateral'}`);
-      setTxError(`Add collateral failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'addCollateral.error' },
+          { symbol: market?.collateralAsset.symbol || intl.formatMessage({ id: 'table.collateral' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'addCollateral.errorRetry' }));
       console.error('Add collateral transaction failed');
     } else if (addCollateralTx.txState === 'submitted') {
       console.log('Add collateral transaction submitted');
     }
-  }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess]);
+  }, [addCollateralTx.txState, market?.collateralAsset.symbol, refetchAllowance, onSuccess, intl]);
 
   const handleAddCollateral = useCallback(async () => {
     if (!userAddress || !marketId || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
@@ -223,7 +245,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     setTxError(null);
 
     if (!market) {
-      setTxError('Market data not available');
+      setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
 
@@ -293,14 +315,30 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     } catch (error) {
       console.error('Transaction failed:', error);
       if (!isApproved) {
-        dispatchError(`Failed to approve ${market.collateralAsset.symbol}`);
+        dispatchError(intl.formatMessage({ id: 'tx.approveError' }, { symbol: market.collateralAsset.symbol }));
       } else {
-        dispatchError(`Failed to add ${market.collateralAsset.symbol} collateral`);
+        dispatchError(intl.formatMessage({ id: 'addCollateral.error' }, { symbol: market.collateralAsset.symbol }));
       }
       resetTransactionStates();
-      setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTxError(
+        intl.formatMessage(
+          { id: 'tx.failed' },
+          { message: error instanceof Error ? error.message : intl.formatMessage({ id: 'tx.unknownError' }) }
+        )
+      );
     }
-  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, addCollateralTx, resetTransactionStates]);
+  }, [
+    userAddress,
+    marketId,
+    debouncedAddAmount,
+    market,
+    isApproved,
+    chainConfig,
+    approveTx,
+    addCollateralTx,
+    resetTransactionStates,
+    intl
+  ]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -313,32 +351,32 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   const getButtonText = useCallback(() => {
     // Show checking status when amount is being debounced
     if (allowanceChecking) {
-      return 'Checking allowance...';
+      return intl.formatMessage({ id: 'common.checkingAllowance' });
     }
 
     if (!addAmount) {
-      return 'Enter Amount';
+      return intl.formatMessage({ id: 'common.enterAmount' });
     }
 
     if (!isApproved) {
       if (approveTx.txState === 'submitting' || approveTx.txState === 'submitted') {
-        return 'Approving...';
+        return intl.formatMessage({ id: 'common.approving' });
       }
       if (approveTx.txState === 'error') {
-        return 'Approval Failed - Try again';
+        return intl.formatMessage({ id: 'common.approvalFailed' });
       }
-      return `Approve ${market?.collateralAsset.symbol || ''}`;
+      return intl.formatMessage({ id: 'common.approve' }, { symbol: market?.collateralAsset.symbol || '' });
     }
 
     if (addCollateralTx.txState === 'submitting' || addCollateralTx.txState === 'submitted') {
-      return 'Adding Collateral...';
+      return intl.formatMessage({ id: 'addCollateral.pending' });
     }
     if (addCollateralTx.txState === 'error') {
-      return 'Add Failed - Try again';
+      return intl.formatMessage({ id: 'addCollateral.failed' });
     }
 
-    return 'Add Collateral';
-  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, addCollateralTx.txState, market?.collateralAsset.symbol]);
+    return intl.formatMessage({ id: 'addCollateral.button' });
+  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, addCollateralTx.txState, market?.collateralAsset.symbol, intl]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
@@ -357,14 +395,19 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
-  const collateralSymbol = market?.collateralAsset?.symbol || 'token';
+  const collateralSymbol = market?.collateralAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
   const exceedsBalance = !!addAmount && parseFloat(addAmount) > parseFloat(formattedCollateralBalance);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
-  const statusMessage = txError || (exceedsBalance ? `Amount exceeds your ${collateralSymbol} balance` : '');
+  const statusMessage =
+    txError || (exceedsBalance ? intl.formatMessage({ id: 'addCollateral.exceedsBalance' }, { symbol: collateralSymbol }) : '');
 
   if (!market) {
-    return <Box>Incorrect Market Data</Box>;
+    return (
+      <Box>
+        <FormattedMessage id="market.incorrectData" />
+      </Box>
+    );
   }
 
   return (
@@ -401,9 +444,11 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Supply Collateral
+              <FormattedMessage id="addCollateral.title" />
             </Typography>
-            <Typography variant="body2">Add Collateral Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="addCollateral.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -421,7 +466,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
                 symbol={market.collateralAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -443,7 +488,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             inputMode: 'decimal',
             pattern: '[0-9]*,?[0-9]*',
             id: 'add-collateral-amount',
-            'aria-label': `Amount of ${collateralSymbol} to supply as collateral`,
+            'aria-label': intl.formatMessage({ id: 'addCollateral.inputAria' }, { symbol: collateralSymbol }),
             'aria-describedby': 'add-collateral-balance add-collateral-status',
             'aria-invalid': exceedsBalance || undefined
           }}
@@ -461,7 +506,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             onClick={() => handlePercentClick(25)}
             disabled={isInputDisabled}
             aria-pressed={activePercentage === 25}
-            aria-label={`Use 25% of your ${collateralSymbol} balance`}
+            aria-label={intl.formatMessage({ id: 'addCollateral.percentAria' }, { percent: 25, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -476,7 +521,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             onClick={() => handlePercentClick(50)}
             disabled={isInputDisabled}
             aria-pressed={activePercentage === 50}
-            aria-label={`Use 50% of your ${collateralSymbol} balance`}
+            aria-label={intl.formatMessage({ id: 'addCollateral.percentAria' }, { percent: 50, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -491,7 +536,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             onClick={() => handlePercentClick(75)}
             disabled={isInputDisabled}
             aria-pressed={activePercentage === 75}
-            aria-label={`Use 75% of your ${collateralSymbol} balance`}
+            aria-label={intl.formatMessage({ id: 'addCollateral.percentAria' }, { percent: 75, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -506,14 +551,14 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             onClick={() => handlePercentClick(100)}
             disabled={isInputDisabled}
             aria-pressed={activePercentage === 100}
-            aria-label={`Use maximum available ${collateralSymbol} balance`}
+            aria-label={intl.formatMessage({ id: 'addCollateral.maxAria' }, { symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -541,10 +586,11 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Balance:
+            <FormattedMessage id="common.balance" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {formatAssetOutput(Number(formattedCollateralBalance).toFixed(6))} {market.collateralAsset?.symbol || 'N/A'}
+            {formatAssetOutput(Number(formattedCollateralBalance).toFixed(6))}{' '}
+            {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
         <Box id="add-collateral-status" role="alert" sx={visuallyHidden}>

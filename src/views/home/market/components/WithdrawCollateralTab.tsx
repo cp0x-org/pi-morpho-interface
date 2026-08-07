@@ -16,6 +16,7 @@ import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -36,6 +37,7 @@ export default function WithdrawCollateralTab({
 }: WithdrawTabProps) {
   // Internal state management
   const theme = useTheme();
+  const intl = useIntl();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
@@ -73,7 +75,9 @@ export default function WithdrawCollateralTab({
   // Handle successful transaction completion
   useEffect(() => {
     if (isCompleted && txState === 'confirmed') {
-      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.collateralAsset.symbol}`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'withdrawCollateral.success' }, { amount: withdrawAmount, symbol: market.collateralAsset.symbol })
+      );
       setWithdrawAmount('');
 
       // Call onSuccess to refresh the position data
@@ -83,15 +87,15 @@ export default function WithdrawCollateralTab({
 
       resetTx();
     }
-  }, [isCompleted, txState, withdrawAmount, market.collateralAsset.symbol, onSuccess, resetTx]);
+  }, [isCompleted, txState, withdrawAmount, market.collateralAsset.symbol, onSuccess, resetTx, intl]);
 
   // Handle transaction errors
   useEffect(() => {
     if (txState === 'error' && txRawError) {
-      dispatchError(`Failed to withdraw`);
-      setTxError('Failed to withdraw');
+      dispatchError(intl.formatMessage({ id: 'withdrawCollateral.error' }));
+      setTxError(intl.formatMessage({ id: 'withdrawCollateral.error' }));
     }
-  }, [txState, txRawError]);
+  }, [txState, txRawError, intl]);
 
   // Handle withdraw collateral
   const handleWithdraw = async () => {
@@ -100,7 +104,7 @@ export default function WithdrawCollateralTab({
     }
 
     if (!market) {
-      dispatchError('Market Not Found');
+      dispatchError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
     }
     const assetDecimals = market.collateralAsset.decimals;
@@ -131,8 +135,9 @@ export default function WithdrawCollateralTab({
       });
     } catch (error) {
       console.error('Error withdrawing collateral:', error);
-      dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
-      setTxError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      dispatchError(intl.formatMessage({ id: 'withdrawCollateral.errorWithReason' }, { message }));
+      setTxError(intl.formatMessage({ id: 'withdrawCollateral.errorWithReason' }, { message }));
     }
   };
 
@@ -166,21 +171,22 @@ export default function WithdrawCollateralTab({
   const getButtonText = () => {
     switch (txState) {
       case 'submitting':
-        return 'Preparing Transaction...';
+        return intl.formatMessage({ id: 'common.preparingTransaction' });
       case 'submitted':
-        return 'Withdrawing...';
+        return intl.formatMessage({ id: 'common.withdrawing' });
       default:
-        return 'Withdraw';
+        return intl.formatMessage({ id: 'common.withdraw' });
     }
   };
 
   const isTransactionInProgress = txState === 'submitting' || txState === 'submitted';
-  const collateralSymbol = market?.collateralAsset?.symbol || 'token';
+  const collateralSymbol = market?.collateralAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
   const exceedsWithdrawable =
     !!withdrawAmount && parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
-  const statusMessage = txError || (exceedsWithdrawable ? `Amount exceeds the withdrawable ${collateralSymbol} collateral` : '');
+  const statusMessage =
+    txError || (exceedsWithdrawable ? intl.formatMessage({ id: 'withdrawCollateral.exceeds' }, { symbol: collateralSymbol }) : '');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
@@ -216,9 +222,11 @@ export default function WithdrawCollateralTab({
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Withdraw Collateral
+              <FormattedMessage id="withdrawCollateral.title" />
             </Typography>
-            <Typography variant="body2">Withdraw Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="withdrawCollateral.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -236,7 +244,7 @@ export default function WithdrawCollateralTab({
                 symbol={market.collateralAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.collateralAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -259,7 +267,7 @@ export default function WithdrawCollateralTab({
             inputMode: 'decimal',
             pattern: '[0-9]*,?[0-9]*',
             id: 'withdraw-collateral-amount',
-            'aria-label': `Amount of ${collateralSymbol} collateral to withdraw`,
+            'aria-label': intl.formatMessage({ id: 'withdrawCollateral.inputAria' }, { symbol: collateralSymbol }),
             'aria-describedby': 'withdraw-collateral-limit withdraw-collateral-status',
             'aria-invalid': exceedsWithdrawable || undefined
           }}
@@ -277,7 +285,7 @@ export default function WithdrawCollateralTab({
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 25}
-            aria-label={`Withdraw 25% of your withdrawable ${collateralSymbol} collateral`}
+            aria-label={intl.formatMessage({ id: 'withdrawCollateral.percentAria' }, { percent: 25, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -292,7 +300,7 @@ export default function WithdrawCollateralTab({
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 50}
-            aria-label={`Withdraw 50% of your withdrawable ${collateralSymbol} collateral`}
+            aria-label={intl.formatMessage({ id: 'withdrawCollateral.percentAria' }, { percent: 50, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -307,7 +315,7 @@ export default function WithdrawCollateralTab({
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 75}
-            aria-label={`Withdraw 75% of your withdrawable ${collateralSymbol} collateral`}
+            aria-label={intl.formatMessage({ id: 'withdrawCollateral.percentAria' }, { percent: 75, symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -322,14 +330,14 @@ export default function WithdrawCollateralTab({
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 100}
-            aria-label={`Withdraw the maximum available ${collateralSymbol} collateral`}
+            aria-label={intl.formatMessage({ id: 'withdrawCollateral.maxAria' }, { symbol: collateralSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -356,10 +364,10 @@ export default function WithdrawCollateralTab({
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Withdrawable:
+            <FormattedMessage id="common.withdrawable" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
+            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
         <Box id="withdraw-collateral-status" role="alert" sx={visuallyHidden}>

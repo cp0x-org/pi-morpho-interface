@@ -16,6 +16,7 @@ import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -31,6 +32,7 @@ interface WithdrawTabProps {
 export default function WithdrawTab({ market, sdkMarket, accrualPosition, marketId, onLoanAmountChange, onSuccess }: WithdrawTabProps) {
   // Internal state management
   const theme = useTheme();
+  const intl = useIntl();
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
@@ -67,7 +69,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
   // Handle successful transaction completion
   useEffect(() => {
     if (isCompleted && txState === 'confirmed') {
-      dispatchSuccess(`Successfully withdrew ${withdrawAmount} ${market.loanAsset.symbol}`);
+      dispatchSuccess(intl.formatMessage({ id: 'withdrawLoan.success' }, { amount: withdrawAmount, symbol: market.loanAsset.symbol }));
       setWithdrawAmount('');
 
       // Call onSuccess to refresh the position data
@@ -77,15 +79,15 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
 
       resetTx();
     }
-  }, [isCompleted, txState, withdrawAmount, market.loanAsset.symbol, onSuccess, resetTx]);
+  }, [isCompleted, txState, withdrawAmount, market.loanAsset.symbol, onSuccess, resetTx, intl]);
 
   // Handle transaction errors
   useEffect(() => {
     if (txState === 'error' && txRawError) {
-      dispatchError(`Failed to withdraw`);
-      setTxError('Failed to withdraw');
+      dispatchError(intl.formatMessage({ id: 'withdrawLoan.error' }));
+      setTxError(intl.formatMessage({ id: 'withdrawLoan.error' }));
     }
-  }, [txState, txRawError]);
+  }, [txState, txRawError, intl]);
 
   // Handle withdraw loan
   const handleWithdraw = async () => {
@@ -94,7 +96,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
     }
 
     if (!market) {
-      dispatchError('Market Not Found');
+      dispatchError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
     }
     const assetDecimals = market.loanAsset.decimals;
@@ -126,8 +128,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
       });
     } catch (error) {
       console.error('Error withdrawing loan token:', error);
-      dispatchError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
-      setTxError(`Failed to withdraw: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      dispatchError(intl.formatMessage({ id: 'withdrawLoan.errorWithReason' }, { message }));
+      setTxError(intl.formatMessage({ id: 'withdrawLoan.errorWithReason' }, { message }));
     }
   };
 
@@ -161,20 +164,20 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
   const getButtonText = () => {
     switch (txState) {
       case 'submitting':
-        return 'Preparing Transaction...';
+        return intl.formatMessage({ id: 'common.preparingTransaction' });
       case 'submitted':
-        return 'Withdrawing...';
+        return intl.formatMessage({ id: 'common.withdrawing' });
       default:
-        return 'Withdraw';
+        return intl.formatMessage({ id: 'common.withdraw' });
     }
   };
 
   const isTransactionInProgress = txState === 'submitting' || txState === 'submitted';
-  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const loanSymbol = market?.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
   const exceedsWithdrawable = !!withdrawAmount && parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawable);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
-  const statusMessage = txError || (exceedsWithdrawable ? `Amount exceeds your withdrawable ${loanSymbol} supply` : '');
+  const statusMessage = txError || (exceedsWithdrawable ? intl.formatMessage({ id: 'withdrawLoan.exceeds' }, { symbol: loanSymbol }) : '');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
@@ -210,9 +213,11 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Withdraw Loan
+              <FormattedMessage id="withdrawLoan.title" />
             </Typography>
-            <Typography variant="body2">Withdraw Loan Token Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="withdrawLoan.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -230,7 +235,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
                 symbol={market.loanAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -253,7 +258,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             inputMode: 'decimal',
             pattern: '[0-9]*,?[0-9]*',
             id: 'withdraw-loan-amount',
-            'aria-label': `Amount of supplied ${loanSymbol} to withdraw`,
+            'aria-label': intl.formatMessage({ id: 'withdrawLoan.inputAria' }, { symbol: loanSymbol }),
             'aria-describedby': 'withdraw-loan-limit withdraw-loan-status',
             'aria-invalid': exceedsWithdrawable || undefined
           }}
@@ -271,7 +276,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 25}
-            aria-label={`Withdraw 25% of your supplied ${loanSymbol}`}
+            aria-label={intl.formatMessage({ id: 'withdrawLoan.percentAria' }, { percent: 25, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -286,7 +291,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 50}
-            aria-label={`Withdraw 50% of your supplied ${loanSymbol}`}
+            aria-label={intl.formatMessage({ id: 'withdrawLoan.percentAria' }, { percent: 50, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -301,7 +306,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 75}
-            aria-label={`Withdraw 75% of your supplied ${loanSymbol}`}
+            aria-label={intl.formatMessage({ id: 'withdrawLoan.percentAria' }, { percent: 75, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -316,14 +321,14 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
             aria-pressed={activePercentage === 100}
-            aria-label={`Withdraw your full supplied ${loanSymbol} balance`}
+            aria-label={intl.formatMessage({ id: 'withdrawLoan.maxAria' }, { symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -350,10 +355,10 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Withdrawable:
+            <FormattedMessage id="common.withdrawable" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedWithdrawable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+            {Number(formattedWithdrawable).toFixed(6)} {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
         <Box id="withdraw-loan-status" role="alert" sx={visuallyHidden}>
