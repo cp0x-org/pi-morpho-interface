@@ -25,7 +25,7 @@ const MenuItems = () => {
   if (matchDownMd) return null;
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+    <Box component="nav" aria-label="Site links" sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
       <Stack direction="row" spacing={1}>
         {/* Internal link using RouterLink */}
         <Button component={RouterLink} to="/" sx={menuButtonStyle(theme)}>

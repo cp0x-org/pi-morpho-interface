@@ -17,6 +17,7 @@ import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface RepayTabProps {
   market: MarketInterface;
@@ -378,6 +379,16 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const exceedsLoan = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedLoanBalance);
+  const exceedsWallet = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedUserBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage =
+    txError ||
+    (exceedsLoan ? `Amount exceeds your outstanding ${loanSymbol} loan` : '') ||
+    (exceedsWallet ? `Amount exceeds your ${loanSymbol} wallet balance` : '');
+
   if (!market) {
     return <Box>Incorrect Market Data</Box>;
   }
@@ -432,7 +443,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.loanAsset?.symbol}
               />
             )}
@@ -455,7 +466,14 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'repay-amount',
+            'aria-label': `Amount of ${loanSymbol} to repay`,
+            'aria-describedby': 'repay-balances repay-status',
+            'aria-invalid': exceedsLoan || exceedsWallet || undefined
+          }}
         />
 
         <Box
@@ -470,6 +488,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             size="small"
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Repay 25% of your ${loanSymbol} loan`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -483,6 +503,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             size="small"
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Repay 50% of your ${loanSymbol} loan`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -496,6 +518,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             size="small"
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Repay 75% of your ${loanSymbol} loan`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -509,6 +533,8 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
             size="small"
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Repay the full ${loanSymbol} loan`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -532,6 +558,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
         }}
       >
         <Box
+          id="repay-balances"
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -574,6 +601,9 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
               {formatAssetOutput(Number(formattedUserBalance).toFixed(6))} {market.loanAsset?.symbol || 'N/A'}
             </Typography>
           </Box>
+        </Box>
+        <Box id="repay-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

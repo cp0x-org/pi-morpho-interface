@@ -15,6 +15,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters'; // или ethers.js
+import { visuallyHidden } from 'utils/a11y';
 
 interface DepositProps {
   vaultAddress: string;
@@ -324,6 +325,12 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const assetSymbol = vaultData?.asset?.symbol || 'token';
+  const exceedsBalance = !!depositAmount && parseFloat(depositAmount) > parseFloat(formattedTokenBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? `Amount exceeds your ${assetSymbol} balance` : '');
+
   if (!vaultData) {
     return <Box>Incorrect Vault Data</Box>;
   }
@@ -378,7 +385,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             {vaultData.asset.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={vaultData.asset.symbol}
               />
             )}
@@ -401,7 +408,14 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'vault-deposit-amount',
+            'aria-label': `Amount of ${assetSymbol} to deposit into the vault`,
+            'aria-describedby': 'vault-deposit-balance vault-deposit-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
         <Box
           sx={{
@@ -415,6 +429,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Deposit 25% of your ${assetSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -428,6 +444,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Deposit 50% of your ${assetSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -441,6 +459,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Deposit 75% of your ${assetSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -454,6 +474,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Deposit your maximum available ${assetSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -478,6 +500,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         }}
       >
         <Box
+          id="vault-deposit-balance"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -493,6 +516,9 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             {formatAssetOutput(Number(formattedTokenBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
             {vaultData.asset.symbol || 'N/A'}
           </Typography>
+        </Box>
+        <Box id="vault-deposit-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

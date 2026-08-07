@@ -38,7 +38,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
   if (!marketId || !market) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="alert" color="error">
           Market not found
         </Typography>
       </Box>
@@ -48,7 +48,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
   if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="status" color="error">
           Connect wallet to continue.
         </Typography>
       </Box>
@@ -58,7 +58,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
   if (!market || !marketId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading supply and withdraw actions" />
       </Box>
     );
   }
@@ -70,6 +70,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
           value={tabValue}
           onChange={handleTabChange}
           variant="fullWidth"
+          aria-label="Loan asset supply and withdraw actions"
           sx={{
             '& .MuiTab-root': {
               minWidth: 0,
@@ -78,13 +79,13 @@ export default function ActionFormsSecondary(props: MarketProps) {
             }
           }}
         >
-          <Tab label="Supply" />
-          <Tab label="Withdraw" />
+          <Tab label="Supply" id="market-lend-tab-0" aria-controls="market-lend-tabpanel-0" />
+          <Tab label="Withdraw" id="market-lend-tab-1" aria-controls="market-lend-tabpanel-1" />
         </Tabs>
       </Box>
 
       {/* Supply Tab */}
-      <TabPanel value={tabValue} index={0} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={0} idPrefix="market-lend" sx={{ bgcolor: theme.palette.background.paper }}>
         <SupplyTab
           market={market}
           marketId={marketId}
@@ -101,7 +102,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
       </TabPanel>
 
       {/* Withdraw Tab */}
-      <TabPanel value={tabValue} index={1} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={1} idPrefix="market-lend" sx={{ bgcolor: theme.palette.background.paper }}>
         <WithdrawTab
           market={market}
           sdkMarket={sdkMarket}

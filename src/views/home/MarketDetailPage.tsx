@@ -21,6 +21,7 @@ import { getChainName } from 'utils/chains';
 import { TokenIcon } from 'components/TokenIcon';
 import { ArrowRightAlt } from '@mui/icons-material';
 import ActionFormsMain from 'views/home/market/ActionFormsMain';
+import { visuallyHidden } from 'utils/a11y';
 
 export default function MarketDetailPage() {
   const theme = useTheme();
@@ -80,7 +81,7 @@ export default function MarketDetailPage() {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading market details" />
       </Box>
     );
   }
@@ -88,7 +89,9 @@ export default function MarketDetailPage() {
   if (error) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading market details: {error.message}</Typography>
+        <Typography role="alert" color="error">
+          Error loading market details: {error.message}
+        </Typography>
       </Box>
     );
   }
@@ -98,7 +101,7 @@ export default function MarketDetailPage() {
   if (!marketData) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="alert" color="error">
           Market not found
         </Typography>
       </Box>
@@ -109,6 +112,11 @@ export default function MarketDetailPage() {
     <Box sx={{ padding: '16px 0px' }}>
       {/* Market header — compact top bar */}
       <Paper sx={{ padding: '20px 24px', marginBottom: 3 }}>
+        {/* The pair is rendered as separate inline chunks for layout reasons; this
+            gives the page a single, machine-readable heading without changing it. */}
+        <Box component="h1" sx={visuallyHidden}>
+          {`Market ${marketData.collateralAsset?.symbol || 'N/A'} / ${marketData.loanAsset?.symbol || 'N/A'}`}
+        </Box>
         <Grid container alignItems="center" spacing={3}>
           {/* Token pair */}
           <Grid size={{ xs: 12, md: 4 }}>
@@ -117,14 +125,14 @@ export default function MarketDetailPage() {
                 {marketData.collateralAsset?.symbol && (
                   <TokenIcon
                     sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', zIndex: 1 }}
-                    avatarProps={{ sx: { width: 38, height: 38 } }}
+                    avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
                     symbol={marketData.collateralAsset?.symbol}
                   />
                 )}
                 {marketData.loanAsset?.symbol && (
                   <TokenIcon
                     sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', ml: '-18px', zIndex: 2 }}
-                    avatarProps={{ sx: { width: 38, height: 38 } }}
+                    avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
                     symbol={marketData.loanAsset?.symbol}
                   />
                 )}
@@ -135,12 +143,21 @@ export default function MarketDetailPage() {
                 </Typography>
                 {marketData.collateralAsset?.address && (
                   <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                    <IconButton onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')} sx={{ padding: '3px' }}>
+                    <IconButton
+                      aria-label={`Copy collateral token ${marketData.collateralAsset?.symbol || ''} address ${marketData.collateralAsset?.address}`}
+                      onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')}
+                      sx={{ padding: '3px' }}
+                    >
                       <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
                     </IconButton>
                   </Tooltip>
                 )}
-                <Typography variant="h3" sx={{ display: 'inline', mx: 1, color: theme.palette.grey[500] }}>
+                <Typography
+                  variant="h3"
+                  component="span"
+                  aria-hidden="true"
+                  sx={{ display: 'inline', mx: 1, color: theme.palette.grey[500] }}
+                >
                   /
                 </Typography>
                 <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
@@ -148,7 +165,11 @@ export default function MarketDetailPage() {
                 </Typography>
                 {marketData.loanAsset?.address && (
                   <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
-                    <IconButton onClick={() => copyToClipboard(marketData.loanAsset?.address || '')} sx={{ padding: '3px' }}>
+                    <IconButton
+                      aria-label={`Copy loan token ${marketData.loanAsset?.symbol || ''} address ${marketData.loanAsset?.address}`}
+                      onClick={() => copyToClipboard(marketData.loanAsset?.address || '')}
+                      sx={{ padding: '3px' }}
+                    >
                       <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
                     </IconButton>
                   </Tooltip>
@@ -162,7 +183,7 @@ export default function MarketDetailPage() {
             <Grid container spacing={1}>
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Stack spacing={0.5}>
-                  <Typography variant="h4">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
+                  <Typography variant="h4" component="p">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
                   <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
                     Utilization
                   </Typography>
@@ -170,7 +191,7 @@ export default function MarketDetailPage() {
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Stack spacing={0.5}>
-                  <Typography variant="h4">
+                  <Typography variant="h4" component="p">
                     {marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : 'n/a'}
                   </Typography>
                   <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
@@ -180,7 +201,7 @@ export default function MarketDetailPage() {
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Stack spacing={0.5}>
-                  <Typography variant="h4">
+                  <Typography variant="h4" component="p">
                     {marketData.state.totalLiquidityUsd ? formatShortUSDS(marketData.state.totalLiquidityUsd) : 'n/a'}
                   </Typography>
                   <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
@@ -190,7 +211,7 @@ export default function MarketDetailPage() {
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Stack spacing={0.5}>
-                  <Typography variant="h4">
+                  <Typography variant="h4" component="p">
                     {marketData.state.dailyNetBorrowApy ? `${(marketData.state.dailyNetBorrowApy * 100).toFixed(2)}%` : 'n/a'}
                   </Typography>
                   <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
@@ -232,7 +253,7 @@ export default function MarketDetailPage() {
           <Box sx={{ position: 'sticky', top: '24px' }}>
             {accrualPosition ? (
               <Paper>
-                <Typography variant="h4" gutterBottom sx={{ marginBottom: '24px' }}>
+                <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '24px' }}>
                   Your Position
                 </Typography>
                 <Grid container spacing={2}>
@@ -248,11 +269,11 @@ export default function MarketDetailPage() {
                       }}
                     >
                       <Stack spacing={'20px'}>
-                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           Loan ({marketData.loanAsset?.symbol})
                         </Typography>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
+                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.borrowAssets
                               ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
                               : '0'}
@@ -260,7 +281,10 @@ export default function MarketDetailPage() {
                           {isChanged && futurePosition && (
                             <>
                               <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Typography variant="h3">
+                              <Box component="span" sx={visuallyHidden}>
+                                changes to
+                              </Box>
+                              <Typography variant="h3" component="p">
                                 {futurePosition?.borrowAssets
                                   ? futurePosition?.borrowAssets <= 0
                                     ? '0'
@@ -286,11 +310,11 @@ export default function MarketDetailPage() {
                       }}
                     >
                       <Stack spacing={'20px'}>
-                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           Collateral ({marketData.collateralAsset?.symbol})
                         </Typography>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
+                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.collateral
                               ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
                               : '0'}
@@ -298,7 +322,10 @@ export default function MarketDetailPage() {
                           {isChanged && futurePosition && (
                             <>
                               <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Typography variant="h3">
+                              <Box component="span" sx={visuallyHidden}>
+                                changes to
+                              </Box>
+                              <Typography variant="h3" component="p">
                                 {futurePosition?.collateral
                                   ? futurePosition?.collateral <= 0
                                     ? '0'
@@ -326,17 +353,20 @@ export default function MarketDetailPage() {
                       }}
                     >
                       <Stack spacing={'20px'}>
-                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           LTV (%)
                         </Typography>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
+                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
                             {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}
                           </Typography>
                           {isChanged && futurePosition && (
                             <>
                               <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Typography variant="h3">
+                              <Box component="span" sx={visuallyHidden}>
+                                changes to
+                              </Box>
+                              <Typography variant="h3" component="p">
                                 {futurePosition?.ltv
                                   ? futurePosition?.ltv <= 0
                                     ? '0'
@@ -362,10 +392,10 @@ export default function MarketDetailPage() {
                       }}
                     >
                       <Stack spacing={'20px'}>
-                        <Typography variant="h5" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                           LLTV
                         </Typography>
-                        <Typography variant="h3">
+                        <Typography variant="h3" component="p">
                           {formatLLTV(marketData.lltv) ? formatLLTV(marketData.lltv)?.toFixed(2) + '%' : 'n/a'}
                         </Typography>
                       </Stack>
@@ -375,7 +405,7 @@ export default function MarketDetailPage() {
               </Paper>
             ) : (
               <Paper>
-                <Typography variant="h4" gutterBottom sx={{ marginBottom: '16px' }}>
+                <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '16px' }}>
                   Your Position
                 </Typography>
                 <Divider sx={{ mb: 2 }} />

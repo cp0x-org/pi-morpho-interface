@@ -1,5 +1,5 @@
 import { ContentCopy } from '@mui/icons-material';
-import { Box, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { shortenAddress } from 'utils/formatters';
 
@@ -43,20 +43,33 @@ export const CopyableAddress = ({ address, symbol, onClick }: CopyableAddressPro
     >
       <Typography component="span">{symbol ? symbol : shortenAddress(address)}</Typography>
       <Tooltip title="Copy full address">
-        <ContentCopy
-          fontSize="small"
+        <IconButton
+          aria-label={symbol ? `Copy ${symbol} token address ${shortenAddress(address)}` : `Copy address ${shortenAddress(address)}`}
           onClick={copyToClipboard}
+          disableRipple
           sx={{
             ml: 1,
+            padding: 0,
+            color: 'inherit',
             cursor: 'pointer',
             opacity: 0.3,
             transition: 'opacity 0.2s',
             '&:hover': {
-              opacity: 1
+              opacity: 1,
+              backgroundColor: 'transparent'
+            },
+            // the icon is now keyboard reachable, so it needs a focus indicator;
+            // it only paints on keyboard focus, which was previously impossible here
+            '&.Mui-focusVisible': {
+              opacity: 1,
+              outline: '2px solid currentColor',
+              outlineOffset: '1px'
             }
           }}
           className="copy-icon"
-        />
+        >
+          <ContentCopy fontSize="small" />
+        </IconButton>
       </Tooltip>
     </Box>
   );

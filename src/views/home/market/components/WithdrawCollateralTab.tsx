@@ -15,6 +15,7 @@ import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -173,6 +174,14 @@ export default function WithdrawCollateralTab({
     }
   };
 
+  const isTransactionInProgress = txState === 'submitting' || txState === 'submitted';
+  const collateralSymbol = market?.collateralAsset?.symbol || 'token';
+  const exceedsWithdrawable =
+    !!withdrawAmount && parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsWithdrawable ? `Amount exceeds the withdrawable ${collateralSymbol} collateral` : '');
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
       <Box
@@ -223,7 +232,7 @@ export default function WithdrawCollateralTab({
             {market.collateralAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.collateralAsset?.symbol}
               />
             )}
@@ -246,7 +255,14 @@ export default function WithdrawCollateralTab({
           }}
           disabled={txState === 'submitting' || txState === 'submitted'}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'withdraw-collateral-amount',
+            'aria-label': `Amount of ${collateralSymbol} collateral to withdraw`,
+            'aria-describedby': 'withdraw-collateral-limit withdraw-collateral-status',
+            'aria-invalid': exceedsWithdrawable || undefined
+          }}
         />
         <Box
           sx={{
@@ -259,7 +275,9 @@ export default function WithdrawCollateralTab({
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(25)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Withdraw 25% of your withdrawable ${collateralSymbol} collateral`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -272,7 +290,9 @@ export default function WithdrawCollateralTab({
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(50)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Withdraw 50% of your withdrawable ${collateralSymbol} collateral`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -285,7 +305,9 @@ export default function WithdrawCollateralTab({
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(75)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Withdraw 75% of your withdrawable ${collateralSymbol} collateral`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -298,7 +320,9 @@ export default function WithdrawCollateralTab({
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(100)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Withdraw the maximum available ${collateralSymbol} collateral`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -322,6 +346,7 @@ export default function WithdrawCollateralTab({
         }}
       >
         <Box
+          id="withdraw-collateral-limit"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -336,6 +361,9 @@ export default function WithdrawCollateralTab({
           <Typography variant="h4" fontWeight="normal">
             {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || 'N/A'}
           </Typography>
+        </Box>
+        <Box id="withdraw-collateral-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

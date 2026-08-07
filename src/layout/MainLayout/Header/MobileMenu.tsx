@@ -40,8 +40,18 @@ const MobileMenu = () => {
 
   return (
     <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-      <IconButton color="inherit" onClick={handleToggleDrawer} edge="start" size="large">
-        <IconMenu2 />
+      <IconButton
+        color="inherit"
+        onClick={handleToggleDrawer}
+        edge="start"
+        size="large"
+        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        // the drawer is unmounted while closed, so only reference it when it exists
+        aria-controls={open ? 'mobile-menu-drawer' : undefined}
+      >
+        <IconMenu2 aria-hidden="true" />
       </IconButton>
 
       <Drawer
@@ -49,6 +59,10 @@ const MobileMenu = () => {
         open={open}
         onClose={handleToggleDrawer}
         PaperProps={{
+          id: 'mobile-menu-drawer',
+          role: 'dialog',
+          'aria-modal': true,
+          'aria-labelledby': 'mobile-menu-title',
           sx: {
             width: '280px',
             background: theme.palette.background.default
@@ -56,13 +70,15 @@ const MobileMenu = () => {
         }}
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Menu</Typography>
-          <IconButton color="inherit" onClick={handleToggleDrawer} edge="end" size="small">
-            <IconX />
+          <Typography variant="h6" component="h2" id="mobile-menu-title">
+            Menu
+          </Typography>
+          <IconButton color="inherit" onClick={handleToggleDrawer} edge="end" size="small" aria-label="Close navigation menu">
+            <IconX aria-hidden="true" />
           </IconButton>
         </Box>
 
-        <List component="nav" sx={{ px: 2, pt: 1 }}>
+        <List component="nav" aria-label="Site links" sx={{ px: 2, pt: 1 }}>
           {menuItems.map((item) => (
             <React.Fragment key={item.title}>
               {item.isExternal ? (

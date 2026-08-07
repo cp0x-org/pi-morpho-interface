@@ -38,7 +38,7 @@ export default function ActionFormsMain(props: MarketProps) {
   if (!marketId || !market) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="alert" color="error">
           Market not found
         </Typography>
       </Box>
@@ -48,7 +48,7 @@ export default function ActionFormsMain(props: MarketProps) {
   if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="status" color="error">
           Connect wallet to continue.
         </Typography>
       </Box>
@@ -58,7 +58,7 @@ export default function ActionFormsMain(props: MarketProps) {
   if (!market || !marketId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading market actions" />
       </Box>
     );
   }
@@ -70,6 +70,7 @@ export default function ActionFormsMain(props: MarketProps) {
           value={tabValue}
           onChange={handleTabChange}
           variant="fullWidth"
+          aria-label="Collateral and borrow actions"
           sx={{
             '& .MuiTab-root': {
               minWidth: 0,
@@ -78,14 +79,14 @@ export default function ActionFormsMain(props: MarketProps) {
             }
           }}
         >
-          <Tab label="Add Collateral" />
-          <Tab label="Borrow" />
-          <Tab label="Repay" />
-          <Tab label="Withdraw Collateral" />
+          <Tab label="Add Collateral" id="market-main-tab-0" aria-controls="market-main-tabpanel-0" />
+          <Tab label="Borrow" id="market-main-tab-1" aria-controls="market-main-tabpanel-1" />
+          <Tab label="Repay" id="market-main-tab-2" aria-controls="market-main-tabpanel-2" />
+          <Tab label="Withdraw Collateral" id="market-main-tab-3" aria-controls="market-main-tabpanel-3" />
         </Tabs>
       </Box>
 
-      <TabPanel value={tabValue} index={0} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={0} idPrefix="market-main" sx={{ bgcolor: theme.palette.background.paper }}>
         <AddTab
           market={market}
           marketId={marketId}
@@ -102,7 +103,7 @@ export default function ActionFormsMain(props: MarketProps) {
       </TabPanel>
 
       {/* Borrow Tab */}
-      <TabPanel value={tabValue} index={1} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={1} idPrefix="market-main" sx={{ bgcolor: theme.palette.background.paper }}>
         <BorrowTab
           market={market}
           accrualPosition={accrualPosition}
@@ -119,7 +120,7 @@ export default function ActionFormsMain(props: MarketProps) {
       </TabPanel>
 
       {/* Repay Tab */}
-      <TabPanel value={tabValue} index={2} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={2} idPrefix="market-main" sx={{ bgcolor: theme.palette.background.paper }}>
         <RepayTab
           market={market}
           accrualPosition={accrualPosition}
@@ -138,7 +139,7 @@ export default function ActionFormsMain(props: MarketProps) {
       </TabPanel>
 
       {/* Withdraw Tab */}
-      <TabPanel value={tabValue} index={3} sx={{ bgcolor: theme.palette.background.paper }}>
+      <TabPanel value={tabValue} index={3} idPrefix="market-main" sx={{ bgcolor: theme.palette.background.paper }}>
         <WithdrawCollateralTab
           market={market}
           accrualPosition={accrualPosition}

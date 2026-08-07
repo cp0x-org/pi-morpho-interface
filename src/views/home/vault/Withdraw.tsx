@@ -14,6 +14,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface WithdrawProps {
   vaultAddress: string;
@@ -198,13 +199,19 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     [formattedVaultBalance, withdrawTxState, resetWithdrawTx]
   );
 
+  const assetSymbol = vaultData?.asset?.symbol || 'token';
+  const exceedsBalance = !!withdrawAmount && parseFloat(withdrawAmount) > parseFloat(formattedVaultBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? `Amount exceeds your withdrawable ${assetSymbol} balance` : '');
+
   if (!vaultData) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="alert" color="error">
           Vault not found
         </Typography>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading vault data" />
       </Box>
     );
   }
@@ -259,7 +266,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             {vaultData.asset.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={vaultData.asset.symbol}
               />
             )}
@@ -285,7 +292,14 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'vault-withdraw-amount',
+            'aria-label': `Amount of ${assetSymbol} to withdraw from the vault`,
+            'aria-describedby': 'vault-withdraw-limit vault-withdraw-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
 
         <Box
@@ -300,6 +314,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Withdraw 25% of your ${assetSymbol} vault balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -313,6 +329,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Withdraw 50% of your ${assetSymbol} vault balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -326,6 +344,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Withdraw 75% of your ${assetSymbol} vault balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -339,6 +359,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Withdraw your full ${assetSymbol} vault balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -362,6 +384,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
         }}
       >
         <Box
+          id="vault-withdraw-limit"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -377,6 +400,9 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             {formatAssetOutput(Number(formattedVaultBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
             {vaultData.asset.symbol}
           </Typography>
+        </Box>
+        <Box id="vault-withdraw-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

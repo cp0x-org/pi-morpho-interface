@@ -76,7 +76,7 @@ export default function VaultDetailsPage() {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading vault details" />
       </Box>
     );
   }
@@ -84,7 +84,9 @@ export default function VaultDetailsPage() {
   if (error) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vault details: {error.message}</Typography>
+        <Typography role="alert" color="error">
+          Error loading vault details: {error.message}
+        </Typography>
       </Box>
     );
   }
@@ -92,7 +94,7 @@ export default function VaultDetailsPage() {
   if (!vault) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
+        <Typography variant="h5" component="p" role="alert" color="error">
           Vault not found
         </Typography>
       </Box>
@@ -122,7 +124,7 @@ export default function VaultDetailsPage() {
                     {vault.asset.symbol && (
                       <TokenIcon
                         sx={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', zIndex: 1 }}
-                        avatarProps={{ sx: { width: 45, height: 45 } }}
+                        avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                         symbol={vault.asset.symbol}
                       />
                     )}
@@ -144,12 +146,13 @@ export default function VaultDetailsPage() {
                     Vault Details
                   </Typography>
                   <Box display="flex" alignItems="center">
-                    <Typography variant="h2" component="span" sx={{ display: 'inline' }}>
+                    <Typography variant="h2" component="h1" sx={{ display: 'inline' }}>
                       {vault.name || 'N/A'}
                     </Typography>
                     {vault.address && (
                       <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                         <IconButton
+                          aria-label={`Copy vault contract address ${vault.address}`}
                           onClick={() => copyToClipboard(vault.address || '')}
                           sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
                         >
@@ -172,6 +175,7 @@ export default function VaultDetailsPage() {
                         {vault.asset.address && (
                           <Tooltip title={copySuccessMsg || 'Copy address'} placement="top">
                             <IconButton
+                              aria-label={`Copy ${vault.asset.symbol || 'asset'} token address ${vault.asset.address}`}
                               onClick={() => copyToClipboard(vault.asset.address || '')}
                               sx={{ ml: 0.2, padding: '5px', marginLeft: '10px' }}
                             >
@@ -180,7 +184,7 @@ export default function VaultDetailsPage() {
                           </Tooltip>
                         )}
                       </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                         Asset
                       </Typography>
                     </Stack>
@@ -189,8 +193,10 @@ export default function VaultDetailsPage() {
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
                     <Stack spacing={1}>
-                      <Typography variant="h3">{(vault.state.dailyNetApy * 100).toFixed(2)} %</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                      <Typography variant="h3" component="p">
+                        {(vault.state.dailyNetApy * 100).toFixed(2)} %
+                      </Typography>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                         APY
                       </Typography>
                     </Stack>
@@ -200,8 +206,10 @@ export default function VaultDetailsPage() {
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
                     <Stack spacing={1}>
-                      <Typography variant="h3">{formatShortUSDS(vault.state.totalAssetsUsd)}</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                      <Typography variant="h3" component="p">
+                        {formatShortUSDS(vault.state.totalAssetsUsd)}
+                      </Typography>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                         Total Deposits ($)
                       </Typography>
                     </Stack>
@@ -213,7 +221,7 @@ export default function VaultDetailsPage() {
             {!isBalanceLoading && vaultBalance !== 0n && (
               <Grid size={{ xs: 12 }}>
                 <Paper>
-                  <Typography variant="h4" gutterBottom sx={{ marginBottom: '40px' }}>
+                  <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '40px' }}>
                     Your Position
                   </Typography>
                   <Grid container spacing={2} sx={{ padding: '0px' }}>
@@ -231,12 +239,13 @@ export default function VaultDetailsPage() {
                         <Stack spacing={'30px'} sx={{ padding: '0px' }}>
                           <Typography
                             variant="h5"
+                            component="div"
                             sx={{ fontWeight: 400, color: theme.palette.grey[500], height: '24px', marginBottom: '8px' }}
                           >
                             Balance ({vault.asset.symbol})
                           </Typography>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                            <Typography variant="h3" sx={{ color: theme.palette.grey[500] }}>
+                            <Typography variant="h3" component="p" sx={{ color: theme.palette.grey[500] }}>
                               {vaultBalance ? parseFloat(formatUnits(vaultBalance, vault.asset.decimals || 18)).toFixed(4) : '0'}
                             </Typography>
                             {/*{isChanged && futurePosition && (*/}
@@ -264,7 +273,7 @@ export default function VaultDetailsPage() {
                 <Tabs
                   value={tabValue}
                   onChange={handleTabChange}
-                  aria-label="vault transaction tabs"
+                  aria-label="Vault deposit and withdraw actions"
                   sx={{
                     height: '58px',
                     minHeight: '58px',
@@ -281,10 +290,10 @@ export default function VaultDetailsPage() {
                   <Tab label="Withdraw" id="vault-tab-1" aria-controls="vault-tabpanel-1" sx={{ height: '100%', flex: 1 }} />
                 </Tabs>
               </Box>
-              <TabPanel value={tabValue} index={0} sx={{ bgcolor: theme.palette.background.paper }}>
+              <TabPanel value={tabValue} index={0} idPrefix="vault" sx={{ bgcolor: theme.palette.background.paper }}>
                 <DepositTab vaultAddress={vaultAddress as string} vaultData={vault} />
               </TabPanel>
-              <TabPanel value={tabValue} index={1} sx={{ bgcolor: theme.palette.background.paper }}>
+              <TabPanel value={tabValue} index={1} idPrefix="vault" sx={{ bgcolor: theme.palette.background.paper }}>
                 <WithdrawTab vaultAddress={vaultAddress as string} vaultData={vault} />
               </TabPanel>
             </Paper>

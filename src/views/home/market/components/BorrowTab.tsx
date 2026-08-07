@@ -17,6 +17,7 @@ import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
 import Divider from '@mui/material/Divider';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface BorrowTabProps {
   market: MarketInterface;
@@ -154,6 +155,12 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
   // Check if transaction is in progress
   const isTransactionInProgress = borrowTx.txState === 'submitting' || borrowTx.txState === 'submitted';
 
+  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const exceedsSafeLimit = !!borrowAmount && parseFloat(normalizePointAmount(borrowAmount)) > parseFloat(formattedSafeMaxBorrowable);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsSafeLimit ? `Amount exceeds the safe borrowable ${loanSymbol} limit` : '');
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
       <Box
@@ -204,7 +211,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.loanAsset?.symbol}
               />
             )}
@@ -227,7 +234,14 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
           }}
           disabled={isTransactionInProgress}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'borrow-amount',
+            'aria-label': `Amount of ${loanSymbol} to borrow`,
+            'aria-describedby': 'borrow-limits borrow-status',
+            'aria-invalid': exceedsSafeLimit || undefined
+          }}
         />
         <Box
           sx={{
@@ -241,6 +255,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             size="small"
             onClick={() => handlePercentClick(25)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Borrow 25% of the safe borrowable ${loanSymbol} amount`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -254,6 +270,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             size="small"
             onClick={() => handlePercentClick(50)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Borrow 50% of the safe borrowable ${loanSymbol} amount`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -267,6 +285,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             size="small"
             onClick={() => handlePercentClick(75)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Borrow 75% of the safe borrowable ${loanSymbol} amount`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -280,6 +300,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
             size="small"
             onClick={() => handlePercentClick(100)}
             disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Borrow the maximum safe ${loanSymbol} amount`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -303,6 +325,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
         }}
       >
         <Box
+          id="borrow-limits"
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -345,6 +368,9 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
               {Number(formattedSafeMaxBorrowable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
             </Typography>
           </Box>
+        </Box>
+        <Box id="borrow-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

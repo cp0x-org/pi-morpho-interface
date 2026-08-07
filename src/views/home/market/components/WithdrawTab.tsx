@@ -15,6 +15,7 @@ import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface WithdrawTabProps {
   market: MarketInterface;
@@ -168,6 +169,13 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
     }
   };
 
+  const isTransactionInProgress = txState === 'submitting' || txState === 'submitted';
+  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const exceedsWithdrawable = !!withdrawAmount && parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawable);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsWithdrawable ? `Amount exceeds your withdrawable ${loanSymbol} supply` : '');
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
       <Box
@@ -218,7 +226,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.loanAsset?.symbol}
               />
             )}
@@ -241,7 +249,14 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
           }}
           disabled={txState === 'submitting' || txState === 'submitted'}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'withdraw-loan-amount',
+            'aria-label': `Amount of supplied ${loanSymbol} to withdraw`,
+            'aria-describedby': 'withdraw-loan-limit withdraw-loan-status',
+            'aria-invalid': exceedsWithdrawable || undefined
+          }}
         />
         <Box
           sx={{
@@ -254,7 +269,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(25)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Withdraw 25% of your supplied ${loanSymbol}`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -267,7 +284,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(50)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Withdraw 50% of your supplied ${loanSymbol}`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -280,7 +299,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(75)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Withdraw 75% of your supplied ${loanSymbol}`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -293,7 +314,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
             variant="outlined"
             size="small"
             onClick={() => handlePercentClick(100)}
-            disabled={txState === 'submitting' || txState === 'submitted'}
+            disabled={isTransactionInProgress}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Withdraw your full supplied ${loanSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -317,6 +340,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
         }}
       >
         <Box
+          id="withdraw-loan-limit"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -331,6 +355,9 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
           <Typography variant="h4" fontWeight="normal">
             {Number(formattedWithdrawable).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
           </Typography>
+        </Box>
+        <Box id="withdraw-loan-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

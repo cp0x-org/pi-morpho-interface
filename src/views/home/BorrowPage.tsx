@@ -1,7 +1,9 @@
 import { useQuery } from '@apollo/client';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { visuallyHidden } from 'utils/a11y';
 import {
   Table,
   TableBody,
@@ -233,7 +235,7 @@ export default function BorrowPage() {
   if (graphLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading markets" />
       </Box>
     );
   }
@@ -241,7 +243,9 @@ export default function BorrowPage() {
   if (graphError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading markets: {graphError.message}</Typography>
+        <Typography role="alert" color="error">
+          Error loading markets: {graphError.message}
+        </Typography>
       </Box>
     );
   }
@@ -254,20 +258,26 @@ export default function BorrowPage() {
   if (markets.length === 0) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography>No markets available</Typography>
+        <Box component="h1" sx={visuallyHidden}>
+          Borrow: Morpho markets
+        </Box>
+        <Typography role="status">No markets available</Typography>
       </Box>
     );
   }
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      <Box component="h1" sx={visuallyHidden}>
+        Borrow: Morpho markets
+      </Box>
       {morphoPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="morpho markets table">
+            <Table sx={{ minWidth: 650 }} aria-label="Your market positions">
               <TableHead>
                 <TableRow>
                   <TableCell>Market</TableCell>
@@ -285,12 +295,21 @@ export default function BorrowPage() {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>
-                      {position.collateralSymbol}/{position.loanSymbol}
+                      <Link
+                        component={RouterLink}
+                        to={`/borrow/market/${position.marketId}`}
+                        color="inherit"
+                        underline="none"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Open market ${position.collateralSymbol}/${position.loanSymbol}`}
+                      >
+                        {position.collateralSymbol}/{position.loanSymbol}
+                      </Link>
                     </TableCell>
                     <TableCell>
                       {parseFloat(position.collateralBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TokenIcon symbol={position.collateralSymbol} />
+                          <TokenIcon symbol={position.collateralSymbol} avatarProps={{ alt: '' }} />
                           {formatTokenAmount(
                             position.collateralBalance,
                             position.collateralDecimal,
@@ -305,7 +324,7 @@ export default function BorrowPage() {
                     <TableCell>
                       {parseFloat(position.loanBalance) > 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TokenIcon symbol={position.loanSymbol} />
+                          <TokenIcon symbol={position.loanSymbol} avatarProps={{ alt: '' }} />
                           {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
                           {position.loanSymbol}
                         </Box>
@@ -321,7 +340,7 @@ export default function BorrowPage() {
           </TableContainer>
         </Box>
       )}
-      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
+      <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 3 }}>
         Available Markets
       </Typography>
 
@@ -423,11 +442,11 @@ export default function BorrowPage() {
       </Grid>
 
       <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-        <Table sx={{ minWidth: 650 }} aria-label="markets table">
+        <Table sx={{ minWidth: 650 }} aria-label="Available markets">
           <TableHead>
             <TableRow>
-              <TableCell>
-                <Tooltip title="Click to sort by network" arrow>
+              <TableCell sortDirection={sortField === 'chain' ? sortOrder : false}>
+                <Tooltip title="Click to sort by network" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'chain'}
                     direction={sortField === 'chain' ? sortOrder : 'asc'}
@@ -439,8 +458,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by loan asset" arrow>
+              <TableCell sortDirection={sortField === 'loanAsset' ? sortOrder : false}>
+                <Tooltip title="Click to sort by loan asset" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'loanAsset'}
                     direction={sortField === 'loanAsset' ? sortOrder : 'asc'}
@@ -457,8 +476,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by collateral asset" arrow>
+              <TableCell sortDirection={sortField === 'collateralAsset' ? sortOrder : false}>
+                <Tooltip title="Click to sort by collateral asset" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'collateralAsset'}
                     direction={sortField === 'collateralAsset' ? sortOrder : 'asc'}
@@ -475,8 +494,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by LLTV" arrow>
+              <TableCell sortDirection={sortField === 'lltv' ? sortOrder : false}>
+                <Tooltip title="Click to sort by LLTV" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'lltv'}
                     direction={sortField === 'lltv' ? sortOrder : 'asc'}
@@ -493,8 +512,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by borrow APY" arrow>
+              <TableCell sortDirection={sortField === 'borrowApy' ? sortOrder : false}>
+                <Tooltip title="Click to sort by borrow APY" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'borrowApy'}
                     direction={sortField === 'borrowApy' ? sortOrder : 'asc'}
@@ -511,8 +530,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by supply APY" arrow>
+              <TableCell sortDirection={sortField === 'supplyApy' ? sortOrder : false}>
+                <Tooltip title="Click to sort by supply APY" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'supplyApy'}
                     direction={sortField === 'supplyApy' ? sortOrder : 'asc'}
@@ -529,8 +548,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by market size" arrow>
+              <TableCell sortDirection={sortField === 'sizeUsd' ? sortOrder : false}>
+                <Tooltip title="Click to sort by market size" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'sizeUsd'}
                     direction={sortField === 'sizeUsd' ? sortOrder : 'desc'}
@@ -542,8 +561,8 @@ export default function BorrowPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by total liquidity" arrow>
+              <TableCell sortDirection={sortField === 'totalLiquidityUsd' ? sortOrder : false}>
+                <Tooltip title="Click to sort by total liquidity" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'totalLiquidityUsd'}
                     direction={sortField === 'totalLiquidityUsd' ? sortOrder : 'desc'}
@@ -569,7 +588,17 @@ export default function BorrowPage() {
                 <TableCell>
                   {market.loanAsset?.symbol ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon symbol={market.loanAsset?.symbol} /> {market.loanAsset?.symbol}
+                      <TokenIcon symbol={market.loanAsset?.symbol} avatarProps={{ alt: '' }} />{' '}
+                      <Link
+                        component={RouterLink}
+                        to={`/borrow/market/${market.marketId}?chainId=${market.chain?.id}`}
+                        color="inherit"
+                        underline="none"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Open market with loan asset ${market.loanAsset?.symbol} and collateral ${market.collateralAsset?.symbol || 'N/A'}`}
+                      >
+                        {market.loanAsset?.symbol}
+                      </Link>
                     </Box>
                   ) : (
                     'N/A'
@@ -579,7 +608,7 @@ export default function BorrowPage() {
                 <TableCell>
                   {market.collateralAsset?.symbol ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon symbol={market.collateralAsset?.symbol} /> {market.collateralAsset?.symbol}
+                      <TokenIcon symbol={market.collateralAsset?.symbol} avatarProps={{ alt: '' }} /> {market.collateralAsset?.symbol}
                     </Box>
                   ) : (
                     'N/A'
@@ -616,7 +645,7 @@ export default function BorrowPage() {
       </TableContainer>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" role="status">
           Showing {markets.length} {markets.length === 1 ? 'market' : 'markets'}
           {loanAssetSymbolFilter.length > 0 || collateralAssetSymbolFilter.length > 0 ? ' (filtered)' : ''}
           {loanAssetSymbolFilter.length > 0 && (
@@ -651,7 +680,14 @@ export default function BorrowPage() {
             <MenuItem value={100}>100</MenuItem>
           </Select>
         </FormControl>
-        <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" />
+        <Pagination
+          count={pageCount}
+          page={page}
+          onChange={handleChangePage}
+          color="primary"
+          size="large"
+          aria-label="Markets pagination"
+        />
       </Box>
     </Box>
   );

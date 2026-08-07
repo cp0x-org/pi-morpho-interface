@@ -142,7 +142,7 @@ export default function MainLayout() {
 
           {/*<MainCard>*/}
           <MainCard>
-            <AntTabs value={currentTabIndex} onChange={handleChange} centered>
+            <AntTabs value={currentTabIndex} onChange={handleChange} centered aria-label="Main sections">
               {tabs.map((tab, index) => (
                 <AntTab
                   wrapped={true}

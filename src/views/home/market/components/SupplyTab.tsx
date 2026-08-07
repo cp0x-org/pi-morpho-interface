@@ -16,6 +16,7 @@ import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface SupplyTabProps {
   market: MarketInterface;
@@ -361,6 +362,12 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const loanSymbol = market?.loanAsset?.symbol || 'token';
+  const exceedsBalance = !!addAmount && parseFloat(addAmount) > parseFloat(formattedLoanBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? `Amount exceeds your ${loanSymbol} balance` : '');
+
   if (!market) {
     return <Box>Incorrect Market Data</Box>;
   }
@@ -415,7 +422,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.loanAsset?.symbol}
               />
             )}
@@ -437,7 +444,14 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'supply-loan-amount',
+            'aria-label': `Amount of ${loanSymbol} to supply`,
+            'aria-describedby': 'supply-loan-balance supply-loan-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
         <Box
           sx={{
@@ -451,6 +465,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Supply 25% of your ${loanSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -464,6 +480,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Supply 50% of your ${loanSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -477,6 +495,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Supply 75% of your ${loanSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -490,6 +510,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Supply your maximum available ${loanSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -514,6 +536,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         }}
       >
         <Box
+          id="supply-loan-balance"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -528,6 +551,9 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
           <Typography variant="h4" fontWeight="normal">
             {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
           </Typography>
+        </Box>
+        <Box id="supply-loan-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

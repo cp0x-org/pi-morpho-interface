@@ -16,6 +16,7 @@ import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
 
 interface AddTabProps {
   market: MarketInterface;
@@ -356,6 +357,12 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const collateralSymbol = market?.collateralAsset?.symbol || 'token';
+  const exceedsBalance = !!addAmount && parseFloat(addAmount) > parseFloat(formattedCollateralBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? `Amount exceeds your ${collateralSymbol} balance` : '');
+
   if (!market) {
     return <Box>Incorrect Market Data</Box>;
   }
@@ -410,7 +417,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             {market.collateralAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.collateralAsset?.symbol}
               />
             )}
@@ -432,7 +439,14 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'add-collateral-amount',
+            'aria-label': `Amount of ${collateralSymbol} to supply as collateral`,
+            'aria-describedby': 'add-collateral-balance add-collateral-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
         <Box
           sx={{
@@ -446,6 +460,8 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             size="small"
             onClick={() => handlePercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={`Use 25% of your ${collateralSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -459,6 +475,8 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             size="small"
             onClick={() => handlePercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={`Use 50% of your ${collateralSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -472,6 +490,8 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             size="small"
             onClick={() => handlePercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={`Use 75% of your ${collateralSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -485,6 +505,8 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
             size="small"
             onClick={() => handlePercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={`Use maximum available ${collateralSymbol} balance`}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
@@ -509,6 +531,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
         }}
       >
         <Box
+          id="add-collateral-balance"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -523,6 +546,9 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
           <Typography variant="h4" fontWeight="normal">
             {formatAssetOutput(Number(formattedCollateralBalance).toFixed(6))} {market.collateralAsset?.symbol || 'N/A'}
           </Typography>
+        </Box>
+        <Box id="add-collateral-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

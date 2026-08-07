@@ -1,7 +1,7 @@
 import { useQuery } from '@apollo/client';
 import React from 'react';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import {
   Table,
@@ -13,8 +13,10 @@ import {
   Paper,
   Typography,
   CircularProgress,
-  Chip
+  Chip,
+  Link
 } from '@mui/material';
+import { visuallyHidden } from 'utils/a11y';
 import { MorphoRequests } from '@/api/constants';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { useAccount } from 'wagmi';
@@ -107,39 +109,51 @@ export default function DashboardPage() {
   if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h4">Connect wallet to see your positions.</Typography>
+        <Box component="h1" sx={visuallyHidden}>
+          Dashboard: your Morpho positions
+        </Box>
+        <Typography variant="h4" component="p" role="status">
+          Connect wallet to see your positions.
+        </Typography>
       </Box>
     );
   }
 
   return (
     <Box sx={{ width: '100%' }}>
+      <Box component="h1" sx={visuallyHidden}>
+        Dashboard: your Morpho positions
+      </Box>
       {anyLoading && chainsWithData.length === 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-          <CircularProgress />
+          <CircularProgress aria-label="Loading your positions" />
         </Box>
       )}
 
       {!anyLoading && chainsWithData.length === 0 && (
         <Box sx={{ padding: 2 }}>
-          <Typography variant="h4">No positions found across any network.</Typography>
+          <Typography variant="h4" component="p" role="status">
+            No positions found across any network.
+          </Typography>
         </Box>
       )}
 
       {chainsWithData.map(({ chainId, marketPositions, vaultPositions }) => (
         <Box key={chainId} sx={{ marginBottom: 5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, marginBottom: 2 }}>
-            <Typography variant="h2">{getChainName(chainId)}</Typography>
-            {anyLoading && <CircularProgress size={16} />}
+            <Typography variant="h2" component="h2">
+              {getChainName(chainId)}
+            </Typography>
+            {anyLoading && <CircularProgress size={16} aria-label={`Refreshing ${getChainName(chainId)} positions`} />}
           </Box>
 
           {vaultPositions.length > 0 && (
             <Box sx={{ marginBottom: 3 }}>
-              <Typography variant="h4" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
+              <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
                 Vaults
               </Typography>
               <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-                <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
+                <Table sx={{ minWidth: 650 }} aria-label={`Your vault positions on ${getChainName(chainId)}`}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Vault</TableCell>
@@ -160,7 +174,16 @@ export default function DashboardPage() {
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <TokenIcon symbol={position.vault.asset.symbol} />
-                            {position.vault.name || shortenAddress(position.vault.address)}
+                            <Link
+                              component={RouterLink}
+                              to={`/earn/vault/${position.vault.address}`}
+                              color="inherit"
+                              underline="none"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Open vault ${position.vault.name || shortenAddress(position.vault.address)} on ${getChainName(chainId)}`}
+                            >
+                              {position.vault.name || shortenAddress(position.vault.address)}
+                            </Link>
                           </Box>
                         </TableCell>
                         <TableCell>
@@ -188,11 +211,11 @@ export default function DashboardPage() {
 
           {marketPositions.length > 0 && (
             <Box>
-              <Typography variant="h4" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
+              <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
                 Markets
               </Typography>
               <TableContainer component={Paper}>
-                <Table sx={{ minWidth: 650 }} aria-label="morpho markets table">
+                <Table sx={{ minWidth: 650 }} aria-label={`Your market positions on ${getChainName(chainId)}`}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Market</TableCell>
@@ -210,12 +233,21 @@ export default function DashboardPage() {
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
-                          {position.collateralSymbol}/{position.loanSymbol}
+                          <Link
+                            component={RouterLink}
+                            to={`/borrow/market/${position.marketId}?chainId=${chainId}`}
+                            color="inherit"
+                            underline="none"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Open market ${position.collateralSymbol}/${position.loanSymbol} on ${getChainName(chainId)}`}
+                          >
+                            {position.collateralSymbol}/{position.loanSymbol}
+                          </Link>
                         </TableCell>
                         <TableCell>
                           {parseFloat(position.collateralBalance) > 0 ? (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <TokenIcon symbol={position.collateralSymbol} />
+                              <TokenIcon symbol={position.collateralSymbol} avatarProps={{ alt: '' }} />
                               {formatTokenAmount(
                                 position.collateralBalance,
                                 position.collateralDecimal,
@@ -230,7 +262,7 @@ export default function DashboardPage() {
                         <TableCell>
                           {parseFloat(position.loanBalance) > 0 ? (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <TokenIcon symbol={position.loanSymbol} />
+                              <TokenIcon symbol={position.loanSymbol} avatarProps={{ alt: '' }} />
                               {formatTokenAmount(
                                 position.loanBalance,
                                 position.loanDecimal,

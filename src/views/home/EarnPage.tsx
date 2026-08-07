@@ -1,7 +1,9 @@
 import { useQuery } from '@apollo/client';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { visuallyHidden } from 'utils/a11y';
 
 import {
   Autocomplete,
@@ -201,7 +203,7 @@ export default function EarnPage() {
   if (morphoLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading vaults" />
       </Box>
     );
   }
@@ -209,7 +211,9 @@ export default function EarnPage() {
   if (morphoError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vaults: {morphoError.message}</Typography>
+        <Typography role="alert" color="error">
+          Error loading vaults: {morphoError.message}
+        </Typography>
       </Box>
     );
   }
@@ -220,13 +224,16 @@ export default function EarnPage() {
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      <Box component="h1" sx={visuallyHidden}>
+        Earn: Morpho vaults
+      </Box>
       {morphoVaultPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
+          <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 1 }}>
             Your Positions
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
+            <Table sx={{ minWidth: 650 }} aria-label="Your vault positions">
               <TableHead>
                 <TableRow>
                   <TableCell>Vault</TableCell>
@@ -247,9 +254,22 @@ export default function EarnPage() {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TokenIcon symbol={position.vault.asset?.symbol} />
-                        <Tooltip title={position.vault.name || ''} arrow disableHoverListener={!position.vault.name || position.vault.name.length <= 40}>
-                          <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
-                        </Tooltip>
+                        <Link
+                          component={RouterLink}
+                          to={`/earn/vault/${position.vault.address}`}
+                          color="inherit"
+                          underline="none"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Open vault ${position.vault.name || shortenAddress(position.vault.address)}`}
+                        >
+                          <Tooltip
+                            title={position.vault.name || ''}
+                            arrow
+                            disableHoverListener={!position.vault.name || position.vault.name.length <= 40}
+                          >
+                            <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
+                          </Tooltip>
+                        </Link>
                       </Box>
                     </TableCell>
 
@@ -285,7 +305,7 @@ export default function EarnPage() {
         </Box>
       )}
 
-      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
+      <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 3 }}>
         Available Vaults
       </Typography>
 
@@ -363,11 +383,11 @@ export default function EarnPage() {
       </Grid>
 
       <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-        <Table sx={{ minWidth: 650 }} aria-label="vaults table">
+        <Table sx={{ minWidth: 650 }} aria-label="Available vaults">
           <TableHead>
             <TableRow>
-              <TableCell>
-                <Tooltip title="Click to sort by network" arrow>
+              <TableCell sortDirection={sortField === 'chain' ? sortOrder : false}>
+                <Tooltip title="Click to sort by network" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'chain'}
                     direction={sortField === 'chain' ? sortOrder : 'asc'}
@@ -379,8 +399,8 @@ export default function EarnPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by name" arrow>
+              <TableCell sortDirection={sortField === 'name' ? sortOrder : false}>
+                <Tooltip title="Click to sort by name" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'name'}
                     direction={sortField === 'name' ? sortOrder : 'asc'}
@@ -398,17 +418,17 @@ export default function EarnPage() {
                 </Tooltip>
               </TableCell>
               <TableCell>
-                <Tooltip title="Click icon to copy full address">
+                <Tooltip title="Click icon to copy full address" describeChild>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>Vault Address</Box>
                 </Tooltip>
               </TableCell>
               <TableCell>
-                <Tooltip title="Click icon to copy full address">
+                <Tooltip title="Click icon to copy full address" describeChild>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>Asset Address</Box>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by APY" arrow>
+              <TableCell sortDirection={sortField === 'apy' ? sortOrder : false}>
+                <Tooltip title="Click to sort by APY" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'apy'}
                     direction={sortField === 'apy' ? sortOrder : 'asc'}
@@ -425,8 +445,8 @@ export default function EarnPage() {
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by APY" arrow>
+              <TableCell sortDirection={sortField === 'totalAssetsUsd' ? sortOrder : false}>
+                <Tooltip title="Click to sort by APY" arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'totalAssetsUsd'}
                     direction={sortField === 'totalAssetsUsd' ? sortOrder : 'asc'}
@@ -455,9 +475,18 @@ export default function EarnPage() {
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TokenIcon symbol={vault.asset?.symbol} />
-                    <Tooltip title={vault.name || ''} arrow disableHoverListener={!vault.name || vault.name.length <= 40}>
-                      <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
-                    </Tooltip>
+                    <Link
+                      component={RouterLink}
+                      to={`/earn/vault/${vault.address}${vault.chain?.id ? `?chainId=${vault.chain.id}` : ''}`}
+                      color="inherit"
+                      underline="none"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Open vault ${vault.name || shortenAddress(vault.address)}`}
+                    >
+                      <Tooltip title={vault.name || ''} arrow disableHoverListener={!vault.name || vault.name.length <= 40}>
+                        <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
+                      </Tooltip>
+                    </Link>
                   </Box>
                 </TableCell>
 
@@ -509,7 +538,7 @@ export default function EarnPage() {
       </TableContainer>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" role="status">
           Showing {filteredAndSortedVaults.length} {filteredAndSortedVaults.length === 1 ? 'vault' : 'vaults'}
           {symbolFilter.length > 0 || nameFilter || assetAddressFilter ? ' (filtered)' : ''}
           {symbolFilter.length > 0 && (
@@ -543,7 +572,7 @@ export default function EarnPage() {
             <MenuItem value={100}>100</MenuItem>
           </Select>
         </FormControl>
-        <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" />
+        <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" aria-label="Vaults pagination" />
       </Box>
     </Box>
   );
