@@ -16,6 +16,9 @@ import MainContentStyled from './MainContentStyled';
 import Loader from 'ui-component/Loader';
 import Breadcrumbs from 'ui-component/extended/Breadcrumbs';
 
+// third party
+import { useIntl } from 'react-intl';
+
 import { MenuOrientation, ThemeMode } from 'config';
 import useConfig from 'hooks/useConfig';
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
@@ -76,6 +79,7 @@ const AntTab = styled((props: TabProps) => <Tab disableRipple {...props} />)(({ 
 }));
 export default function MainLayout() {
   const theme = useTheme();
+  const intl = useIntl();
   const downMD = useMediaQuery(theme.breakpoints.down('md'));
 
   const { borderRadius, container, miniDrawer, menuOrientation } = useConfig();
@@ -83,9 +87,9 @@ export default function MainLayout() {
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
   const tabs = [
-    { label: 'Dashboard', path: 'dashboard', iconPosition: 'top' },
-    { label: 'Earn', path: 'earn', iconPosition: 'top' },
-    { label: 'Borrow', path: 'borrow', iconPosition: 'top' }
+    { labelId: 'nav.dashboard', path: 'dashboard', iconPosition: 'top' },
+    { labelId: 'nav.earn', path: 'earn', iconPosition: 'top' },
+    { labelId: 'nav.borrow', path: 'borrow', iconPosition: 'top' }
   ];
 
   const navigate = useNavigate();
@@ -95,6 +99,14 @@ export default function MainLayout() {
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     navigate(`/${tabs[newValue].path}`);
   };
+
+  useEffect(() => {
+    window.history.scrollRestoration = 'manual';
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   useEffect(() => {
     handlerDrawerOpen(!miniDrawer);
@@ -134,12 +146,12 @@ export default function MainLayout() {
 
           {/*<MainCard>*/}
           <MainCard>
-            <AntTabs value={currentTabIndex} onChange={handleChange} centered>
+            <AntTabs value={currentTabIndex} onChange={handleChange} centered aria-label={intl.formatMessage({ id: 'nav.mainSections' })}>
               {tabs.map((tab, index) => (
                 <AntTab
                   wrapped={true}
                   key={tab.path}
-                  label={tab.label}
+                  label={intl.formatMessage({ id: tab.labelId })}
                   onClick={() => {
                     const tabPath = `/${tab.path}`;
                     // клик на активный таб

@@ -1,7 +1,9 @@
 import { useQuery } from '@apollo/client';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { visuallyHidden } from 'utils/a11y';
 
 import {
   Autocomplete,
@@ -40,12 +42,11 @@ import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { ChainIcon } from 'components/ChainIcon';
 import { formatUnits } from 'viem';
+import { FormattedMessage, useIntl } from 'react-intl';
 
-const toTokenAmount = (raw: string, decimals: number): number =>
-  parseFloat(raw || '0') / Math.pow(10, decimals);
+const toTokenAmount = (raw: string, decimals: number): number => parseFloat(raw || '0') / Math.pow(10, decimals);
 
-const truncateName = (name: string, maxLen = 20): string =>
-  name && name.length > maxLen ? `${name.slice(0, maxLen)}...` : name;
+const truncateName = (name: string, maxLen = 20): string => (name && name.length > maxLen ? `${name.slice(0, maxLen)}...` : name);
 
 type SortableField = 'chain' | 'name' | 'apy' | 'totalAssetsUsd';
 type SortOrder = 'asc' | 'desc';
@@ -63,6 +64,7 @@ interface MorphoPositionsData {
 }
 export default function EarnPage() {
   const navigate = useNavigate();
+  const intl = useIntl();
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortField, setSortField] = useState<SortableField>('name');
@@ -155,7 +157,9 @@ export default function EarnPage() {
 
   const getUniqueNetworks = (vaults: Vault[]): string[] => {
     const set = new Set<string>();
-    vaults.forEach((v) => { if (v.chain?.network) set.add(v.chain.network); });
+    vaults.forEach((v) => {
+      if (v.chain?.network) set.add(v.chain.network);
+    });
     return Array.from(set).sort();
   };
 
@@ -201,7 +205,7 @@ export default function EarnPage() {
   if (morphoLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-        <CircularProgress />
+        <CircularProgress aria-label={intl.formatMessage({ id: 'earn.loading' })} />
       </Box>
     );
   }
@@ -209,7 +213,9 @@ export default function EarnPage() {
   if (morphoError) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography color="error">Error loading vaults: {morphoError.message}</Typography>
+        <Typography role="alert" color="error">
+          <FormattedMessage id="earn.error" values={{ message: morphoError.message }} />
+        </Typography>
       </Box>
     );
   }
@@ -220,20 +226,33 @@ export default function EarnPage() {
 
   return (
     <Box sx={{ width: '100%' }} alignContent={'center'} margin={'auto'}>
+      <Box component="h1" sx={visuallyHidden}>
+        <FormattedMessage id="earn.title" />
+      </Box>
       {morphoVaultPositions.length > 0 && (
         <Box sx={{ marginBottom: 4 }}>
-          <Typography variant="h3" gutterBottom sx={{ marginBottom: 1 }}>
-            Your Positions
+          <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 1 }}>
+            <FormattedMessage id="common.yourPositions" />
           </Typography>
           <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-            <Table sx={{ minWidth: 650 }} aria-label="morpho vaults table">
+            <Table sx={{ minWidth: 650 }} aria-label={intl.formatMessage({ id: 'earn.yourPositionsAria' })}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Vault</TableCell>
-                  <TableCell>Balance</TableCell>
-                  <TableCell>APY</TableCell>
-                  <TableCell>Total Deposits</TableCell>
-                  <TableCell>Curators</TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.vault" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.balance" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.apy" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.totalDeposits" />
+                  </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="table.curators" />
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -247,9 +266,25 @@ export default function EarnPage() {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TokenIcon symbol={position.vault.asset?.symbol} />
-                        <Tooltip title={position.vault.name || ''} arrow disableHoverListener={!position.vault.name || position.vault.name.length <= 40}>
-                          <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
-                        </Tooltip>
+                        <Link
+                          component={RouterLink}
+                          to={`/earn/vault/${position.vault.address}`}
+                          color="inherit"
+                          underline="none"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={intl.formatMessage(
+                            { id: 'earn.openVaultAria' },
+                            { name: position.vault.name || shortenAddress(position.vault.address) }
+                          )}
+                        >
+                          <Tooltip
+                            title={position.vault.name || ''}
+                            arrow
+                            disableHoverListener={!position.vault.name || position.vault.name.length <= 40}
+                          >
+                            <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
+                          </Tooltip>
+                        </Link>
                       </Box>
                     </TableCell>
 
@@ -261,7 +296,8 @@ export default function EarnPage() {
                     <TableCell>
                       <Box>
                         <Typography variant="body2">
-                          {formatShortUSDS(toTokenAmount(position.vault.state.totalAssets, position.vault.asset.decimals))} {position.vault.asset.symbol}
+                          {formatShortUSDS(toTokenAmount(position.vault.state.totalAssets, position.vault.asset.decimals))}{' '}
+                          {position.vault.asset.symbol}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           ${formatShortUSDS(position.vault.state.totalAssetsUsd || 0)}
@@ -285,8 +321,8 @@ export default function EarnPage() {
         </Box>
       )}
 
-      <Typography variant="h3" gutterBottom sx={{ marginBottom: 3 }}>
-        Available Vaults
+      <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 3 }}>
+        <FormattedMessage id="earn.availableVaults" />
       </Typography>
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
@@ -303,7 +339,15 @@ export default function EarnPage() {
             renderTags={(value, getTagProps) =>
               value.map((option, index) => <Chip label={option} {...getTagProps({ index })} size="small" />)
             }
-            renderInput={(params) => <TextField {...params} label="Filter By Network" placeholder="Select networks" size="small" fullWidth />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'filter.byNetwork' })}
+                placeholder={intl.formatMessage({ id: 'filter.selectNetworks' })}
+                size="small"
+                fullWidth
+              />
+            )}
             size="small"
             fullWidth
           />
@@ -341,7 +385,13 @@ export default function EarnPage() {
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label="Filter By Asset Symbol" placeholder="Select symbols" size="small" fullWidth />
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'filter.byAssetSymbol' })}
+                placeholder={intl.formatMessage({ id: 'filter.selectSymbols' })}
+                size="small"
+                fullWidth
+              />
             )}
             size="small"
             fullWidth
@@ -350,7 +400,7 @@ export default function EarnPage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <TextField
             id="name-filter"
-            label="Filter By Name"
+            label={intl.formatMessage({ id: 'filter.byName' })}
             value={nameFilter}
             onChange={(e) => {
               setNameFilter(e.target.value);
@@ -363,11 +413,11 @@ export default function EarnPage() {
       </Grid>
 
       <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-        <Table sx={{ minWidth: 650 }} aria-label="vaults table">
+        <Table sx={{ minWidth: 650 }} aria-label={intl.formatMessage({ id: 'earn.availableVaultsAria' })}>
           <TableHead>
             <TableRow>
-              <TableCell>
-                <Tooltip title="Click to sort by network" arrow>
+              <TableCell sortDirection={sortField === 'chain' ? sortOrder : false}>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byNetwork' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'chain'}
                     direction={sortField === 'chain' ? sortOrder : 'asc'}
@@ -375,12 +425,12 @@ export default function EarnPage() {
                     IconComponent={sortField === 'chain' ? undefined : UnfoldMore}
                     sx={{ '.MuiTableSortLabel-icon': { opacity: 1, visibility: 'visible' } }}
                   >
-                    Network
+                    <FormattedMessage id="table.network" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by name" arrow>
+              <TableCell sortDirection={sortField === 'name' ? sortOrder : false}>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byName' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'name'}
                     direction={sortField === 'name' ? sortOrder : 'asc'}
@@ -393,22 +443,26 @@ export default function EarnPage() {
                       }
                     }}
                   >
-                    Name
+                    <FormattedMessage id="table.name" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell>
-                <Tooltip title="Click icon to copy full address">
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>Vault Address</Box>
+                <Tooltip title={intl.formatMessage({ id: 'sort.copyHint' })} describeChild>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <FormattedMessage id="table.vaultAddress" />
+                  </Box>
                 </Tooltip>
               </TableCell>
               <TableCell>
-                <Tooltip title="Click icon to copy full address">
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>Asset Address</Box>
+                <Tooltip title={intl.formatMessage({ id: 'sort.copyHint' })} describeChild>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <FormattedMessage id="table.assetAddress" />
+                  </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by APY" arrow>
+              <TableCell sortDirection={sortField === 'apy' ? sortOrder : false}>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byApy' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'apy'}
                     direction={sortField === 'apy' ? sortOrder : 'asc'}
@@ -421,12 +475,12 @@ export default function EarnPage() {
                       }
                     }}
                   >
-                    APY
+                    <FormattedMessage id="table.apy" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
-              <TableCell>
-                <Tooltip title="Click to sort by APY" arrow>
+              <TableCell sortDirection={sortField === 'totalAssetsUsd' ? sortOrder : false}>
+                <Tooltip title={intl.formatMessage({ id: 'sort.byTotalDeposits' })} arrow describeChild>
                   <TableSortLabel
                     active={sortField === 'totalAssetsUsd'}
                     direction={sortField === 'totalAssetsUsd' ? sortOrder : 'asc'}
@@ -439,25 +493,41 @@ export default function EarnPage() {
                       }
                     }}
                   >
-                    Total Deposits (USD)
+                    <FormattedMessage id="table.totalDepositsUsd" />
                   </TableSortLabel>
                 </Tooltip>
               </TableCell>
               <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>Curators</Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormattedMessage id="table.curators" />
+                </Box>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {paginatedVaults.map((vault) => (
-              <TableRow key={vault.address} hover onClick={() => handleVaultClick(vault.address, vault.chain?.id)} sx={{ cursor: 'pointer' }}>
+              <TableRow
+                key={vault.address}
+                hover
+                onClick={() => handleVaultClick(vault.address, vault.chain?.id)}
+                sx={{ cursor: 'pointer' }}
+              >
                 <TableCell>{vault.chain?.id ? <ChainIcon chainId={vault.chain.id} /> : '-'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TokenIcon symbol={vault.asset?.symbol} />
-                    <Tooltip title={vault.name || ''} arrow disableHoverListener={!vault.name || vault.name.length <= 40}>
-                      <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
-                    </Tooltip>
+                    <Link
+                      component={RouterLink}
+                      to={`/earn/vault/${vault.address}${vault.chain?.id ? `?chainId=${vault.chain.id}` : ''}`}
+                      color="inherit"
+                      underline="none"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={intl.formatMessage({ id: 'earn.openVaultAria' }, { name: vault.name || shortenAddress(vault.address) })}
+                    >
+                      <Tooltip title={vault.name || ''} arrow disableHoverListener={!vault.name || vault.name.length <= 40}>
+                        <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
+                      </Tooltip>
+                    </Link>
                   </Box>
                 </TableCell>
 
@@ -509,18 +579,27 @@ export default function EarnPage() {
       </TableContainer>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Showing {filteredAndSortedVaults.length} {filteredAndSortedVaults.length === 1 ? 'vault' : 'vaults'}
-          {symbolFilter.length > 0 || nameFilter || assetAddressFilter ? ' (filtered)' : ''}
+        <Typography variant="body2" color="text.secondary" role="status">
+          <FormattedMessage id="earn.summaryCount" values={{ count: filteredAndSortedVaults.length }} />
+          {(symbolFilter.length > 0 || nameFilter || assetAddressFilter) && (
+            <span>
+              {' '}
+              <FormattedMessage id="common.filtered" />
+            </span>
+          )}
           {symbolFilter.length > 0 && (
             <span>
               {' '}
-              by {symbolFilter.length} {symbolFilter.length === 1 ? 'symbol' : 'symbols'}
+              <FormattedMessage id="earn.summaryBySymbols" values={{ count: symbolFilter.length }} />
             </span>
           )}
           {nameFilter && (
             <span>
-              {symbolFilter.length > 0 ? ' and' : ' by'} name "{nameFilter}"
+              {' '}
+              <FormattedMessage
+                id={symbolFilter.length > 0 ? 'earn.summaryAndByName' : 'earn.summaryByName'}
+                values={{ name: nameFilter }}
+              />
             </span>
           )}
         </Typography>
@@ -528,13 +607,15 @@ export default function EarnPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
         <FormControl variant="outlined" size="small">
-          <InputLabel id="rows-per-page-label">Rows</InputLabel>
+          <InputLabel id="rows-per-page-label">
+            <FormattedMessage id="common.rows" />
+          </InputLabel>
           <Select
             labelId="rows-per-page-label"
             id="rows-per-page"
             value={rowsPerPage}
             onChange={handleChangeRowsPerPage}
-            label="Rows"
+            label={intl.formatMessage({ id: 'common.rows' })}
             sx={{ minWidth: 80 }}
           >
             <MenuItem value={10}>10</MenuItem>
@@ -543,7 +624,14 @@ export default function EarnPage() {
             <MenuItem value={100}>100</MenuItem>
           </Select>
         </FormControl>
-        <Pagination count={pageCount} page={page} onChange={handleChangePage} color="primary" size="large" />
+        <Pagination
+          count={pageCount}
+          page={page}
+          onChange={handleChangePage}
+          color="primary"
+          size="large"
+          aria-label={intl.formatMessage({ id: 'earn.pagination' })}
+        />
       </Box>
     </Box>
   );

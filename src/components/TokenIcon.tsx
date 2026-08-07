@@ -22,7 +22,10 @@ export const TokenIcon: React.FC<TokenIconProps> = ({ symbol, avatarProps, ...bo
     >
       <Avatar
         src={iconUrl}
-        alt={`${symbol} icon`}
+        // The symbol alone is the useful accessible name; `role="img"` already
+        // conveys that it is a graphic. Pass `avatarProps={{ alt: '' }}` to mark
+        // the icon decorative where the symbol is already spelled out next to it.
+        alt={symbol}
         sx={{ width: 36, height: 36, ...avatarProps?.sx }} // объединяем стили
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = 'none';

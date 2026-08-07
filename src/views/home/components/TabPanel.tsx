@@ -7,13 +7,25 @@ interface TabPanelProps {
   index: number;
   value: number;
   sx?: SxProps<Theme>;
+  /**
+   * Namespace for the generated ids. Several independent tab groups live on the
+   * same page (market actions, supply/withdraw, vault), so each one needs its
+   * own prefix to keep `id` unique and `aria-labelledby` pointing at its own tab.
+   */
+  idPrefix?: string;
 }
 
 export default function TabPanel(props: TabPanelProps) {
-  const { children, value, index, sx, ...other } = props;
+  const { children, value, index, sx, idPrefix = 'market', ...other } = props;
 
   return (
-    <div role="tabpanel" hidden={value !== index} id={`market-tabpanel-${index}`} aria-labelledby={`market-tab-${index}`} {...other}>
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`${idPrefix}-tabpanel-${index}`}
+      aria-labelledby={`${idPrefix}-tab-${index}`}
+      {...other}
+    >
       {value === index && <Box sx={sx}>{children}</Box>}
     </div>
   );

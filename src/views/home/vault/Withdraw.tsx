@@ -14,6 +14,8 @@ import { TokenIcon } from 'components/TokenIcon';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface WithdrawProps {
   vaultAddress: string;
@@ -22,6 +24,7 @@ interface WithdrawProps {
 
 const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   const theme = useTheme();
+  const intl = useIntl();
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -47,7 +50,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     setTxError(null);
 
     if (!vaultData) {
-      setTxError('Vault data not available');
+      setTxError(intl.formatMessage({ id: 'tx.vaultDataUnavailable' }));
       return;
     }
 
@@ -82,10 +85,15 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       console.log('Withdrawal transaction initiated');
     } catch (error) {
       console.error('Error initiating withdrawal:', error);
-      setTxError(`Withdrawal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      dispatchError(`Failed to initiate withdrawal of ${vaultData.asset.symbol}`);
+      setTxError(
+        intl.formatMessage(
+          { id: 'withdrawVault.failedWithReason' },
+          { message: error instanceof Error ? error.message : intl.formatMessage({ id: 'tx.unknownError' }) }
+        )
+      );
+      dispatchError(intl.formatMessage({ id: 'withdrawVault.initiateError' }, { symbol: vaultData.asset.symbol }));
     }
-  }, [userAddress, vaultAddress, withdrawAmount, vaultData, withdrawTxState, resetWithdrawTx, writeWithdraw]);
+  }, [userAddress, vaultAddress, withdrawAmount, vaultData, withdrawTxState, resetWithdrawTx, writeWithdraw, intl]);
 
   // Read user's vault balance
   const { data: vaultBalance, refetch: refetchVaultBalance } = useReadContract({
@@ -110,7 +118,12 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       setWithdrawAmount('');
 
       // Show success notification only after blockchain confirmation
-      dispatchSuccess(`${vaultData?.asset.symbol || 'Tokens'} withdrawn successfully`);
+      dispatchSuccess(
+        intl.formatMessage(
+          { id: 'withdrawVault.success' },
+          { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.token' }) }
+        )
+      );
       console.log('Withdrawal confirmed on blockchain!');
 
       // After successful withdrawal, refresh vault balance
@@ -123,11 +136,16 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     }
     // Handle error state
     else if (withdrawTxState === 'error') {
-      dispatchError(`Failed to withdraw ${vaultData?.asset.symbol || 'tokens'}`);
-      setTxError(`Withdrawal failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'withdrawVault.error' },
+          { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'withdrawVault.errorRetry' }));
       console.error('Withdrawal transaction failed');
     }
-  }, [withdrawTxState, withdrawTxHash, refetchVaultBalance, vaultData?.asset.symbol, resetWithdrawTx]);
+  }, [withdrawTxState, withdrawTxHash, refetchVaultBalance, vaultData?.asset.symbol, resetWithdrawTx, intl]);
 
   // Reset form after confirmed withdrawal
   useEffect(() => {
@@ -147,21 +165,21 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
   // Get button text based on transaction states
   const getButtonText = useCallback(() => {
     if (!withdrawAmount) {
-      return 'Enter Amount';
+      return intl.formatMessage({ id: 'common.enterAmount' });
     }
 
     if (withdrawTxState === 'submitting' || withdrawTxState === 'submitted') {
-      return 'Withdrawing...';
+      return intl.formatMessage({ id: 'withdrawVault.pending' });
     }
     if (withdrawTxState === 'error') {
-      return 'Withdrawal Failed - Try again';
+      return intl.formatMessage({ id: 'withdrawVault.failed' });
     }
     if (withdrawTxState === 'confirmed') {
-      return 'Success!';
+      return intl.formatMessage({ id: 'withdrawVault.successState' });
     }
 
-    return 'Withdraw';
-  }, [withdrawAmount, withdrawTxState]);
+    return intl.formatMessage({ id: 'withdrawVault.button' });
+  }, [withdrawAmount, withdrawTxState, intl]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
@@ -198,13 +216,20 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
     [formattedVaultBalance, withdrawTxState, resetWithdrawTx]
   );
 
+  const assetSymbol = vaultData?.asset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
+  const exceedsBalance = !!withdrawAmount && parseFloat(withdrawAmount) > parseFloat(formattedVaultBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage =
+    txError || (exceedsBalance ? intl.formatMessage({ id: 'withdrawVault.exceedsBalance' }, { symbol: assetSymbol }) : '');
+
   if (!vaultData) {
     return (
       <Box sx={{ padding: 2 }}>
-        <Typography variant="h5" color="error">
-          Vault not found
+        <Typography variant="h5" component="p" role="alert" color="error">
+          <FormattedMessage id="vault.notFound" />
         </Typography>
-        <CircularProgress />
+        <CircularProgress aria-label={intl.formatMessage({ id: 'vault.loadingData' })} />
       </Box>
     );
   }
@@ -243,9 +268,11 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Withdraw Asset
+              <FormattedMessage id="withdrawVault.title" />
             </Typography>
-            <Typography variant="body2">Withdraw Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="withdrawVault.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -259,11 +286,11 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             {vaultData.asset.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={vaultData.asset.symbol}
               />
             )}
-            <Typography fontWeight="bold">{vaultData.asset.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{vaultData.asset.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -285,7 +312,14 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'vault-withdraw-amount',
+            'aria-label': intl.formatMessage({ id: 'withdrawVault.inputAria' }, { symbol: assetSymbol }),
+            'aria-describedby': 'vault-withdraw-limit vault-withdraw-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
 
         <Box
@@ -300,6 +334,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={intl.formatMessage({ id: 'withdrawVault.percentAria' }, { percent: 25, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -313,6 +349,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={intl.formatMessage({ id: 'withdrawVault.percentAria' }, { percent: 50, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -326,6 +364,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={intl.formatMessage({ id: 'withdrawVault.percentAria' }, { percent: 75, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -339,13 +379,15 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
             size="small"
             onClick={() => handleWithdrawPercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={intl.formatMessage({ id: 'withdrawVault.maxAria' }, { symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -362,6 +404,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
         }}
       >
         <Box
+          id="vault-withdraw-limit"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -371,12 +414,15 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Withdrawable:
+            <FormattedMessage id="common.withdrawable" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
             {formatAssetOutput(Number(formattedVaultBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
             {vaultData.asset.symbol}
           </Typography>
+        </Box>
+        <Box id="vault-withdraw-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

@@ -16,6 +16,8 @@ import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface SupplyTabProps {
   market: MarketInterface;
@@ -27,6 +29,7 @@ interface SupplyTabProps {
 // accrualPosition.supplyShares, marketSdk.toSupplyShares/ toSupplyAssets...
 const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
+  const intl = useIntl();
   // Track when allowance checking is in progress (during debounce)
   const [allowanceChecking, setAllowanceChecking] = useState(false);
   const [addAmount, setAddAmount] = useState('');
@@ -172,18 +175,25 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         refetchAllowance();
       }
 
-      dispatchSuccess(`${market?.loanAsset.symbol || 'Token'} approved successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'tx.approveSuccess' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'common.token' }) })
+      );
       console.log('Approval confirmed!');
     } else if (approveTx.txState === 'error') {
-      dispatchError(`Failed to approve ${market?.loanAsset.symbol || 'token'}`);
-      setTxError(`Approval failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'tx.approveError' },
+          { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'tx.approveRetry' }));
       console.log(approveTx.txError);
 
       console.error('Approval transaction failed');
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted');
     }
-  }, [approveTx.txState, market?.loanAsset.symbol, refetchAllowance]);
+  }, [approveTx.txState, market?.loanAsset.symbol, refetchAllowance, intl]);
 
   useEffect(() => {
     if (supplyTx.txState === 'confirmed') {
@@ -194,7 +204,9 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
       setActivePercentage(null);
 
       // Show success message
-      dispatchSuccess(`${market?.loanAsset.symbol || 'Loan'} supplied successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'supply.success' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'table.loan' }) })
+      );
       console.log('Supply confirmed!');
 
       // After successful transaction, we might want to refresh any balances
@@ -206,13 +218,15 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         onSuccess();
       }
     } else if (supplyTx.txState === 'error') {
-      dispatchError(`Failed to supply ${market?.loanAsset.symbol || 'loan'}`);
-      setTxError(`Supply failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage({ id: 'supply.error' }, { symbol: market?.loanAsset.symbol || intl.formatMessage({ id: 'table.loan' }) })
+      );
+      setTxError(intl.formatMessage({ id: 'supply.errorRetry' }));
       console.error('Supply transaction failed');
     } else if (supplyTx.txState === 'submitted') {
       console.log('Supply transaction submitted');
     }
-  }, [supplyTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess]);
+  }, [supplyTx.txState, market?.loanAsset.symbol, refetchAllowance, onSuccess, intl]);
 
   const handleSupply = useCallback(async () => {
     if (!userAddress || !marketId || !debouncedAddAmount || parseFloat(normalizePointAmount(debouncedAddAmount)) <= 0) {
@@ -222,7 +236,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
     setTxError(null);
 
     if (!market) {
-      setTxError('Market data not available');
+      setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
 
@@ -297,14 +311,19 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
     } catch (error) {
       console.error('Transaction failed:', error);
       if (!isApproved) {
-        dispatchError(`Failed to approve ${market.loanAsset.symbol}`);
+        dispatchError(intl.formatMessage({ id: 'tx.approveError' }, { symbol: market.loanAsset.symbol }));
       } else {
-        dispatchError(`Failed to supply ${market.loanAsset.symbol}`);
+        dispatchError(intl.formatMessage({ id: 'supply.error' }, { symbol: market.loanAsset.symbol }));
       }
       resetTransactionStates();
-      setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTxError(
+        intl.formatMessage(
+          { id: 'tx.failed' },
+          { message: error instanceof Error ? error.message : intl.formatMessage({ id: 'tx.unknownError' }) }
+        )
+      );
     }
-  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates]);
+  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates, intl]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -317,32 +336,32 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   const getButtonText = useCallback(() => {
     // Show checking status when amount is being debounced
     if (allowanceChecking) {
-      return 'Checking allowance...';
+      return intl.formatMessage({ id: 'common.checkingAllowance' });
     }
 
     if (!addAmount) {
-      return 'Enter Amount';
+      return intl.formatMessage({ id: 'common.enterAmount' });
     }
 
     if (!isApproved) {
       if (approveTx.txState === 'submitting' || approveTx.txState === 'submitted') {
-        return 'Approving...';
+        return intl.formatMessage({ id: 'common.approving' });
       }
       if (approveTx.txState === 'error') {
-        return 'Approval Failed - Try again';
+        return intl.formatMessage({ id: 'common.approvalFailed' });
       }
-      return `Approve ${market?.loanAsset.symbol || ''}`;
+      return intl.formatMessage({ id: 'common.approve' }, { symbol: market?.loanAsset.symbol || '' });
     }
 
     if (supplyTx.txState === 'submitting' || supplyTx.txState === 'submitted') {
-      return 'Supplying...';
+      return intl.formatMessage({ id: 'supply.pending' });
     }
     if (supplyTx.txState === 'error') {
-      return 'Supply Failed - Try again';
+      return intl.formatMessage({ id: 'supply.failed' });
     }
 
-    return 'Supply';
-  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, supplyTx.txState, market?.loanAsset.symbol]);
+    return intl.formatMessage({ id: 'supply.button' });
+  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, supplyTx.txState, market?.loanAsset.symbol, intl]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
@@ -361,8 +380,18 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const loanSymbol = market?.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
+  const exceedsBalance = !!addAmount && parseFloat(addAmount) > parseFloat(formattedLoanBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? intl.formatMessage({ id: 'supply.exceedsBalance' }, { symbol: loanSymbol }) : '');
+
   if (!market) {
-    return <Box>Incorrect Market Data</Box>;
+    return (
+      <Box>
+        <FormattedMessage id="market.incorrectData" />
+      </Box>
+    );
   }
 
   return (
@@ -399,9 +428,11 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Supply Loan
+              <FormattedMessage id="supply.title" />
             </Typography>
-            <Typography variant="body2">Supply Loan Token Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="supply.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -415,15 +446,14 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             {market.loanAsset?.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={market.loanAsset?.symbol}
               />
             )}
-            <Typography fontWeight="bold">{market.loanAsset?.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
-          autoFocus
           type="text"
           fullWidth
           value={inputAmount}
@@ -438,7 +468,14 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'supply-loan-amount',
+            'aria-label': intl.formatMessage({ id: 'supply.inputAria' }, { symbol: loanSymbol }),
+            'aria-describedby': 'supply-loan-balance supply-loan-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
         <Box
           sx={{
@@ -452,6 +489,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={intl.formatMessage({ id: 'supply.percentAria' }, { percent: 25, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -465,6 +504,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={intl.formatMessage({ id: 'supply.percentAria' }, { percent: 50, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -478,6 +519,8 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={intl.formatMessage({ id: 'supply.percentAria' }, { percent: 75, symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -491,13 +534,15 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
             size="small"
             onClick={() => handlePercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={intl.formatMessage({ id: 'supply.maxAria' }, { symbol: loanSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -515,6 +560,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         }}
       >
         <Box
+          id="supply-loan-balance"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -524,11 +570,14 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Balance:
+            <FormattedMessage id="common.balance" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
-            {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || 'N/A'}
+            {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
+        </Box>
+        <Box id="supply-loan-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"

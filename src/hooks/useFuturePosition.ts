@@ -55,15 +55,8 @@ export const useFuturePosition = ({
     });
 
     const newAccrualPosition = new AccrualPosition(newPosition, market);
-    let isChanged = false;
-    if (
-      newAccrualPosition.borrowShares != currentPosition.borrowShares ||
-      newAccrualPosition.supplyShares != currentPosition.supplyShares ||
-      newAccrualPosition.collateral != currentPosition.collateral
-    ) {
-      isChanged = true;
-    }
+    const isChanged = !!(diffBorrowAmount && diffBorrowAmount !== 0n) || !!(diffCollateralAmount && diffCollateralAmount !== 0n);
 
-    return { futurePosition: newAccrualPosition, isChanged: isChanged };
+    return { futurePosition: newAccrualPosition, isChanged };
   }, [currentPosition, market, userAddress, marketId, diffBorrowAmount, diffCollateralAmount]);
 };

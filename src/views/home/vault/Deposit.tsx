@@ -15,6 +15,8 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters'; // или ethers.js
+import { visuallyHidden } from 'utils/a11y';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface DepositProps {
   vaultAddress: string;
@@ -24,6 +26,7 @@ interface DepositProps {
 const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Track when allowance checking is in progress (during debounce)
   const theme = useTheme();
+  const intl = useIntl();
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [allowanceChecking, setAllowanceChecking] = useState(false);
@@ -168,16 +171,23 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       }
 
       // Show success message only after blockchain confirmation
-      dispatchSuccess(`${vaultData?.asset.symbol || 'Token'} approved successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'tx.approveSuccess' }, { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.token' }) })
+      );
       console.log('Approval confirmed in blockchain!');
     } else if (approveTx.txState === 'error') {
-      dispatchError(`Failed to approve ${vaultData?.asset.symbol || 'token'}`);
-      setTxError(`Approval failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage(
+          { id: 'tx.approveError' },
+          { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) }
+        )
+      );
+      setTxError(intl.formatMessage({ id: 'tx.approveRetry' }));
       console.error('Approval transaction failed');
     } else if (approveTx.txState === 'submitted') {
       console.log('Approval transaction submitted, waiting for blockchain confirmation...');
     }
-  }, [approveTx.txState, vaultData?.asset.symbol, refetchAllowance]);
+  }, [approveTx.txState, vaultData?.asset.symbol, refetchAllowance, intl]);
 
   // Handle deposit transaction states
   useEffect(() => {
@@ -190,7 +200,9 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       setActivePercentage(null);
 
       // Show success message only after blockchain confirmation
-      dispatchSuccess(`${vaultData?.asset.symbol || 'Tokens'} deposited successfully`);
+      dispatchSuccess(
+        intl.formatMessage({ id: 'deposit.success' }, { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.token' }) })
+      );
       console.log('Deposit confirmed in blockchain!');
 
       // After successful deposit, refresh balances
@@ -201,13 +213,15 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       // Refresh token balance
       refetchBalance();
     } else if (depositTx.txState === 'error') {
-      dispatchError(`Failed to deposit ${vaultData?.asset.symbol || 'token'}`);
-      setTxError(`Deposit failed. Please try again.`);
+      dispatchError(
+        intl.formatMessage({ id: 'deposit.error' }, { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) })
+      );
+      setTxError(intl.formatMessage({ id: 'deposit.errorRetry' }));
       console.error('Deposit transaction failed');
     } else if (depositTx.txState === 'submitted') {
       console.log('Deposit transaction submitted, waiting for blockchain confirmation...');
     }
-  }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance, refetchBalance]);
+  }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance, refetchBalance, intl]);
 
   const handleDeposit = useCallback(async () => {
     if (!userAddress || !vaultAddress || !depositAmount) {
@@ -217,7 +231,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
     setTxError(null);
 
     if (!vaultData) {
-      setTxError('Vault data not available');
+      setTxError(intl.formatMessage({ id: 'tx.vaultDataUnavailable' }));
       return;
     }
 
@@ -230,7 +244,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       try {
         amountBN = parseUnits(depositAmount, assetDecimals);
       } catch {
-        setTxError('Invalid amount');
+        setTxError(intl.formatMessage({ id: 'tx.invalidAmount' }));
         return;
       }
 
@@ -261,10 +275,15 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       }
     } catch (error) {
       console.error('Transaction failed:', error);
-      setTxError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTxError(
+        intl.formatMessage(
+          { id: 'tx.failed' },
+          { message: error instanceof Error ? error.message : intl.formatMessage({ id: 'tx.unknownError' }) }
+        )
+      );
       resetTransactionStates();
     }
-  }, [userAddress, vaultAddress, depositAmount, vaultData, depositTx, approveTx, isApproved]);
+  }, [userAddress, vaultAddress, depositAmount, vaultData, depositTx, approveTx, isApproved, intl]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -277,38 +296,38 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   const getButtonText = useCallback(() => {
     // Show checking status when amount is being debounced
     if (allowanceChecking) {
-      return 'Checking allowance...';
+      return intl.formatMessage({ id: 'common.checkingAllowance' });
     }
 
     if (!depositAmount) {
-      return 'Enter Amount';
+      return intl.formatMessage({ id: 'common.enterAmount' });
     }
 
     if (!isApproved) {
       if (approveTx.txState === 'submitting') {
-        return 'Sending Approval...';
+        return intl.formatMessage({ id: 'deposit.sendingApproval' });
       }
       if (approveTx.txState === 'submitted') {
-        return 'Waiting for Approval Confirmation...';
+        return intl.formatMessage({ id: 'deposit.waitingApproval' });
       }
       if (approveTx.txState === 'error') {
-        return 'Approval Failed - Try again';
+        return intl.formatMessage({ id: 'common.approvalFailed' });
       }
-      return `Approve ${vaultData?.asset.symbol || ''}`;
+      return intl.formatMessage({ id: 'common.approve' }, { symbol: vaultData?.asset.symbol || '' });
     }
 
     if (depositTx.txState === 'submitting') {
-      return 'Sending Deposit Transaction...';
+      return intl.formatMessage({ id: 'deposit.sending' });
     }
     if (depositTx.txState === 'submitted') {
-      return 'Waiting for Blockchain Confirmation...';
+      return intl.formatMessage({ id: 'deposit.waitingConfirmation' });
     }
     if (depositTx.txState === 'error') {
-      return 'Deposit Failed - Try again';
+      return intl.formatMessage({ id: 'deposit.failed' });
     }
 
-    return 'Deposit';
-  }, [depositAmount, isApproved, allowanceChecking, approveTx.txState, depositTx.txState, vaultData?.asset.symbol]);
+    return intl.formatMessage({ id: 'deposit.button' });
+  }, [depositAmount, isApproved, allowanceChecking, approveTx.txState, depositTx.txState, vaultData?.asset.symbol, intl]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
@@ -324,8 +343,18 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
+  const assetSymbol = vaultData?.asset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
+  const exceedsBalance = !!depositAmount && parseFloat(depositAmount) > parseFloat(formattedTokenBalance);
+  // Surfaced to assistive tech / automation only: the visual design has no slot
+  // for these messages, but the state itself is real and must be machine readable.
+  const statusMessage = txError || (exceedsBalance ? intl.formatMessage({ id: 'deposit.exceedsBalance' }, { symbol: assetSymbol }) : '');
+
   if (!vaultData) {
-    return <Box>Incorrect Vault Data</Box>;
+    return (
+      <Box>
+        <FormattedMessage id="vault.incorrectData" />
+      </Box>
+    );
   }
 
   return (
@@ -362,9 +391,11 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             }}
           >
             <Typography variant="body2" color="text.main" fontWeight="bold">
-              Deposit Asset
+              <FormattedMessage id="deposit.title" />
             </Typography>
-            <Typography variant="body2">Deposit Amount:</Typography>
+            <Typography variant="body2">
+              <FormattedMessage id="deposit.amountLabel" />
+            </Typography>
           </Box>
           <Box
             sx={{
@@ -378,11 +409,11 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             {vaultData.asset.symbol && (
               <TokenIcon
                 sx={{ width: '45px', height: '45px', display: 'flex', alignItems: 'center', zIndex: 1, marginBottom: '15px' }}
-                avatarProps={{ sx: { width: 45, height: 45 } }}
+                avatarProps={{ sx: { width: 45, height: 45 }, alt: '' }}
                 symbol={vaultData.asset.symbol}
               />
             )}
-            <Typography fontWeight="bold">{vaultData.asset.symbol || 'N/A'}</Typography>
+            <Typography fontWeight="bold">{vaultData.asset.symbol || intl.formatMessage({ id: 'common.na' })}</Typography>
           </Box>
         </Box>
         <CustomInput
@@ -401,7 +432,14 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           }}
           disabled={isInputDisabled}
           placeholder="0"
-          inputProps={{ inputMode: 'decimal', pattern: '[0-9]*,?[0-9]*' }}
+          inputProps={{
+            inputMode: 'decimal',
+            pattern: '[0-9]*,?[0-9]*',
+            id: 'vault-deposit-amount',
+            'aria-label': intl.formatMessage({ id: 'deposit.inputAria' }, { symbol: assetSymbol }),
+            'aria-describedby': 'vault-deposit-balance vault-deposit-status',
+            'aria-invalid': exceedsBalance || undefined
+          }}
         />
         <Box
           sx={{
@@ -415,6 +453,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(25)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 25}
+            aria-label={intl.formatMessage({ id: 'deposit.percentAria' }, { percent: 25, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 25 ? theme.palette.secondary.main : 'transparent',
@@ -428,6 +468,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(50)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 50}
+            aria-label={intl.formatMessage({ id: 'deposit.percentAria' }, { percent: 50, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 50 ? theme.palette.secondary.main : 'transparent',
@@ -441,6 +483,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(75)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 75}
+            aria-label={intl.formatMessage({ id: 'deposit.percentAria' }, { percent: 75, symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 75 ? theme.palette.secondary.main : 'transparent',
@@ -454,13 +498,15 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
             size="small"
             onClick={() => handleDepositPercentClick(100)}
             disabled={isInputDisabled}
+            aria-pressed={activePercentage === 100}
+            aria-label={intl.formatMessage({ id: 'deposit.maxAria' }, { symbol: assetSymbol })}
             sx={{
               flex: 1,
               bgcolor: activePercentage === 100 ? theme.palette.secondary.main : 'transparent',
               color: activePercentage === 100 ? theme.palette.background.paper : 'inherit'
             }}
           >
-            Max
+            <FormattedMessage id="common.max" />
           </Button>
         </Box>
       </Box>
@@ -478,6 +524,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         }}
       >
         <Box
+          id="vault-deposit-balance"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -487,12 +534,15 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
           }}
         >
           <Typography variant="h4" fontWeight="normal">
-            Balance:
+            <FormattedMessage id="common.balance" />
           </Typography>
           <Typography variant="h4" fontWeight="normal">
             {formatAssetOutput(Number(formattedTokenBalance).toFixed(vaultData.asset.decimals / DECIMALS_SCALE_FACTOR))}{' '}
-            {vaultData.asset.symbol || 'N/A'}
+            {vaultData.asset.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
+        </Box>
+        <Box id="vault-deposit-status" role="alert" sx={visuallyHidden}>
+          {statusMessage}
         </Box>
         <Button
           variant="contained"
