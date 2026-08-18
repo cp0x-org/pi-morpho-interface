@@ -5,7 +5,7 @@ import { I18n } from 'types/config';
 
 export const SUPPORTED_LOCALES: { value: I18n; labelId: string; shortLabel: string }[] = [
   { value: 'en', labelId: 'language.en', shortLabel: 'EN' },
-  { value: 'zh', labelId: 'language.zh', shortLabel: '中文' }
+  { value: 'zh', labelId: 'language.zh', shortLabel: '中' }
 ];
 
 export const DEFAULT_LOCALE: I18n = 'en';

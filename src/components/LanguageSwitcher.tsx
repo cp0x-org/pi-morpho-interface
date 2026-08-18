@@ -5,7 +5,6 @@ import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemText from '@mui/material/ListItemText';
-import TranslateIcon from '@mui/icons-material/Translate';
 
 // third party
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -30,7 +29,12 @@ export default function LanguageSwitcher({ fullWidth = false }: LanguageSwitcher
   const open = Boolean(anchorEl);
 
   const activeLocale = normalizeLocale(i18n);
-  const currentLocale = SUPPORTED_LOCALES.find((locale) => locale.value === activeLocale) ?? SUPPORTED_LOCALES[0];
+  const activeIndex = Math.max(
+    SUPPORTED_LOCALES.findIndex((locale) => locale.value === activeLocale),
+    0
+  );
+  // The button advertises the language you can switch *to*, not the active one.
+  const nextLocale = SUPPORTED_LOCALES[(activeIndex + 1) % SUPPORTED_LOCALES.length];
 
   const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -50,7 +54,6 @@ export default function LanguageSwitcher({ fullWidth = false }: LanguageSwitcher
       <Button
         color="inherit"
         onClick={handleOpen}
-        startIcon={<TranslateIcon aria-hidden="true" />}
         fullWidth={fullWidth}
         aria-label={intl.formatMessage({ id: 'language.label' })}
         aria-haspopup="menu"
@@ -58,7 +61,7 @@ export default function LanguageSwitcher({ fullWidth = false }: LanguageSwitcher
         aria-controls={open ? 'language-switcher-menu' : undefined}
         sx={{ textTransform: 'none', fontWeight: 500, justifyContent: fullWidth ? 'flex-start' : 'center' }}
       >
-        {currentLocale.shortLabel}
+        {nextLocale.shortLabel}
       </Button>
 
       <Menu
