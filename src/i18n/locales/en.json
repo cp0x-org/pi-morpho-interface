@@ -325,6 +325,14 @@
     "failedWithReason": "Withdrawal failed: {message}",
     "exceedsBalance": "Amount exceeds your withdrawable {symbol} balance"
   },
+  "fixed": {
+    "maturity": {
+      "matured": "Matured",
+      "inDays": "in {days, plural, one {# day} other {# days}}",
+      "inHours": "in {hours, plural, one {# hour} other {# hours}}",
+      "inMinutes": "in {minutes, plural, one {# minute} other {# minutes}}"
+    }
+  },
   "errors": {
     "e404": "Error 404 - This page doesn't exist!",
     "e401": "Error 401 - You aren't authorized to see this",

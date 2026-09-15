@@ -38,6 +38,9 @@ importers:
       '@morpho-org/blue-sdk-wagmi':
         specifier: ^3.0.0
         version: 3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))
+      '@morpho-org/midnight-sdk':
+        specifier: 1.4.0
+        version: 1.4.0(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
       '@morpho-org/morpho-ts':
         specifier: ^2.13.0
         version: 2.13.0
@@ -1613,6 +1616,12 @@ packages:
     resolution: {integrity: sha512-VqlmTEO/O28bsXqZJH/YEOVdRuPmjyEShZIgUSuVF/2aoTymcQdjZIpmwAHhB85LMyHQfNwHMnsh2i1LQS3jNw==}
     peerDependencies:
       '@morpho-org/morpho-ts': ^2.4.0
+
+  '@morpho-org/midnight-sdk@1.4.0':
+    resolution: {integrity: sha512-loNLOf5R5L6IL5TfDJT0YCHXm1VT65hJGvbpsFmWymenJOJ43cu3S3B+lxhho0Qdtu540q0g9Q+ozHgqJe8PXQ==}
+    peerDependencies:
+      '@morpho-org/morpho-ts': ^2.8.0
+      viem: ^2.0.0
 
   '@morpho-org/morpho-ts@2.13.0':
     resolution: {integrity: sha512-AexYjickJaPQtAGj9hNWY+vTFR3aPjn2NnrFW2zbPISR8d1d3gDJlZhlTFMtE/Hyw2Cd/Cp1IcX05Gs3JnuE+w==}
@@ -7277,6 +7286,11 @@ snapshots:
       '@types/lodash.mergewith': 4.6.9
       lodash.isplainobject: 4.0.6
       lodash.mergewith: 4.6.2
+
+  '@morpho-org/midnight-sdk@1.4.0(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
+    dependencies:
+      '@morpho-org/morpho-ts': 2.13.0
+      viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
 
   '@morpho-org/morpho-ts@2.13.0': {}
 

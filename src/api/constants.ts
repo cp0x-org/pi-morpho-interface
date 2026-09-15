@@ -4,6 +4,9 @@ export const ApiUrls = {
   // morphoApi: 'https://api.morpho.org/graphql', // original with restrictions
   morphoApi: 'https://pi.cp0x.com/proxymorpho/', // cp0x proxy, no restrictions, base
   // morphoApi: 'https://pi.cp0x.com/proxymorpho/graphql', // cp0x proxy, no restrictions
+  // Morpho Midnight (fixed-rate markets) REST API. Documented as a "Private API": keep it configurable so it can be moved
+  // behind the cp0x proxy (the proxy needs its own location for /v0/midnight/).
+  midnightApi: 'https://api.morpho.org/v0/midnight',
   ethGraphApi:
     'https://gateway.thegraph.com/api/ae52646e3d3487806a739c9a253a358d/subgraphs/id/8Lz789DP5VKLXumTMTgygjU2xtuzx8AhbaacgN5PYCAs',
   baseGraphApi:
@@ -153,6 +156,27 @@ export const MorphoRequests = {
             dailyNetBorrowApy
             totalLiquidityUsd
             sizeUsd
+          }
+        }
+      }
+    }
+  `,
+  // fixed-rate markets: the Midnight REST API returns token addresses only.
+  // The API answers for every (address, chain) pair, including "UNKNOWN" placeholders: match by pair and skip those.
+  GetAssetsByAddress: gql`
+    query GetAssetsByAddress($addresses: [String!], $chainIds: [Int!]) {
+      assets(where: { address_in: $addresses, chainId_in: $chainIds }, first: 1000) {
+        items {
+          address
+          symbol
+          name
+          decimals
+          logoURI
+          chain {
+            id
+          }
+          price {
+            usd
           }
         }
       }

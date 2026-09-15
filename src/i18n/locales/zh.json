@@ -325,6 +325,14 @@
     "failedWithReason": "提取失败：{message}",
     "exceedsBalance": "金额超出您可提取的 {symbol} 余额"
   },
+  "fixed": {
+    "maturity": {
+      "matured": "已到期",
+      "inDays": "{days} 天后",
+      "inHours": "{hours} 小时后",
+      "inMinutes": "{minutes} 分钟后"
+    }
+  },
   "errors": {
     "e404": "错误 404 - 页面不存在！",
     "e401": "错误 401 - 您无权查看此内容",
