@@ -164,6 +164,7 @@
     "loading": "Loading market details",
     "error": "Error loading market details: {message}",
     "notFound": "Market not found",
+    "multipleNetworks": "This market exists on several networks. Choose one:",
     "incorrectData": "Incorrect Market Data",
     "heading": "Market {collateral} / {loan}",
     "utilization": "Utilization",

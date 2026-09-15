@@ -37,7 +37,7 @@ export interface MetaMorpho {
   symbol: string;
   asset: Asset;
   timelock: string | number;
-  dailyNetApy?: number;
+  avgNetApy?: number;
   curators?: Curators[];
 }
 

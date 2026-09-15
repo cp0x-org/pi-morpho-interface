@@ -1,7 +1,7 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card, Divider } from '@mui/material';
+import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card, Divider, Link } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
 import { formatLLTV, formatShortUSDS } from '@/utils/formatters';
@@ -30,17 +30,48 @@ export default function MarketDetailPage() {
 
   const { marketId } = useParams<{ marketId: string }>();
   const [searchParams] = useSearchParams();
-  const targetChainId = Number(searchParams.get('chainId')) || undefined;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlChainId = Number(searchParams.get('chainId')) || undefined;
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
   const { address: userAddress, chainId: currentChainId } = useAccount();
   const { switchChain } = useSwitchChain();
 
+  const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
+  const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
+
+  // Blue market ids are not unique across chains, so the lookup is scoped to ?chainId=.
+  // Without it, or when the market is not on that chain, search every chain and fix the URL.
+  const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
+    variables: { marketId: marketId, chainIds: urlChainId ? [urlChainId] : null },
+    skip: !marketId,
+    client: appoloClients.morphoApi
+  });
+  const needsChainLookup = !!urlChainId && !loading && !error && data?.markets?.items.length === 0;
+  const { loading: lookupLoading, data: lookupData } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
+    variables: { marketId: marketId, chainIds: null },
+    skip: !marketId || !needsChainLookup,
+    client: appoloClients.morphoApi
+  });
+
+  const marketData = urlChainId ? data?.markets?.items.find((item) => item.chain?.id === urlChainId) : undefined;
+  const chainCandidates = (urlChainId ? lookupData : data)?.markets?.items ?? [];
+  const redirectChainId = !marketData && chainCandidates.length === 1 ? chainCandidates[0].chain?.id : undefined;
+  const chainId = marketData?.chain?.id;
+
   useEffect(() => {
-    if (targetChainId && currentChainId !== targetChainId) {
-      const networkName = getChainName(targetChainId);
+    if (!redirectChainId || redirectChainId === urlChainId) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('chainId', String(redirectChainId));
+    navigate({ search: `?${nextParams.toString()}`, hash: location.hash }, { replace: true });
+  }, [redirectChainId, urlChainId, searchParams, location.hash, navigate]);
+
+  useEffect(() => {
+    if (chainId && currentChainId && currentChainId !== chainId) {
+      const networkName = getChainName(chainId);
       dispatchInfo(intl.formatMessage({ id: 'network.switching' }, { network: networkName }));
       switchChain(
-        { chainId: targetChainId },
+        { chainId },
         {
           onSuccess: () => dispatchSuccess(intl.formatMessage({ id: 'network.switched' }, { network: networkName })),
           onError: (err) =>
@@ -48,20 +79,12 @@ export default function MarketDetailPage() {
         }
       );
     }
-  }, [targetChainId, currentChainId, intl]);
+  }, [chainId, currentChainId, intl]);
 
-  const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
-  const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
-
-  const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
-    variables: { marketId: marketId },
-    skip: !marketId,
-    client: appoloClients.morphoApi
-  });
-
-  const { accrualPosition, market, refreshPositionData } = useMarketData({
+  const { accrualPosition, market, marketParams, refreshPositionData } = useMarketData({
     marketId,
-    marketItemData: data?.markets?.items[0]
+    chainId,
+    marketItemData: marketData
   });
 
   const { futurePosition, isChanged } = useFuturePosition({
@@ -81,7 +104,7 @@ export default function MarketDetailPage() {
     setDiffCollateralAmount(amount);
   }, []);
 
-  if (loading) {
+  if (loading || lookupLoading || (redirectChainId && redirectChainId !== urlChainId)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress aria-label={intl.formatMessage({ id: 'market.loading' })} />
@@ -99,7 +122,22 @@ export default function MarketDetailPage() {
     );
   }
 
-  const marketData = data?.markets?.items?.[0];
+  if (!marketData && chainCandidates.length > 1) {
+    return (
+      <Box sx={{ padding: 2 }}>
+        <Typography variant="h5" component="p" role="status">
+          <FormattedMessage id="market.multipleNetworks" />
+        </Typography>
+        <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: 'wrap' }}>
+          {chainCandidates.map((item) => (
+            <Link key={item.chain.id} component={RouterLink} to={{ search: `?chainId=${item.chain.id}` }} replace>
+              {getChainName(item.chain.id)}
+            </Link>
+          ))}
+        </Stack>
+      </Box>
+    );
+  }
 
   if (!marketData) {
     return (
@@ -249,6 +287,8 @@ export default function MarketDetailPage() {
         <Grid size={{ xs: 12, md: 7 }}>
           <ActionFormsMain
             market={marketData}
+            chainId={chainId}
+            marketParams={marketParams}
             sdkMarket={market}
             marketId={marketId}
             accrualPosition={accrualPosition}
@@ -258,6 +298,8 @@ export default function MarketDetailPage() {
           />
           <ActionFormsSecondary
             market={marketData}
+            chainId={chainId}
+            marketParams={marketParams}
             sdkMarket={market}
             marketId={marketId}
             accrualPosition={accrualPosition}

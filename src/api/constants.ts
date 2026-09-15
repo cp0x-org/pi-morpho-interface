@@ -35,7 +35,7 @@ export const MorphoRequests = {
             name
           }
           state {
-            dailyNetApy
+            avgNetApy
             totalAssets
             totalAssetsUsd
             curators {
@@ -112,7 +112,7 @@ export const MorphoRequests = {
             network
           }
           state {
-            dailyNetApy
+            avgNetApy
             totalAssetsUsd
           }
         }
@@ -120,14 +120,21 @@ export const MorphoRequests = {
     }
   `,
   // marketDetailPage
+  // `chainIds: null` searches every network (used to recover a wrong or missing ?chainId=).
   GetMorphoMarketByAddress: gql`
-    query GetMarketByAddress($marketId: String!) {
-      markets(where: { uniqueKey_in: [$marketId] }, first: 1) {
+    query GetMarketByAddress($marketId: String!, $chainIds: [Int!]) {
+      markets(where: { uniqueKey_in: [$marketId], chainId_in: $chainIds }, first: 10) {
         items {
           marketId
           lltv
-          oracleAddress
+          oracle {
+            address
+          }
           irmAddress
+          chain {
+            id
+            network
+          }
           loanAsset {
             address
             symbol

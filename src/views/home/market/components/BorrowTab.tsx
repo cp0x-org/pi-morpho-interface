@@ -5,16 +5,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { AccrualPosition, MarketParams } from '@morpho-org/blue-sdk';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { useDebounce } from 'hooks/useDebounce';
 import { useTheme } from '@mui/material/styles';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import Divider from '@mui/material/Divider';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
@@ -22,6 +21,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 interface BorrowTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   accrualPosition: AccrualPosition | null;
   onSuccess?: () => void;
 
@@ -29,7 +30,7 @@ interface BorrowTabProps {
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-export default function BorrowTab({ market, accrualPosition, onBorrowAmountChange, onSuccess }: BorrowTabProps) {
+export default function BorrowTab({ market, chainId, marketParams, accrualPosition, onBorrowAmountChange, onSuccess }: BorrowTabProps) {
   const theme = useTheme();
   const intl = useIntl();
   const [borrowAmount, setBorrowAmount] = useState<string>('');
@@ -38,7 +39,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
   const [txError, setTxError] = useState<string | null>(null);
 
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
 
   useEffect(() => {
     if (!market) {
@@ -123,7 +124,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
 
     setTxError(null);
 
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       console.error('Market Not Found');
       setTxError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
@@ -138,16 +139,17 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
 
       await borrowTx.sendTransaction({
-        address: chainConfig.contracts.Morpho as `0x${string}`,
+        address: morphoAddress as `0x${string}`,
         abi: morphoContractConfig.abi,
+        chainId,
         functionName: 'borrow',
         args: [
           {
-            loanToken: market.loanAsset.address as `0x${string}`,
-            collateralToken: market.collateralAsset.address as `0x${string}`,
-            oracle: market.oracleAddress as `0x${string}`,
-            irm: market.irmAddress as `0x${string}`,
-            lltv: BigInt(market.lltv)
+            loanToken: marketParams.loanToken,
+            collateralToken: marketParams.collateralToken,
+            oracle: marketParams.oracle,
+            irm: marketParams.irm,
+            lltv: marketParams.lltv
           },
           amountBN,
           0n,
@@ -159,7 +161,7 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
       console.error('Error borrowing tokens:', error);
       setTxError(intl.formatMessage({ id: 'borrowForm.failedWithReason' }, { message: error instanceof Error ? error.message : '' }));
     }
-  }, [userAddress, market, borrowAmount, borrowTx, chainConfig.contracts.Morpho, intl]);
+  }, [userAddress, market, borrowAmount, borrowTx, chainId, morphoAddress, marketParams, intl]);
 
   // Check if transaction is in progress
   const isTransactionInProgress = borrowTx.txState === 'submitting' || borrowTx.txState === 'submitted';
@@ -389,6 +391,8 @@ export default function BorrowTab({ market, accrualPosition, onBorrowAmountChang
           color="primary"
           onClick={handleBorrow}
           disabled={
+            !marketParams ||
+            !morphoAddress ||
             !borrowAmount ||
             parseFloat(normalizePointAmount(borrowAmount)) <= 0 ||
             parseFloat(normalizePointAmount(borrowAmount)) > parseFloat(formattedSafeMaxBorrowable) ||

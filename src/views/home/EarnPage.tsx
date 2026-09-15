@@ -123,7 +123,7 @@ export default function EarnPage() {
         if (morphoVault) {
           return {
             ...vault,
-            dailyNetApy: morphoVault.state?.dailyNetApy || 0,
+            avgNetApy: morphoVault.state?.avgNetApy || 0,
             curators: morphoVault.state?.curators || []
           };
         }
@@ -190,8 +190,8 @@ export default function EarnPage() {
       } else if (sortField === 'name') {
         return sortOrder === 'asc' ? (a.name ?? '').localeCompare(b.name ?? '') : (b.name ?? '').localeCompare(a.name ?? '');
       } else if (sortField === 'apy') {
-        const apyA = a.state?.dailyNetApy ?? 0;
-        const apyB = b.state?.dailyNetApy ?? 0;
+        const apyA = a.state?.avgNetApy ?? 0;
+        const apyB = b.state?.avgNetApy ?? 0;
         return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       } else if (sortField === 'totalAssetsUsd') {
         const totA = a.state?.totalAssetsUsd ?? 0;
@@ -550,7 +550,7 @@ export default function EarnPage() {
                     }}
                   />
                 </TableCell>
-                <TableCell>{vault.state?.dailyNetApy != null ? `${(vault.state.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                <TableCell>{vault.state?.avgNetApy != null ? `${(vault.state.avgNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">

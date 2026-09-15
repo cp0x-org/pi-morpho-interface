@@ -19,10 +19,11 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 interface WithdrawProps {
   vaultAddress: string;
+  chainId?: number;
   vaultData: Vault;
 }
 
-const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
+const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId }) => {
   const theme = useTheme();
   const intl = useIntl();
   const [inputAmount, setInputAmount] = useState('');
@@ -76,6 +77,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       // No success notification here - we'll notify only after blockchain confirmation
       writeWithdraw({
         abi: vaultConfig.abi,
+        chainId,
         address: vaultAddress as `0x${string}`,
         functionName: 'withdraw',
         args: [amountBN, userAddress as `0x${string}`, userAddress as `0x${string}`]
@@ -93,11 +95,12 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData }) => {
       );
       dispatchError(intl.formatMessage({ id: 'withdrawVault.initiateError' }, { symbol: vaultData.asset.symbol }));
     }
-  }, [userAddress, vaultAddress, withdrawAmount, vaultData, withdrawTxState, resetWithdrawTx, writeWithdraw, intl]);
+  }, [userAddress, vaultAddress, withdrawAmount, vaultData, withdrawTxState, resetWithdrawTx, writeWithdraw, chainId, intl]);
 
   // Read user's vault balance
   const { data: vaultBalance, refetch: refetchVaultBalance } = useReadContract({
     abi: vaultConfig.abi,
+    chainId,
     address: vaultAddress as `0x${string}` | undefined,
     functionName: 'maxWithdraw',
     args: userAddress ? [userAddress] : undefined,

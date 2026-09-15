@@ -6,8 +6,7 @@ import { MarketInterface } from 'types/market';
 import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
-import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
@@ -15,13 +14,15 @@ import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface RepayTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   accrualPosition: AccrualPosition | null;
   sdkMarket: Market | null;
   marketId: string;
@@ -30,7 +31,16 @@ interface RepayTabProps {
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marketId, onBorrowAmountChange, onSuccess }) => {
+const RepayTab: FC<RepayTabProps> = ({
+  market,
+  chainId,
+  marketParams,
+  accrualPosition,
+  sdkMarket,
+  marketId,
+  onBorrowAmountChange,
+  onSuccess
+}) => {
   // State for input and transactions
   const theme = useTheme();
   const intl = useIntl();
@@ -45,7 +55,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
 
   // Hooks
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
 
   // Transaction hooks
   const approveTx = useWriteTransaction();
@@ -54,6 +64,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   // Read user's loan token balance
   const { data: userBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
@@ -77,11 +88,12 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'allowance',
-    args: [userAddress as `0x${string}`, chainConfig.contracts.Morpho as `0x${string}`],
+    args: [userAddress as `0x${string}`, morphoAddress as `0x${string}`],
     query: {
-      enabled: !!userAddress && !!market?.loanAsset && !!chainConfig.contracts.Morpho
+      enabled: !!userAddress && !!market?.loanAsset && !!morphoAddress
     }
   });
 
@@ -248,7 +260,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
     }
 
     setTxError(null);
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
@@ -265,7 +277,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
     }
 
     const assetAddress = market.loanAsset.address;
-    const marketAddress = chainConfig.contracts.Morpho;
+    const marketAddress = morphoAddress;
     const assetDecimals = market.loanAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
@@ -297,6 +309,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
         console.log('Initiating approve transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
+          chainId,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
           args: [marketAddress as `0x${string}`, amountBN]
@@ -306,16 +319,17 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
       else if (isApproved && market && marketId && userAddress && repayAmount && !repayTx.isCompleted) {
         console.log('Initiating repay loan transaction...');
         await repayTx.sendTransaction({
-          address: chainConfig.contracts.Morpho,
+          address: morphoAddress,
           abi: morphoContractConfig.abi,
+          chainId,
           functionName: 'repay',
           args: [
             {
-              loanToken: market.loanAsset.address as `0x${string}`,
-              collateralToken: market.collateralAsset.address as `0x${string}`,
-              oracle: market.oracleAddress as `0x${string}`,
-              irm: market.irmAddress as `0x${string}`,
-              lltv: BigInt(market.lltv)
+              loanToken: marketParams.loanToken,
+              collateralToken: marketParams.collateralToken,
+              oracle: marketParams.oracle,
+              irm: marketParams.irm,
+              lltv: marketParams.lltv
             },
             !isShares ? amountBN : 0n,
             isShares ? sharesAmountBN : 0n,
@@ -339,7 +353,20 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
         )
       );
     }
-  }, [userAddress, marketId, repayAmount, market, isApproved, chainConfig, approveTx, repayTx, resetTransactionStates, intl]);
+  }, [
+    userAddress,
+    marketId,
+    repayAmount,
+    market,
+    isApproved,
+    chainId,
+    morphoAddress,
+    marketParams,
+    approveTx,
+    repayTx,
+    resetTransactionStates,
+    intl
+  ]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -381,6 +408,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
+    if (!marketParams || !morphoAddress) return true;
     if (!repayAmount || parseFloat(repayAmount) <= 0) return true;
     if (parseFloat(repayAmount) > parseFloat(formattedLoanBalance)) return true;
     if (parseFloat(repayAmount) > parseFloat(formattedUserBalance)) return true;
@@ -392,7 +420,7 @@ const RepayTab: FC<RepayTabProps> = ({ market, accrualPosition, sdkMarket, marke
     if (isTransactionInProgress) return true;
 
     return false;
-  }, [repayAmount, formattedLoanBalance, formattedUserBalance, allowanceChecking, isTransactionInProgress]);
+  }, [repayAmount, formattedLoanBalance, formattedUserBalance, allowanceChecking, isTransactionInProgress, marketParams, morphoAddress]);
 
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;

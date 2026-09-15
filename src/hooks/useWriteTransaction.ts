@@ -6,6 +6,7 @@ export type TxState = 'idle' | 'submitting' | 'submitted' | 'confirmed' | 'error
 export const useWriteTransaction = () => {
   const [txState, setTxState] = useState<TxState>('idle');
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const [txChainId, setTxChainId] = useState<number | undefined>(undefined);
   const [txError, setTxError] = useState<Error | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -17,6 +18,8 @@ export const useWriteTransaction = () => {
     error: txConfirmError
   } = useWaitForTransactionReceipt({
     hash: txHash,
+    // Wait on the chain the transaction was sent to, not on whatever chain the wallet is on now.
+    chainId: txChainId,
     query: { enabled: !!txHash }
   });
 
@@ -27,6 +30,7 @@ export const useWriteTransaction = () => {
         setTxError(null);
         setIsCompleted(false);
         setTxHash(undefined);
+        setTxChainId(config.chainId);
 
         const hash = await writeContractAsync(config);
         setTxHash(hash);
@@ -52,6 +56,7 @@ export const useWriteTransaction = () => {
   const resetTx = useCallback(() => {
     setTxState('idle');
     setTxHash(undefined);
+    setTxChainId(undefined);
     setTxError(null);
     setIsCompleted(false);
   }, []);

@@ -34,10 +34,13 @@ importers:
         version: 5.2.5
       '@morpho-org/blue-sdk':
         specifier: ^4.0.0
-        version: 4.0.0(@morpho-org/morpho-ts@2.4.0)
+        version: 4.0.0(@morpho-org/morpho-ts@2.13.0)
       '@morpho-org/blue-sdk-wagmi':
         specifier: ^3.0.0
-        version: 3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))
+        version: 3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))
+      '@morpho-org/morpho-ts':
+        specifier: ^2.13.0
+        version: 2.13.0
       '@mui/icons-material':
         specifier: 7.0.2
         version: 7.0.2(@mui/material@7.0.2(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react@19.1.2)(react@19.1.0)
@@ -1611,8 +1614,8 @@ packages:
     peerDependencies:
       '@morpho-org/morpho-ts': ^2.4.0
 
-  '@morpho-org/morpho-ts@2.4.0':
-    resolution: {integrity: sha512-JCvUgOvc6FZ6A6R0hg8aib5R5f7hDp1lEEy14B6KTONIVYhV05+9o1qAxOPm3uTlcoYHNexAF8vnJGSzHXtkDQ==}
+  '@morpho-org/morpho-ts@2.13.0':
+    resolution: {integrity: sha512-AexYjickJaPQtAGj9hNWY+vTFR3aPjn2NnrFW2zbPISR8d1d3gDJlZhlTFMtE/Hyw2Cd/Cp1IcX05Gs3JnuE+w==}
 
   '@mui/core-downloads-tracker@7.1.1':
     resolution: {integrity: sha512-yBckQs4aQ8mqukLnPC6ivIRv6guhaXi8snVl00VtyojBbm+l6VbVhyTSZ68Abcx7Ah8B+GZhrB7BOli+e+9LkQ==}
@@ -7250,32 +7253,32 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
+  '@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
     dependencies:
-      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.4.0)
-      '@morpho-org/morpho-ts': 2.4.0
+      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.13.0)
+      '@morpho-org/morpho-ts': 2.13.0
       viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
 
-  '@morpho-org/blue-sdk-wagmi@3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))':
+  '@morpho-org/blue-sdk-wagmi@3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))':
     dependencies:
-      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.4.0)
-      '@morpho-org/blue-sdk-viem': 3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0))(@morpho-org/morpho-ts@2.4.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
-      '@morpho-org/morpho-ts': 2.4.0
+      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.13.0)
+      '@morpho-org/blue-sdk-viem': 3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
+      '@morpho-org/morpho-ts': 2.13.0
       '@tanstack/react-query': 5.80.3(react@19.1.0)
       react: 19.1.0
       viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
       wagmi: 2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51)
 
-  '@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.4.0)':
+  '@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0)':
     dependencies:
-      '@morpho-org/morpho-ts': 2.4.0
+      '@morpho-org/morpho-ts': 2.13.0
       '@noble/hashes': 1.8.0
       '@types/lodash.isplainobject': 4.0.9
       '@types/lodash.mergewith': 4.6.9
       lodash.isplainobject: 4.0.6
       lodash.mergewith: 4.6.2
 
-  '@morpho-org/morpho-ts@2.4.0': {}
+  '@morpho-org/morpho-ts@2.13.0': {}
 
   '@mui/core-downloads-tracker@7.1.1': {}
 

@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { Typography, Paper, Tabs, Tab, CircularProgress } from '@mui/material';
 import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
-import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
 import { MarketInterface } from 'types/market';
 import { TabPanel, WithdrawTab, SupplyTab } from './components';
 import { useTheme } from '@mui/material/styles';
@@ -11,6 +11,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 interface MarketProps {
   accrualPosition: AccrualPosition | null;
   sdkMarket: Market | null;
+  marketParams: MarketParams | null;
+  chainId?: number;
   market?: MarketInterface;
   marketId?: string;
   onPositionUpdate?: () => void;
@@ -25,6 +27,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
   const accrualPosition = props.accrualPosition;
   const sdkMarket = props.sdkMarket;
   const market = props.market;
+  const chainId = props.chainId;
   const [tabValue, setTabValue] = useState(0);
 
   const [txError, setTxError] = useState<string | null>(null);
@@ -37,7 +40,7 @@ export default function ActionFormsSecondary(props: MarketProps) {
     props.onLoanAmountChange(0n);
   };
 
-  if (!marketId || !market) {
+  if (!marketId || !market || !chainId) {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography variant="h5" component="p" role="alert" color="error">
@@ -90,6 +93,8 @@ export default function ActionFormsSecondary(props: MarketProps) {
       <TabPanel value={tabValue} index={0} idPrefix="market-lend" sx={{ bgcolor: theme.palette.background.paper }}>
         <SupplyTab
           market={market}
+          chainId={chainId}
+          marketParams={props.marketParams}
           marketId={marketId}
           onSuccess={() => {
             // Refresh market data or any other necessary updates
@@ -107,6 +112,8 @@ export default function ActionFormsSecondary(props: MarketProps) {
       <TabPanel value={tabValue} index={1} idPrefix="market-lend" sx={{ bgcolor: theme.palette.background.paper }}>
         <WithdrawTab
           market={market}
+          chainId={chainId}
+          marketParams={props.marketParams}
           sdkMarket={sdkMarket}
           accrualPosition={accrualPosition}
           marketId={marketId}

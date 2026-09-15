@@ -3,17 +3,17 @@ import { Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
+import { MarketParams } from '@morpho-org/blue-sdk';
 import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
@@ -21,13 +21,15 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 interface AddTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   marketId: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
+const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
   const intl = useIntl();
   // Track when allowance checking is in progress (during debounce)
@@ -37,7 +39,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
   const debouncedAddAmount = useDebounce(addAmount, 500);
 
   // Track process completion
@@ -50,6 +52,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   // Read user's collateral token balance
   const { data: collateralBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.collateralAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
@@ -67,11 +70,12 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.collateralAsset.address as `0x${string}` | undefined,
     functionName: 'allowance',
-    args: [userAddress as `0x${string}`, chainConfig.contracts.Morpho as `0x${string}`],
+    args: [userAddress as `0x${string}`, morphoAddress as `0x${string}`],
     query: {
-      enabled: !!userAddress && !!market?.collateralAsset && !!chainConfig.contracts.Morpho
+      enabled: !!userAddress && !!market?.collateralAsset && !!morphoAddress
     }
   });
 
@@ -244,7 +248,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
 
     setTxError(null);
 
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
@@ -261,7 +265,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     }
 
     const assetAddress = market.collateralAsset.address;
-    const marketAddress = chainConfig.contracts.Morpho;
+    const marketAddress = morphoAddress;
     const assetDecimals = market.collateralAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
@@ -286,6 +290,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
         console.log('Initiating approve transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
+          chainId,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
           args: [marketAddress as `0x${string}`, amountBN]
@@ -295,16 +300,17 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
       else if (isApproved && market && marketId && userAddress && debouncedAddAmount && !addCollateralTx.isCompleted) {
         console.log('Initiating add collateral transaction...');
         await addCollateralTx.sendTransaction({
-          address: chainConfig.contracts.Morpho,
+          address: morphoAddress,
           abi: morphoContractConfig.abi,
+          chainId,
           functionName: 'supplyCollateral',
           args: [
             {
-              loanToken: market.loanAsset.address as `0x${string}`,
-              collateralToken: market.collateralAsset.address as `0x${string}`,
-              oracle: market.oracleAddress as `0x${string}`,
-              irm: market.irmAddress as `0x${string}`,
-              lltv: BigInt(market.lltv)
+              loanToken: marketParams.loanToken,
+              collateralToken: marketParams.collateralToken,
+              oracle: marketParams.oracle,
+              irm: marketParams.irm,
+              lltv: marketParams.lltv
             },
             amountBN,
             userAddress as `0x${string}`,
@@ -333,7 +339,9 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     debouncedAddAmount,
     market,
     isApproved,
-    chainConfig,
+    chainId,
+    morphoAddress,
+    marketParams,
     approveTx,
     addCollateralTx,
     resetTransactionStates,
@@ -380,6 +388,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
+    if (!marketParams || !morphoAddress) return true;
     if (!addAmount || parseFloat(addAmount) <= 0) return true;
     if (parseFloat(addAmount) > parseFloat(formattedCollateralBalance)) return true;
 
@@ -390,7 +399,7 @@ const AddTab: FC<AddTabProps> = ({ market, marketId, onSuccess, onCollateralAmou
     if (isTransactionInProgress) return true;
 
     return false;
-  }, [addAmount, formattedCollateralBalance, allowanceChecking, isTransactionInProgress]);
+  }, [addAmount, formattedCollateralBalance, allowanceChecking, isTransactionInProgress, marketParams, morphoAddress]);
 
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;

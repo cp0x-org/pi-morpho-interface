@@ -164,6 +164,7 @@
     "loading": "正在加载市场详情",
     "error": "加载市场详情出错：{message}",
     "notFound": "未找到市场",
+    "multipleNetworks": "该市场存在于多个网络中，请选择一个：",
     "incorrectData": "市场数据有误",
     "heading": "市场 {collateral} / {loan}",
     "utilization": "使用率",

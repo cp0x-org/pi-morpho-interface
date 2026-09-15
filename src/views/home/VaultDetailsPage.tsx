@@ -60,15 +60,18 @@ export default function VaultDetailsPage() {
   };
 
   const vault = data?.vaults.items[0];
+  // Reads and writes target the vault's chain, not the chain the wallet happens to be on.
+  const vaultChainId = targetChainId ?? vault?.chain?.id;
 
   // Read user's vault balance
   const { data: vaultBalance, isLoading: isBalanceLoading } = useReadContract({
     abi: vaultConfig.abi,
     address: vaultAddress as `0x${string}` | undefined,
+    chainId: vaultChainId,
     functionName: 'maxWithdraw',
     args: userAddress ? [userAddress] : undefined,
     query: {
-      enabled: !!userAddress && !!vaultAddress
+      enabled: !!userAddress && !!vaultAddress && !!vaultChainId
     }
   });
   const formattedVaultBalance = useMemo(() => {
@@ -200,7 +203,7 @@ export default function VaultDetailsPage() {
                   <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
                     <Stack spacing={1}>
                       <Typography variant="h3" component="p">
-                        {(vault.state.dailyNetApy * 100).toFixed(2)} %
+                        {(vault.state.avgNetApy * 100).toFixed(2)} %
                       </Typography>
                       <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
                         <FormattedMessage id="vault.apy" />
@@ -307,10 +310,10 @@ export default function VaultDetailsPage() {
                 </Tabs>
               </Box>
               <TabPanel value={tabValue} index={0} idPrefix="vault" sx={{ bgcolor: theme.palette.background.paper }}>
-                <DepositTab vaultAddress={vaultAddress as string} vaultData={vault} />
+                <DepositTab vaultAddress={vaultAddress as string} vaultData={vault} chainId={vaultChainId} />
               </TabPanel>
               <TabPanel value={tabValue} index={1} idPrefix="vault" sx={{ bgcolor: theme.palette.background.paper }}>
-                <WithdrawTab vaultAddress={vaultAddress as string} vaultData={vault} />
+                <WithdrawTab vaultAddress={vaultAddress as string} vaultData={vault} chainId={vaultChainId} />
               </TabPanel>
             </Paper>
           </Grid>

@@ -313,13 +313,13 @@ export default function BorrowPage() {
                   <TableRow
                     key={position.marketId}
                     hover
-                    onClick={() => navigate(`/borrow/market/${position.marketId}`)}
+                    onClick={() => navigate(`/borrow/market/${position.marketId}?chainId=${chain?.id || 1}`)}
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>
                       <Link
                         component={RouterLink}
-                        to={`/borrow/market/${position.marketId}`}
+                        to={`/borrow/market/${position.marketId}?chainId=${chain?.id || 1}`}
                         color="inherit"
                         underline="none"
                         onClick={(e) => e.stopPropagation()}
