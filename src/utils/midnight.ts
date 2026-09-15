@@ -129,6 +129,15 @@ export const aprToPrice = (
   return divUp(WAD * WAD, WAD + (apr * ttm) / SECONDS_PER_YEAR);
 };
 
+/**
+ * Price a taker settles at on a book level (same as TakeAmountsLib.prices):
+ * lenders pay the ask plus the settlement fee, borrowers receive the bid minus it.
+ */
+export const takerPrice = (side: 'lend' | 'borrow', levelPrice: bigint, settlementFeeWad: bigint = 0n) => {
+  if (side === 'lend') return levelPrice + settlementFeeWad;
+  return levelPrice > settlementFeeWad ? levelPrice - settlementFeeWad : 0n;
+};
+
 /** Lend: minimum credit units accepted for `assets` at the worst average price (rounded down). */
 export const minUnitsForLend = (assets: bigint, worstPrice: bigint) =>
   TakeAmountsLib.toUnits({ assets, price: worstPrice, rounding: 'Down' });

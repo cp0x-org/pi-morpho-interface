@@ -321,7 +321,8 @@ export const getMarketTransactions = async (
 
 /* ---------- books & quotes (SDK) ---------- */
 
-const BOOKS_BATCH_SIZE = 50;
+// `GET /books` rejects more than 20 ids (and limit > 20) with 400 VALIDATION_ERROR.
+const BOOKS_BATCH_SIZE = 20;
 
 /** Top-of-book levels for many markets. Books served for another Midnight deployment are dropped. */
 export const getBooks = async (marketIds: Hex[], signal?: AbortSignal): Promise<MidnightBook[]> => {
