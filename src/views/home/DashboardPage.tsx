@@ -26,6 +26,7 @@ import { formatUnits } from 'viem';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
+import { routes } from 'utils/routes';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface MorphoPositionsData {
@@ -191,7 +192,7 @@ export default function DashboardPage() {
                       <TableRow
                         key={position.vault.address}
                         hover
-                        onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
+                        onClick={() => navigate(routes.vault(position.vault.address, chainId, position.vault.name))}
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
@@ -199,7 +200,7 @@ export default function DashboardPage() {
                             <TokenIcon symbol={position.vault.asset.symbol} />
                             <Link
                               component={RouterLink}
-                              to={`/earn/vault/${position.vault.address}`}
+                              to={routes.vault(position.vault.address, chainId, position.vault.name)}
                               color="inherit"
                               underline="none"
                               onClick={(e) => e.stopPropagation()}
@@ -266,13 +267,15 @@ export default function DashboardPage() {
                       <TableRow
                         key={position.marketId}
                         hover
-                        onClick={() => navigate(`/borrow/market/${position.marketId}?chainId=${chainId}`)}
+                        onClick={() =>
+                          navigate(routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol))
+                        }
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
                           <Link
                             component={RouterLink}
-                            to={`/borrow/market/${position.marketId}?chainId=${chainId}`}
+                            to={routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol)}
                             color="inherit"
                             underline="none"
                             onClick={(e) => e.stopPropagation()}

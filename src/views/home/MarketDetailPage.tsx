@@ -23,6 +23,8 @@ import { ArrowRightAlt } from '@mui/icons-material';
 import ActionFormsMain from 'views/home/market/ActionFormsMain';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useMidnightMarketLookup } from 'hooks/midnight/useMidnightMarket';
+import { routes } from 'utils/routes';
 
 export default function MarketDetailPage() {
   const theme = useTheme();
@@ -58,6 +60,16 @@ export default function MarketDetailPage() {
   const chainCandidates = (urlChainId ? lookupData : data)?.markets?.items ?? [];
   const redirectChainId = !marketData && chainCandidates.length === 1 ? chainCandidates[0].chain?.id : undefined;
   const chainId = marketData?.chain?.id;
+
+  // Not a Blue market on any chain: old /borrow/market/ links may point at a fixed-rate (Midnight) market.
+  const isMissingOnBlue =
+    !!marketId && !loading && !lookupLoading && !error && !marketData && chainCandidates.length === 0 && (!urlChainId || !!lookupData);
+  const fixedMarketLookup = useMidnightMarketLookup(marketId, isMissingOnBlue);
+  const fixedMarketId = fixedMarketLookup.data?.marketId;
+
+  useEffect(() => {
+    if (fixedMarketId) navigate(routes.fixedMarket(fixedMarketId), { replace: true });
+  }, [fixedMarketId, navigate]);
 
   useEffect(() => {
     if (!redirectChainId || redirectChainId === urlChainId) return;
@@ -104,7 +116,7 @@ export default function MarketDetailPage() {
     setDiffCollateralAmount(amount);
   }, []);
 
-  if (loading || lookupLoading || (redirectChainId && redirectChainId !== urlChainId)) {
+  if (loading || lookupLoading || (redirectChainId && redirectChainId !== urlChainId) || fixedMarketLookup.isFetching || !!fixedMarketId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress aria-label={intl.formatMessage({ id: 'market.loading' })} />

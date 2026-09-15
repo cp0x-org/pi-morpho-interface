@@ -12,6 +12,19 @@ const MARKET_ID_LENGTH = 66;
 export const toMidnightMarketId = (value?: string): Hex | undefined =>
   value && isHex(value) && value.length === MARKET_ID_LENGTH ? (value.toLowerCase() as Hex) : undefined;
 
+const marketQueryOptions = (marketId?: Hex) => ({
+  queryKey: midnightQueryKeys.market(marketId),
+  queryFn: ({ signal }: { signal: AbortSignal }) => getMarket(marketId as Hex, signal),
+  staleTime: Infinity,
+  retry: (failureCount: number, error: Error) => !isMidnightNotFound(error) && failureCount < 2
+});
+
+/** Existence check shared with `useMidnightMarket`'s cache: used to redirect variable-market links that point at a fixed-rate market. */
+export const useMidnightMarketLookup = (marketIdParam: string | undefined, enabled: boolean) => {
+  const marketId = toMidnightMarketId(marketIdParam);
+  return useQuery({ ...marketQueryOptions(marketId), enabled: enabled && !!marketId });
+};
+
 /**
  * Market params (immutable) + indexed state for one Midnight market.
  * `marketParams` is only returned once the API params hash back to the requested id on a known Midnight deployment.
@@ -19,13 +32,7 @@ export const toMidnightMarketId = (value?: string): Hex | undefined =>
 export const useMidnightMarket = (marketIdParam?: string) => {
   const marketId = toMidnightMarketId(marketIdParam);
 
-  const marketQuery = useQuery({
-    queryKey: midnightQueryKeys.market(marketId),
-    queryFn: ({ signal }) => getMarket(marketId as Hex, signal),
-    enabled: !!marketId,
-    staleTime: Infinity,
-    retry: (failureCount, error) => !isMidnightNotFound(error) && failureCount < 2
-  });
+  const marketQuery = useQuery({ ...marketQueryOptions(marketId), enabled: !!marketId });
   const market = marketQuery.data;
 
   const stateQuery = useQuery({

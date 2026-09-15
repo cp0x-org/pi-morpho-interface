@@ -13,9 +13,10 @@
     "openMenu": "打开导航菜单",
     "closeMenu": "关闭导航菜单",
     "mainSections": "主要板块",
-    "dashboard": "仪表盘",
-    "earn": "赚取",
-    "borrow": "借款"
+    "vaults": "金库",
+    "variable": "浮动利率",
+    "fixed": "固定利率",
+    "portfolio": "投资组合"
   },
   "footer": {
     "home": "cp0x 首页",
@@ -326,6 +327,13 @@
     "exceedsBalance": "金额超出您可提取的 {symbol} 余额"
   },
   "fixed": {
+    "list": {
+      "title": "固定利率：Morpho Midnight 市场",
+      "subtitle": "固定利率市场"
+    },
+    "market": {
+      "title": "固定利率市场"
+    },
     "maturity": {
       "matured": "已到期",
       "inDays": "{days} 天后",

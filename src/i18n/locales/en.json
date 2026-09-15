@@ -13,9 +13,10 @@
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
     "mainSections": "Main sections",
-    "dashboard": "Dashboard",
-    "earn": "Earn",
-    "borrow": "Borrow"
+    "vaults": "Vaults",
+    "variable": "Variable Rate",
+    "fixed": "Fixed Rate",
+    "portfolio": "Portfolio"
   },
   "footer": {
     "home": "cp0x home",
@@ -326,6 +327,13 @@
     "exceedsBalance": "Amount exceeds your withdrawable {symbol} balance"
   },
   "fixed": {
+    "list": {
+      "title": "Fixed rate: Morpho Midnight markets",
+      "subtitle": "Fixed Rate Markets"
+    },
+    "market": {
+      "title": "Fixed-rate market"
+    },
     "maturity": {
       "matured": "Matured",
       "inDays": "in {days, plural, one {# day} other {# days}}",

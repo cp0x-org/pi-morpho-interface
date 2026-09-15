@@ -25,6 +25,7 @@ import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import Tabs from '@mui/material/Tabs';
 import Tab, { TabProps } from '@mui/material/Tab';
 import MainCard from '../../ui-component/cards/MainCard';
+import { routes } from 'utils/routes';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -32,6 +33,7 @@ import MainCard from '../../ui-component/cards/MainCard';
 const AntTabs = styled(Tabs)(({ theme }) => ({
   background: theme.palette.mode === ThemeMode.DARK ? theme.palette.dark[800] : theme.palette.primary.light,
   width: 'fit-content',
+  maxWidth: '100%',
   borderBottom: 'none', // убираем бордер
   '& .MuiTabs-flexContainer': {
     border: '1px solid',
@@ -81,23 +83,32 @@ export default function MainLayout() {
   const theme = useTheme();
   const intl = useIntl();
   const downMD = useMediaQuery(theme.breakpoints.down('md'));
+  const downSM = useMediaQuery(theme.breakpoints.down('sm'));
 
   const { borderRadius, container, miniDrawer, menuOrientation } = useConfig();
   const { menuMaster, menuMasterLoading } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
+  // Morpho order. `match` lists the path prefixes owned by a section, detail pages included.
   const tabs = [
-    { labelId: 'nav.dashboard', path: 'dashboard', iconPosition: 'top' },
-    { labelId: 'nav.earn', path: 'earn', iconPosition: 'top' },
-    { labelId: 'nav.borrow', path: 'borrow', iconPosition: 'top' }
+    { labelId: 'nav.vaults', path: routes.vaults(), match: ['/vaults', '/vault/'] },
+    { labelId: 'nav.variable', path: routes.variable(), match: ['/variable'] },
+    { labelId: 'nav.fixed', path: routes.fixed(), match: ['/fixed'] },
+    { labelId: 'nav.portfolio', path: routes.portfolio(), match: ['/portfolio'] }
   ];
 
   const navigate = useNavigate();
   const location = useLocation();
-  const currentTabIndex = tabs.findIndex((tab) => location.pathname.includes(tab.path));
+  const currentTabIndex = tabs.findIndex((tab) =>
+    tab.match.some((prefix) =>
+      prefix.endsWith('/')
+        ? location.pathname.startsWith(prefix)
+        : location.pathname === prefix || location.pathname.startsWith(`${prefix}/`)
+    )
+  );
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    navigate(`/${tabs[newValue].path}`);
+    navigate(tabs[newValue].path);
   };
 
   useEffect(() => {
@@ -146,19 +157,26 @@ export default function MainLayout() {
 
           {/*<MainCard>*/}
           <MainCard>
-            <AntTabs value={currentTabIndex} onChange={handleChange} centered aria-label={intl.formatMessage({ id: 'nav.mainSections' })}>
+            <AntTabs
+              value={currentTabIndex === -1 ? false : currentTabIndex}
+              onChange={handleChange}
+              centered={!downSM}
+              variant={downSM ? 'scrollable' : 'standard'}
+              scrollButtons={downSM ? 'auto' : false}
+              allowScrollButtonsMobile
+              aria-label={intl.formatMessage({ id: 'nav.mainSections' })}
+            >
               {tabs.map((tab, index) => (
                 <AntTab
                   wrapped={true}
                   key={tab.path}
                   label={intl.formatMessage({ id: tab.labelId })}
                   onClick={() => {
-                    const tabPath = `/${tab.path}`;
                     // клик на активный таб
                     if (currentTabIndex === index) {
-                      navigate(tabPath, { replace: true, state: { refresh: Date.now() } });
+                      navigate(tab.path, { replace: true, state: { refresh: Date.now() } });
                     } else {
-                      navigate(tabPath);
+                      navigate(tab.path);
                     }
                   }}
                 />
