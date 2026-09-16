@@ -138,6 +138,24 @@ export const takerPrice = (side: 'lend' | 'borrow', levelPrice: bigint, settleme
   return levelPrice > settlementFeeWad ? levelPrice - settlementFeeWad : 0n;
 };
 
+/** Default distance between the quoted APR and the user's rate limit: 0.5 percentage points. */
+export const DEFAULT_RATE_BUFFER_WAD = 5n * 10n ** 15n;
+
+/** Percent text ("4.25" or "4,25") → WAD fraction, without floating point. Undefined for empty or invalid input. */
+export const percentInputToWad = (value: string): bigint | undefined => {
+  const normalized = value.trim().replace(',', '.');
+  if (!normalized || normalized === '.' || !/^\d*\.?\d*$/.test(normalized)) return undefined;
+  const [whole, fraction = ''] = normalized.split('.');
+  return BigInt(whole || '0') * 10n ** 16n + BigInt(`${fraction}${'0'.repeat(16)}`.slice(0, 16));
+};
+
+/** WAD fraction → percent text for an input field. Display only. */
+export const wadToPercentInput = (value: bigint, fractionDigits = 2) => (Number(value) / 1e16).toFixed(fractionDigits);
+
+/** Loan assets for `units` at a WAD unit price. */
+export const unitsToAssets = (units: bigint, priceWad: bigint, rounding: 'Up' | 'Down') =>
+  rounding === 'Up' ? divUp(units * priceWad, WAD) : (units * priceWad) / WAD;
+
 /** Lend: minimum credit units accepted for `assets` at the worst average price (rounded down). */
 export const minUnitsForLend = (assets: bigint, worstPrice: bigint) =>
   TakeAmountsLib.toUnits({ assets, price: worstPrice, rounding: 'Down' });
@@ -166,6 +184,27 @@ export const computeMaxDebt = (holdings: CollateralHolding[]) =>
     (total, holding) => total + (((holding.amount * (holding.oraclePrice ?? 0n)) / ORACLE_PRICE_SCALE) * holding.lltv) / WAD,
     0n
   );
+
+/** Forms keep 6% of headroom below the liquidation limit, like the variable-rate BorrowTab. */
+export const SAFETY_FACTOR_BPS = 9_400n;
+const BPS = 10_000n;
+
+export const applySafetyFactor = (maxDebt: bigint) => (maxDebt * SAFETY_FACTOR_BPS) / BPS;
+
+/** Largest amount of collateral `index` that can leave the position while `debt` stays within the safety-adjusted capacity. */
+export const maxWithdrawableCollateral = (holdings: CollateralHolding[], index: number, debt: bigint): bigint => {
+  const holding = holdings[index];
+  if (!holding) return 0n;
+  if (debt === 0n) return holding.amount;
+  if (!holding.oraclePrice || holding.lltv === 0n) return 0n;
+
+  const requiredCapacity = divUp(debt * BPS, SAFETY_FACTOR_BPS);
+  const otherCapacity = computeMaxDebt(holdings.filter((_, holdingIndex) => holdingIndex !== index));
+  if (otherCapacity >= requiredCapacity) return holding.amount;
+
+  const neededAmount = divUp((requiredCapacity - otherCapacity) * WAD * ORACLE_PRICE_SCALE, holding.lltv * holding.oraclePrice);
+  return holding.amount > neededAmount ? holding.amount - neededAmount : 0n;
+};
 
 /** Debt / collateral value (WAD). Undefined when there is debt but no priced collateral. */
 export const computeLtv = (debt: bigint, holdings: CollateralHolding[]): bigint | undefined => {
