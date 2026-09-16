@@ -1,8 +1,23 @@
 import { erc20Abi, maxUint256, zeroAddress, type Address, type Hex } from 'viem';
-import { MarketUtils, midnightAbi, midnightBundlesAbi, type MarketParams as MidnightMarketParams } from '@morpho-org/midnight-sdk';
+import {
+  Group,
+  MarketUtils,
+  MAX_OFFER_CAP,
+  midnightAbi,
+  midnightBundlesAbi,
+  MidnightMempoolValidationError,
+  Offer,
+  Payload,
+  SetterRatifierUtils,
+  setterRatifierAbi,
+  Tree,
+  type MarketParams as MidnightMarketParams
+} from '@morpho-org/midnight-sdk';
 import type { MidnightApiTake } from '@morpho-org/midnight-sdk/api';
 
-import { getMidnightAddress, getMidnightBundlesAddress, validateMarketForWrite } from './midnight';
+import { ApiUrls } from '@/api/constants';
+import type { RawTxRequest } from 'hooks/midnight/useTxSteps';
+import { getMidnightAddress, getMidnightBundlesAddress, tryChainAddress, validateMarketForWrite } from './midnight';
 
 // ==============================|| MIDNIGHT WRITE REQUESTS ||============================== //
 //
@@ -61,6 +76,16 @@ export const authorizeBundlesRequest = (chainId: number, user: Address) => {
     functionName: 'setIsAuthorized',
     args: [requireMidnightBundles(chainId), true, user]
   } as const;
+};
+
+/**
+ * Cancel an open order: mark its whole group consumed so no offer of the series can be taken any more. This is the call
+ * markets.morpho.org makes (`setConsumed(group, MAX_OFFER_CAP, maker)`); funds already in a position stay where they are.
+ */
+export const cancelOrderRequest = (chainId: number, group: Hex, maker: Address) => {
+  const midnight = getMidnightAddress(chainId);
+  if (!midnight) throw new Error(`Midnight is not deployed on chain ${chainId}`);
+  return { chainId, address: midnight, abi: midnightAbi, functionName: 'setConsumed', args: [group, MAX_OFFER_CAP, maker] } as const;
 };
 
 /** Lend: buy units from asks for exactly `assets` loan tokens, receiving at least `minUnits`. */
@@ -248,6 +273,54 @@ export const exitLendRequest = ({
 };
 
 /** Close a borrow early: buy back `units` of debt from asks (reduce-only) for at most `maxBuyerAssets`. */
+/**
+ * Partial exit of a loan: spend exactly `assets` loan tokens buying debt units back from asks (at least `minUnits`), then
+ * optionally withdraw collateral. MidnightBundles pulls exactly `assets`, so that is the amount to approve.
+ */
+export const exitBorrowWithAssetsRequest = ({
+  chainId,
+  marketId,
+  marketParams,
+  user,
+  assets,
+  minUnits,
+  takeableOffers,
+  withdrawals,
+  deadline
+}: MarketWrite & {
+  assets: bigint;
+  minUnits: bigint;
+  takeableOffers: readonly MidnightApiTake[];
+  withdrawals: CollateralAmount[];
+  deadline: bigint;
+}) => {
+  validateMarketForWrite(marketParams, marketId, chainId);
+  return {
+    chainId,
+    address: requireMidnightBundles(chainId),
+    abi: midnightBundlesAbi,
+    functionName: 'midnightBundlesV1BuyWithAssetsTargetAndWithdrawCollateral',
+    args: [
+      assets,
+      minUnits,
+      user,
+      true,
+      NO_PERMIT,
+      toOfferFills(takeableOffers, marketId, false),
+      toCollateralWithdrawals(withdrawals),
+      user,
+      NO_REFERRAL_FEE,
+      zeroAddress,
+      maxUint256,
+      deadline
+    ]
+  } as const;
+};
+
+/**
+ * Full exit of a loan: buy back exactly `units` of debt from asks, then optionally withdraw collateral. MidnightBundles
+ * pulls the whole `maxBuyerAssets` up front and refunds the rest, so the approval must cover exactly that bound.
+ */
 export const closeBorrowRequest = ({
   chainId,
   marketId,
@@ -286,4 +359,135 @@ export const closeBorrowRequest = ({
       deadline
     ]
   } as const;
+};
+
+/* ---------- limit orders (maker) ---------- */
+//
+// markets.morpho.org's default route for a limit order, without an off-chain signature: the offers go into a Merkle
+// tree, the maker approves its root on the SetterRatifier, and the ratified offers are published in one MidnightMempool
+// payload. Midnight must trust the ratifier once ("Enable limit orders"); a buy order also needs the loan token approved
+// to Midnight, which pulls it from the wallet when a taker fills the order.
+
+const requireLimitOrderContracts = (chainId: number) => {
+  const setterRatifier = tryChainAddress(chainId, 'setterRatifier');
+  const mempool = tryChainAddress(chainId, 'midnightMempool');
+  if (!setterRatifier || !mempool) throw new Error(`Limit orders are not available on chain ${chainId}`);
+  return { setterRatifier, mempool };
+};
+
+/** Lets the SetterRatifier vouch for the user's offers, once per wallet. */
+export const authorizeRatifierRequest = (chainId: number, user: Address) => {
+  const midnight = getMidnightAddress(chainId);
+  if (!midnight) throw new Error(`Midnight is not deployed on chain ${chainId}`);
+  const { setterRatifier } = requireLimitOrderContracts(chainId);
+  return { chainId, address: midnight, abi: midnightAbi, functionName: 'setIsAuthorized', args: [setterRatifier, true, user] } as const;
+};
+
+/** Approves the order's offer tree: from then on every offer in it is valid for takers until it expires or is cancelled. */
+export const ratifyOrderRequest = (chainId: number, maker: Address, root: Hex) => {
+  const { setterRatifier } = requireLimitOrderContracts(chainId);
+  return {
+    chainId,
+    address: setterRatifier,
+    abi: setterRatifierAbi,
+    functionName: 'setIsRootRatified',
+    args: [maker, root, true]
+  } as const;
+};
+
+/** Publishes the ratified offers: MidnightMempool takes the encoded payload as raw calldata. */
+export const submitOrderRequest = (chainId: number, payload: Hex): RawTxRequest => ({
+  chainId,
+  to: requireLimitOrderContracts(chainId).mempool,
+  data: payload
+});
+
+export interface ExitOrder {
+  root: Hex;
+  payload: Hex;
+}
+
+interface ExitOrderParams extends MarketWrite {
+  buy: boolean;
+  tick: number;
+  tickSpacing: number;
+  units: bigint;
+  continuousFeeCap: bigint;
+  start: bigint;
+}
+
+type MempoolIssue = MidnightMempoolValidationError['issues'][number];
+
+/** The API's minimum order size in loan-token base units (`min_offer_assets_usd`), when an issue names it. */
+const findMinOfferAssets = (issues: readonly MempoolIssue[]) => {
+  const details = issues.find((issue) => issue.rule === 'min_offer_assets_usd')?.details;
+  return details?.type === 'minOfferAssetsUsd' ? details.minAssets : undefined;
+};
+
+/**
+ * Early exit at the maker's own price, as markets.morpho.org builds it: one reduce-only offer at `tick` from now until
+ * maturity, capped at `units`. A buy pays a loan back, a sell exits a loan given; reduce-only means a fill can never grow
+ * the position past zero.
+ */
+const createExitOrderTree = ({
+  chainId,
+  marketId,
+  marketParams,
+  user,
+  buy,
+  tick,
+  tickSpacing,
+  units,
+  continuousFeeCap,
+  start
+}: ExitOrderParams) => {
+  validateMarketForWrite(marketParams, marketId, chainId);
+  const { setterRatifier } = requireLimitOrderContracts(chainId);
+  const offer = Offer.create({
+    market: marketParams,
+    buy,
+    maker: user,
+    tick: BigInt(tick),
+    tickSpacing: BigInt(tickSpacing),
+    start,
+    expiry: marketParams.maturity,
+    callback: zeroAddress,
+    callbackData: '0x',
+    receiverIfMakerIsSeller: buy ? zeroAddress : user,
+    ratifier: setterRatifier,
+    reduceOnly: true,
+    maxUnits: units,
+    maxAssets: 0n,
+    continuousFeeCap
+  });
+  return Tree.create([Group.create([offer])]);
+};
+
+/** Builds the order and checks it against the API's mempool policy before anything is sent. */
+export const buildExitOrder = async (params: ExitOrderParams): Promise<ExitOrder> => {
+  const tree = createExitOrderTree(params);
+  try {
+    await tree.mempoolValidate({ chainId: params.chainId, apiUrl: ApiUrls.midnightApi });
+  } catch (error) {
+    // The SDK only counts the issues; the rules say what to change.
+    if (error instanceof MidnightMempoolValidationError) {
+      throw new Error(`The order book rejected the order: ${error.issues.map((issue) => issue.rule).join(', ')}`);
+    }
+    throw error;
+  }
+  return { root: tree.root, payload: await Payload.encode(SetterRatifierUtils.ratify({ tree })) };
+};
+
+/**
+ * Smallest order the API accepts in this market, in loan-token base units. It is a USD minimum, so it is read from the
+ * API's answer for a one-unit order rather than hard-coded; 0 when the API sets none.
+ */
+export const fetchMinExitOrderAssets = async (params: Omit<ExitOrderParams, 'units'>) => {
+  try {
+    await createExitOrderTree({ ...params, units: 1n }).mempoolValidate({ chainId: params.chainId, apiUrl: ApiUrls.midnightApi });
+    return 0n;
+  } catch (error) {
+    if (error instanceof MidnightMempoolValidationError) return findMinOfferAssets(error.issues) ?? 0n;
+    throw error;
+  }
 };

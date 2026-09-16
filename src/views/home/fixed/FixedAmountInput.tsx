@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Box from '@mui/material/Box';
-import { Button, FormControl, InputAdornment, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { Button, InputAdornment, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 import { CustomInput } from 'components/CustomInput';
@@ -41,6 +41,8 @@ interface FixedAmountInputProps {
   onChange: (value: string) => void;
   /** Base for the 25/50/75/Max buttons. */
   maxAmount?: bigint;
+  /** Which of those buttons is on (100 for Max), null once the field is typed in: Max can mean "all of it" to a form. */
+  onPercentChange?: (percent: number | null) => void;
   /** Line under the buttons, e.g. the wallet balance. */
   hint?: string;
   ariaLabel: string;
@@ -61,6 +63,7 @@ export default function FixedAmountInput({
   value,
   onChange,
   maxAmount,
+  onPercentChange,
   hint,
   ariaLabel,
   describedBy,
@@ -101,6 +104,7 @@ export default function FixedAmountInput({
         onChange={(event) => {
           onChange(formatAssetOutput(event.target.value));
           setActivePercent(null);
+          onPercentChange?.(null);
         }}
         disabled={disabled}
         placeholder="0"
@@ -129,6 +133,7 @@ export default function FixedAmountInput({
               onClick={() => {
                 onChange(formatTokenInput((maxAmount * BigInt(percent)) / 100n, decimals));
                 setActivePercent(percent);
+                onPercentChange?.(percent);
               }}
               sx={{
                 flex: 1,
@@ -189,32 +194,6 @@ export function FixedDetailsList({ rows }: { rows: { label: string; value: strin
         </Fragment>
       ))}
     </Box>
-  );
-}
-
-interface FixedCollateralSelectProps {
-  id: string;
-  label: string;
-  options: { index: number; symbol: string }[];
-  value: number;
-  onChange: (index: number) => void;
-  disabled?: boolean;
-}
-
-/** Collateral picker for multi-collateral markets; renders nothing when there is a single option. */
-export function FixedCollateralSelect({ id, label, options, value, onChange, disabled }: FixedCollateralSelectProps) {
-  if (options.length <= 1) return null;
-  return (
-    <FormControl size="small" fullWidth disabled={disabled}>
-      <InputLabel id={`${id}-label`}>{label}</InputLabel>
-      <Select labelId={`${id}-label`} id={id} value={value} label={label} onChange={(event) => onChange(Number(event.target.value))}>
-        {options.map((option) => (
-          <MenuItem key={option.index} value={option.index}>
-            {option.symbol}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
   );
 }
 

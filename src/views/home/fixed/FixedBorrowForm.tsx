@@ -8,7 +8,7 @@ import { useMidnightQuote } from 'hooks/midnight/useMidnightQuote';
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
 import {
   applySafetyFactor,
-  aprToPrice,
+  apyToPrice,
   computeLtv,
   computeMaxDebt,
   DEFAULT_RATE_BUFFER_WAD,
@@ -17,20 +17,16 @@ import {
   getDeadline,
   maxUnitsForBorrow,
   percentInputToWad,
-  priceToApr,
+  priceToApy,
+  formatRateBound,
+  rateLimitGuard,
   takerPrice,
   unitsToAssets,
   WAD,
   wadToPercentInput
 } from 'utils/midnight';
 import { approveRequest, authorizeBundlesRequest, borrowRequest } from 'utils/midnightTx';
-import FixedAmountInput, {
-  FixedCollateralSelect,
-  FixedDetailsList,
-  FixedRateInput,
-  formatTokenDisplay,
-  parseAmountInput
-} from './FixedAmountInput';
+import FixedAmountInput, { FixedDetailsList, FixedRateInput, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
 import FixedTxButton from './FixedTxButton';
 import type { FixedMarketContext } from './types';
 
@@ -39,30 +35,40 @@ import type { FixedMarketContext } from './types';
 export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
   const intl = useIntl();
   const tx = useTxSteps(ctx.chainId);
-  const { loan, market, collaterals } = ctx;
-  const [collateralIndex, setCollateralIndex] = useState(0);
+  const { loan, market, collateral } = ctx;
   const [collateralInput, setCollateralInput] = useState('');
   const [loanInput, setLoanInput] = useState('');
   const [rateInput, setRateInput] = useState('');
   const [rateTouched, setRateTouched] = useState(false);
 
-  const collateral = collaterals[collateralIndex] ?? collaterals[0];
-  const collateralAssets = parseAmountInput(collateralInput, collateral?.decimals);
+  const collateralAssets = parseAmountInput(collateralInput, collateral.decimals);
   const loanAssets = parseAmountInput(loanInput, loan.decimals);
   const validCollateral = collateralAssets ?? 0n;
   const validLoan = loanAssets ?? 0n;
 
   const estimate = useMidnightQuote({ marketId: ctx.marketId, side: 'bids', assets: validLoan, settlementFee: ctx.settlementFee });
-  const estimatedApr = estimate.quote ? priceToApr(estimate.quote.averageBestPrice, market.maturity, ctx.nowSec) : undefined;
-  const suggestedMaxApr = estimatedApr != null ? estimatedApr + DEFAULT_RATE_BUFFER_WAD : undefined;
+  const estimatedApy = estimate.quote ? priceToApy(estimate.quote.averageBestPrice, market.maturity, ctx.nowSec) : undefined;
+  const suggestedMaxApy = estimatedApy != null ? estimatedApy + DEFAULT_RATE_BUFFER_WAD : undefined;
 
   useEffect(() => {
-    if (!rateTouched && suggestedMaxApr != null) setRateInput(wadToPercentInput(suggestedMaxApr));
-  }, [rateTouched, suggestedMaxApr]);
+    if (!rateTouched && suggestedMaxApy != null) setRateInput(wadToPercentInput(suggestedMaxApy));
+  }, [rateTouched, suggestedMaxApy]);
+
+  // A rate clicked in the order book wins over the default and counts as a manual edit, so the default
+  // effect above leaves it alone. The nonce makes a repeat click re-apply after the field was edited by hand.
+  const ratePick = ctx.ratePick?.side === 'borrow' ? ctx.ratePick : undefined;
+  const appliedPick = useRef<number>(undefined);
+  useEffect(() => {
+    if (!ratePick || ratePick.nonce === appliedPick.current) return;
+    appliedPick.current = ratePick.nonce;
+    setRateInput(ratePick.percent);
+    setRateTouched(true);
+  }, [ratePick]);
 
   // Maximum rate → worst (lowest) acceptable average price → guarded quote and maximum debt units.
-  const maxApr = percentInputToWad(rateInput);
-  const worstPrice = maxApr != null ? aprToPrice(maxApr, market.maturity, 'borrow', ctx.nowSec) : undefined;
+  const maxApy = percentInputToWad(rateInput);
+  const limitGuard = rateLimitGuard(estimatedApy, maxApy, 'borrow');
+  const worstPrice = maxApy != null ? apyToPrice(maxApy, market.maturity, 'borrow', ctx.nowSec) : undefined;
   const guarded = useMidnightQuote({
     marketId: ctx.marketId,
     side: 'bids',
@@ -76,43 +82,29 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
 
   // Health preview, worst case: the whole unit cap becomes debt.
   const debtBefore = ctx.position?.debt ?? 0n;
-  const holdingsBefore = collaterals.map((item) => ({ amount: item.positionAmount, oraclePrice: item.oraclePrice, lltv: item.lltv }));
-  const holdingsAfter = holdingsBefore.map((holding, index) =>
-    index === collateral?.index ? { ...holding, amount: holding.amount + validCollateral } : holding
-  );
+  const holdingBefore = { amount: collateral.positionAmount, oraclePrice: collateral.oraclePrice, lltv: collateral.lltv };
+  const holdingAfter = { ...holdingBefore, amount: holdingBefore.amount + validCollateral };
   const debtAfter = debtBefore + (maxUnits ?? expectedUnits ?? 0n);
-  const maxDebtBefore = computeMaxDebt(holdingsBefore);
-  const maxDebtAfter = computeMaxDebt(holdingsAfter);
+  const maxDebtBefore = computeMaxDebt(holdingBefore);
+  const maxDebtAfter = computeMaxDebt(holdingAfter);
   const safeDebtAfter = applySafetyFactor(maxDebtAfter);
-  const ltvBefore = computeLtv(debtBefore, holdingsBefore);
-  const ltvAfter = computeLtv(debtAfter, holdingsAfter);
+  const ltvBefore = computeLtv(debtBefore, holdingBefore);
+  const ltvAfter = computeLtv(debtAfter, holdingAfter);
   const exceedsSafeLimit = validLoan > 0n && debtAfter > safeDebtAfter;
-  const missingOraclePrice = collaterals.some((item, index) => holdingsAfter[index].amount > 0n && item.oraclePrice == null);
-  const exceedsCollateralBalance = !!ctx.user && collateral?.walletBalance != null && validCollateral > collateral.walletBalance;
+  const missingOraclePrice = holdingAfter.amount > 0n && collateral.oraclePrice == null;
+  const exceedsCollateralBalance = !!ctx.user && collateral.walletBalance != null && validCollateral > collateral.walletBalance;
 
   // Percent buttons on the loan field: what the safe capacity can back at the best bid.
   const bestBid = ctx.book?.bids[0];
   const capacityUnits = safeDebtAfter > debtBefore ? safeDebtAfter - debtBefore : 0n;
   const capacityAssets = bestBid ? unitsToAssets(capacityUnits, takerPrice('borrow', bestBid.price, ctx.settlementFee), 'Down') : undefined;
 
-  const latest = useRef({
-    quote: guarded.quote,
-    maxUnits,
-    loanAssets: validLoan,
-    collateralAssets: validCollateral,
-    collateralIndex: collateral?.index ?? 0
-  });
-  latest.current = {
-    quote: guarded.quote,
-    maxUnits,
-    loanAssets: validLoan,
-    collateralAssets: validCollateral,
-    collateralIndex: collateral?.index ?? 0
-  };
+  const latest = useRef({ quote: guarded.quote, maxUnits, loanAssets: validLoan, collateralAssets: validCollateral });
+  latest.current = { quote: guarded.quote, maxUnits, loanAssets: validLoan, collateralAssets: validCollateral };
 
   const steps = useMemo<TxStep[]>(() => {
     const { user, midnightBundles } = ctx;
-    if (!user || !midnightBundles || !collateral || validLoan === 0n) return [];
+    if (!user || !midnightBundles || validLoan === 0n) return [];
     const list: TxStep[] = [];
     if (validCollateral > 0n && (collateral.allowanceBundles ?? 0n) < validCollateral) {
       list.push({
@@ -141,7 +133,7 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
           user,
           loanAssets: current.loanAssets,
           maxUnits: current.maxUnits,
-          collateralIndex: current.collateralIndex,
+          collateralIndex: collateral.index,
           collateralAssets: current.collateralAssets,
           takeableOffers: current.quote.takeableOffers,
           deadline: getDeadline()
@@ -150,8 +142,6 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
     });
     return list;
   }, [ctx, collateral, validLoan, validCollateral, intl]);
-
-  if (!collateral) return null;
 
   const maturity = formatMaturity(intl, market.maturity, ctx.nowSec);
   const disabled =
@@ -165,7 +155,8 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
     !guarded.quote ||
     guarded.isLoading ||
     maxUnits == null ||
-    maxApr == null;
+    maxApy == null ||
+    !!limitGuard?.exceeded;
 
   const formatLtv = (value?: bigint) => (value == null ? '-' : (formatWadPercent(value) ?? '-'));
 
@@ -177,17 +168,6 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
           { date: maturity.date, penalty: formatWadPercent(collateral.maxLif - WAD) ?? '-' }
         )}
       </Alert>
-
-      <FixedCollateralSelect
-        id="fixed-borrow-collateral"
-        label={intl.formatMessage({ id: 'fixed.form.collateralSelect' })}
-        options={collaterals}
-        value={collateral.index}
-        onChange={(index) => {
-          setCollateralIndex(index);
-          setCollateralInput('');
-        }}
-      />
 
       <FixedAmountInput
         id="fixed-borrow-collateral-amount"
@@ -244,7 +224,7 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
           setRateTouched(true);
         }}
         helperText={intl.formatMessage({ id: 'fixed.borrow.maxRateHelp' })}
-        invalid={rateInput !== '' && maxApr == null}
+        invalid={rateInput !== '' && maxApy == null}
       />
 
       <Box id="fixed-borrow-feedback" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -255,6 +235,18 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
           <Alert severity="error">{intl.formatMessage({ id: 'fixed.form.exceedsBalance' }, { symbol: collateral.symbol })}</Alert>
         )}
         {exceedsSafeLimit && <Alert severity="error">{intl.formatMessage({ id: 'fixed.borrow.exceedsSafeLimit' })}</Alert>}
+        {limitGuard?.exceeded && (
+          <Alert severity="error">
+            {intl.formatMessage(
+              { id: 'fixed.form.maxRateTooHigh' },
+              {
+                limit: formatWadPercent(maxApy) ?? '-',
+                quote: formatWadPercent(estimatedApy) ?? '-',
+                bound: formatRateBound(limitGuard.bound, 'borrow')
+              }
+            )}
+          </Alert>
+        )}
         {missingOraclePrice && <Alert severity="warning">{intl.formatMessage({ id: 'fixed.borrow.missingPrice' })}</Alert>}
         {estimate.isInsufficientLiquidity && (
           <Alert severity="warning">
@@ -276,7 +268,7 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
 
       <FixedDetailsList
         rows={[
-          { label: intl.formatMessage({ id: 'fixed.borrow.estimatedApr' }), value: formatWadPercent(estimatedApr) ?? '-' },
+          { label: intl.formatMessage({ id: 'fixed.borrow.estimatedApr' }), value: formatWadPercent(estimatedApy) ?? '-' },
           {
             label: intl.formatMessage({ id: 'fixed.borrow.repayAtMaturity' }),
             value: expectedUnits != null ? formatTokenDisplay(expectedUnits, loan.decimals, loan.symbol) : '-'

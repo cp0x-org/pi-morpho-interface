@@ -222,6 +222,47 @@ export interface MidnightUserPosition {
   lastIndexedBlock?: bigint;
 }
 
+/** The offer an open order currently shows in one market. */
+export interface MidnightOrderOffer {
+  marketId: Hex;
+  collaterals: MidnightCollateral[];
+  /** Unix seconds */
+  maturity: number;
+  tick: bigint;
+  /** Unix seconds: the window this offer is takeable in. */
+  start: number;
+  expiry: number;
+  /** Units a taker can still take from it right now. */
+  units: bigint;
+  /** Ratifier contract and the maker's proof for it; they lead to the rest of the order's series (see `fetchOrderSeries`). */
+  ratifier: Address;
+  ratifierData: Hex;
+}
+
+/**
+ * A resting maker order: every offer of one group, which Midnight fills against a single consumed amount.
+ * Placing it moves no funds into a position; only a taker filling it does.
+ */
+export interface MidnightOpenOrder {
+  chainId: number;
+  group: Hex;
+  maker: Address;
+  /** A buy offer lends (the maker buys credit units), a sell offer borrows. */
+  side: 'lend' | 'borrow';
+  /**
+   * Can only shrink the maker's position: a buy then pays a loan back early and a sell exits a loan given
+   * (see `getOrderKind`).
+   */
+  reduceOnly: boolean;
+  /** Pays for a buy when set (e.g. funds kept in a variable-rate market until the fill); zero means the wallet pays. */
+  callback: Address;
+  loanToken: Address;
+  /** Order size shared by the whole group: loan-token assets, or units when `capInUnits`. */
+  cap: bigint;
+  capInUnits: boolean;
+  offers: MidnightOrderOffer[];
+}
+
 export interface MidnightPositionPerformance {
   accountingMethod: string;
   costBasis: bigint;

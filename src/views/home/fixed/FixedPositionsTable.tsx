@@ -1,5 +1,5 @@
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { formatUnits } from 'viem';
+import { formatUnits, isAddressEqual } from 'viem';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -85,11 +85,11 @@ export default function FixedPositionsTable({ positions, getToken, nowSec }: Fix
           {positions.map((position) => {
             const loan = getToken(position.chainId, position.loanToken);
             const loanSymbol = loan?.symbol ?? shortenAddress(position.loanToken);
-            const collaterals = position.collaterals
-              .filter((collateral) => collateral.amount > 0n)
-              .map((collateral) => ({ ...collateral, token: getToken(position.chainId, collateral.token), address: collateral.token }));
-            const collateralSymbols = collaterals.map((collateral) => collateral.token?.symbol ?? shortenAddress(collateral.address));
-            const pair = collateralSymbols.length > 0 ? `${loanSymbol} / ${collateralSymbols.join(', ')}` : loanSymbol;
+            // The loan token is lent, never shown as collateral (see `findCollateralIndex`).
+            const collateral = position.collaterals.find((item) => item.amount > 0n && !isAddressEqual(item.token, position.loanToken));
+            const collateralToken = collateral ? getToken(position.chainId, collateral.token) : undefined;
+            const collateralSymbol = collateral ? (collateralToken?.symbol ?? shortenAddress(collateral.token)) : undefined;
+            const pair = collateralSymbol ? `${loanSymbol} / ${collateralSymbol}` : loanSymbol;
             const maturity = formatMaturity(intl, position.maturity, nowSec);
             const faceValue = position.credit > position.pendingFee ? position.credit - position.pendingFee : 0n;
             const status: PositionStatus = !maturity.isMatured
@@ -99,7 +99,7 @@ export default function FixedPositionsTable({ positions, getToken, nowSec }: Fix
                 : faceValue > 0n
                   ? 'redeem'
                   : 'matured';
-            const href = routes.fixedMarket(position.marketId, loanSymbol, collateralSymbols, position.maturity);
+            const href = routes.fixedMarket(position.marketId, loanSymbol, collateralSymbol, position.maturity);
 
             return (
               <TableRow key={`${position.chainId}:${position.marketId}`} hover onClick={() => navigate(href)} sx={{ cursor: 'pointer' }}>
@@ -130,15 +130,7 @@ export default function FixedPositionsTable({ positions, getToken, nowSec }: Fix
                 <TableCell>
                   {position.debt > 0n ? formatAmount(position.debt, loan) : faceValue > 0n ? formatAmount(faceValue, loan) : '-'}
                 </TableCell>
-                <TableCell>
-                  {collaterals.length > 0
-                    ? collaterals.map((collateral) => (
-                        <Typography key={collateral.address} variant="body2">
-                          {formatAmount(collateral.amount, collateral.token)}
-                        </Typography>
-                      ))
-                    : '-'}
-                </TableCell>
+                <TableCell>{collateral ? formatAmount(collateral.amount, collateralToken) : '-'}</TableCell>
                 <TableCell>{formatWadPercent(position.effectiveRateWad) ?? '-'}</TableCell>
                 <TableCell>
                   <Chip

@@ -11,7 +11,7 @@ import {
 
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { morphoOracleConfig } from '@/appconfig/abi/MorphoOracle';
-import { getMidnightBundlesAddress, nowInSeconds } from 'utils/midnight';
+import { getMidnightBundlesAddress, nowInSeconds, tryChainAddress } from 'utils/midnight';
 
 type MarketStateResult = readonly [bigint, bigint, bigint, bigint, number, number, number, number, number, number, number, number, number];
 type PositionResult = readonly [bigint, bigint, bigint, bigint, bigint, bigint];
@@ -42,6 +42,7 @@ export const useMidnightOnchainPosition = ({
   refetchInterval = 30_000
 }: UseMidnightOnchainPositionParams) => {
   const bundles = chainId ? getMidnightBundlesAddress(chainId) : undefined;
+  const setterRatifier = chainId ? tryChainAddress(chainId, 'setterRatifier') : undefined;
 
   const calls = useMemo<Call[]>(() => {
     if (!chainId || !marketId || !marketParams) return [];
@@ -80,6 +81,21 @@ export const useMidnightOnchainPosition = ({
           });
         }
       });
+      // A resting order that buys (an early exit of a loan) is paid from the wallet when it fills, through Midnight itself.
+      push('loanAllowanceMidnight', {
+        address: marketParams.loanToken,
+        abi: erc20ABIConfig.abi,
+        functionName: 'allowance',
+        args: [user, midnight]
+      });
+      if (setterRatifier) {
+        push('isSetterRatifierAuthorized', {
+          address: midnight,
+          abi: midnightAbi,
+          functionName: 'isAuthorized',
+          args: [user, setterRatifier]
+        });
+      }
       if (bundles) {
         push('loanAllowanceBundles', {
           address: marketParams.loanToken,
@@ -91,7 +107,7 @@ export const useMidnightOnchainPosition = ({
       }
     }
     return list;
-  }, [chainId, marketId, marketParams, user, bundles]);
+  }, [chainId, marketId, marketParams, user, bundles, setterRatifier]);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useReadContracts({
     contracts: calls.map((call) => call.contract),
@@ -153,12 +169,14 @@ export const useMidnightOnchainPosition = ({
       oraclePrices: indices.map((index) => read<bigint>(`oraclePrice:${index}`)),
       walletLoanBalance: read<bigint>('walletLoan'),
       loanAllowanceBundles: read<bigint>('loanAllowanceBundles'),
+      loanAllowanceMidnight: read<bigint>('loanAllowanceMidnight'),
       walletCollateralBalances: indices.map((index) => read<bigint>(`walletCollateral:${index}`)),
       collateralAllowanceBundles: indices.map((index) => read<bigint>(`collateralAllowanceBundles:${index}`)),
       collateralAllowanceMidnight: indices.map((index) => read<bigint>(`collateralAllowanceMidnight:${index}`)),
-      isBundlesAuthorized: read<boolean>('isBundlesAuthorized')
+      isBundlesAuthorized: read<boolean>('isBundlesAuthorized'),
+      isSetterRatifierAuthorized: read<boolean>('isSetterRatifierAuthorized')
     };
   }, [calls, data, marketParams, user]);
 
-  return { ...result, midnightBundles: bundles, isLoading, isFetching, isError, error, refetch };
+  return { ...result, midnightBundles: bundles, setterRatifier, isLoading, isFetching, isError, error, refetch };
 };

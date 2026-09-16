@@ -5,6 +5,7 @@ import { getQuote, isInsufficientLiquidity } from '@/api/midnight';
 import { useDebounce } from 'hooks/useDebounce';
 import type { MidnightBookSide } from 'types/midnight';
 import { midnightQueryKeys } from './queryKeys';
+import { useMidnightBook } from './useMidnightBook';
 
 interface UseMidnightQuoteParams {
   marketId?: Hex;
@@ -21,7 +22,7 @@ interface UseMidnightQuoteParams {
 
 /**
  * Debounced market-order quote. A 422 INSUFFICIENT_LIQUIDITY is surfaced as `isInsufficientLiquidity`
- * together with the side's total available liquidity (a guard-free probe), so no transaction is built from it.
+ * together with the side's total liquidity in the book, so no transaction is built from it.
  */
 export const useMidnightQuote = ({
   marketId,
@@ -60,20 +61,10 @@ export const useMidnightQuote = ({
 
   const insufficientLiquidity = isInsufficientLiquidity(quoteQuery.error);
 
-  const availableQuery = useQuery({
-    queryKey: midnightQueryKeys.quote(marketId, side, 'available', ''),
-    queryFn: async ({ signal }) => {
-      try {
-        const probe = await getQuote({ marketId: marketId as Hex, side, units: 1n, settlementFee }, signal);
-        return probe.availableAssets;
-      } catch (error) {
-        if (isInsufficientLiquidity(error)) return 0n;
-        throw error;
-      }
-    },
-    enabled: enabled && !!marketId && insufficientLiquidity,
-    retry: false
-  });
+  // A quote's `availableAssets` covers only the offers it takes (a 1-unit probe: the top one), so the side's total is
+  // summed from the book. Same query as the market page's, so it is usually cached already.
+  const bookQuery = useMidnightBook(marketId, 100, { enabled: enabled && insufficientLiquidity });
+  const bookAssets = bookQuery.data?.[side].reduce((sum, level) => sum + level.assets, 0n);
 
   const isCurrent = !isDebouncing && !!target;
 
@@ -81,7 +72,7 @@ export const useMidnightQuote = ({
     quote: isCurrent ? quoteQuery.data : undefined,
     error: insufficientLiquidity ? null : quoteQuery.error,
     isInsufficientLiquidity: isCurrent && insufficientLiquidity,
-    availableAssets: insufficientLiquidity ? availableQuery.data : quoteQuery.data?.availableAssets,
+    availableAssets: insufficientLiquidity ? bookAssets : quoteQuery.data?.availableAssets,
     isLoading: isDebouncing || quoteQuery.isFetching,
     refetch: quoteQuery.refetch
   };

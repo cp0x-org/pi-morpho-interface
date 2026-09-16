@@ -13,6 +13,7 @@ export const midnightQueryKeys = {
   quote: (marketId: string | undefined, side: MidnightBookSide, target: string, guard: string) =>
     ['midnight', 'quote', marketId, side, target, guard] as const,
   userPositions: (user?: string) => ['midnight', 'userPositions', user?.toLowerCase()] as const,
+  openOrders: (user?: string) => ['midnight', 'openOrders', user?.toLowerCase()] as const,
   userPerformance: (marketId?: string, user?: string) => ['midnight', 'userPerformance', marketId, user?.toLowerCase()] as const,
   userTransactions: (user?: string) => ['midnight', 'userTransactions', user?.toLowerCase()] as const,
   marketTransactions: (marketId?: string) => ['midnight', 'marketTransactions', marketId] as const

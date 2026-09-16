@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
+import { useAccount, usePublicClient, useSendTransaction, useSwitchChain, useWriteContract } from 'wagmi';
 import type { Abi, Address, Hex } from 'viem';
 
-export interface TxRequest {
+export interface ContractTxRequest {
   chainId: number;
   address: Address;
   abi: Abi | readonly unknown[];
@@ -10,11 +10,23 @@ export interface TxRequest {
   args?: readonly unknown[];
 }
 
+/** Calldata sent as is, for contracts called without an ABI (MidnightMempool takes a raw offer payload). */
+export interface RawTxRequest {
+  chainId: number;
+  to: Address;
+  data: Hex;
+}
+
+export type TxRequest = ContractTxRequest | RawTxRequest;
+
 export interface TxStep {
   key: string;
   label: string;
-  /** Built right before sending, so it uses the latest quote and runs after the previous step is mined. */
-  build: () => TxRequest;
+  /**
+   * Built right before sending, so it uses the latest quote and runs after the previous step is mined. May be async
+   * when the step needs data prepared off-chain first (an order's offer tree, validated by the API).
+   */
+  build: () => TxRequest | Promise<TxRequest>;
 }
 
 export type TxPhase = 'simulating' | 'signing' | 'confirming';
@@ -24,12 +36,14 @@ type WriteParameters = Parameters<ReturnType<typeof useWriteContract>['writeCont
 
 /**
  * Sequential multi-step transactions (approve → authorize → action) on a fixed chain.
- * Every step is simulated with the user as `account` before the wallet is asked to sign, then awaited until mined.
+ * Every step is simulated (or, for raw calldata, called) with the user as `account` before the wallet is asked to sign,
+ * then awaited until mined.
  */
 export const useTxSteps = (chainId: number) => {
   const { address, chainId: walletChainId } = useAccount();
   const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
+  const { sendTransactionAsync } = useSendTransaction();
   const { switchChainAsync } = useSwitchChain();
 
   const [isRunning, setIsRunning] = useState(false);
@@ -41,7 +55,11 @@ export const useTxSteps = (chainId: number) => {
 
   const run = useCallback(
     async (steps: TxStep[]) => {
-      if (!address || !publicClient || steps.length === 0) return false;
+      if (!address || steps.length === 0) return false;
+      if (!publicClient) {
+        setError(`No RPC connection for chain ${chainId}`);
+        return false;
+      }
       setIsRunning(true);
       setError(undefined);
       setCompletedSteps([]);
@@ -50,11 +68,18 @@ export const useTxSteps = (chainId: number) => {
         if (walletChainId !== chainId) await switchChainAsync({ chainId });
         for (const step of steps) {
           setCurrentStep(step.key);
-          const request = step.build();
           setPhase('simulating');
-          await publicClient.simulateContract({ ...request, account: address } as unknown as SimulateParameters);
-          setPhase('signing');
-          const hash = await writeContractAsync(request as unknown as WriteParameters);
+          const request = await step.build();
+          let hash: Hex;
+          if ('to' in request) {
+            await publicClient.call({ account: address, to: request.to, data: request.data });
+            setPhase('signing');
+            hash = await sendTransactionAsync({ chainId: request.chainId, to: request.to, data: request.data });
+          } else {
+            await publicClient.simulateContract({ ...request, account: address } as unknown as SimulateParameters);
+            setPhase('signing');
+            hash = await writeContractAsync(request as unknown as WriteParameters);
+          }
           setTxHash(hash);
           setPhase('confirming');
           const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -72,7 +97,7 @@ export const useTxSteps = (chainId: number) => {
         setCurrentStep(undefined);
       }
     },
-    [address, publicClient, walletChainId, chainId, switchChainAsync, writeContractAsync]
+    [address, publicClient, walletChainId, chainId, switchChainAsync, writeContractAsync, sendTransactionAsync]
   );
 
   const reset = useCallback(() => {

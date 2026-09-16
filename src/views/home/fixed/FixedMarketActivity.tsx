@@ -3,6 +3,7 @@ import { isAddressEqual, type Address } from 'viem';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Box from '@mui/material/Box';
 import {
+  Button,
   CircularProgress,
   Link,
   Paper,
@@ -38,6 +39,9 @@ const EVENT_LABELS: Record<string, string> = {
   full_liquidation: 'fixed.activity.eventFullLiquidation'
 };
 
+const INITIAL_ROWS = 10;
+const MORE_ROWS = 20;
+
 const toBigInt = (value: unknown) => {
   try {
     return value == null ? undefined : BigInt(String(value));
@@ -52,6 +56,8 @@ export default function FixedMarketActivity({ ctx }: { ctx: FixedMarketContext }
   const intl = useIntl();
   const explorer = useExplorerUrl(ctx.chainId);
   const [tab, setTab] = useState(ctx.user ? 0 : 1);
+  // The API returns up to 50 events; showing them all turned the page into a mile of table.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_ROWS);
 
   const userTransactions = useMidnightTransactions({ scope: 'user', user: ctx.user, marketId: ctx.marketId, enabled: tab === 0 });
   const marketTransactions = useMidnightTransactions({ scope: 'market', marketId: ctx.marketId, enabled: tab === 1 });
@@ -60,8 +66,9 @@ export default function FixedMarketActivity({ ctx }: { ctx: FixedMarketContext }
     const { data } = transaction;
     const collateralToken = typeof data.collateral === 'string' ? (data.collateral as Address) : undefined;
     if (collateralToken) {
-      const collateral = ctx.collaterals.find((item) => isAddressEqual(item.token, collateralToken));
-      return formatTokenDisplay(toBigInt(data.assets), collateral?.decimals, collateral?.symbol ?? shortenAddress(collateralToken));
+      // Other apps can post the loan token as collateral too: the market feed shows those events as well.
+      const token = [ctx.collateral, ctx.loan].find((item) => isAddressEqual(item.token, collateralToken));
+      return formatTokenDisplay(toBigInt(data.assets), token?.decimals, token?.symbol ?? shortenAddress(collateralToken));
     }
     return formatTokenDisplay(toBigInt(data.assets ?? data.units), ctx.loan.decimals, ctx.loan.symbol);
   };
@@ -88,6 +95,8 @@ export default function FixedMarketActivity({ ctx }: { ctx: FixedMarketContext }
         </Typography>
       );
     }
+    const rows = query.transactions.slice(0, visibleCount);
+    const hidden = query.transactions.length - rows.length;
     return (
       <TableContainer>
         <Table size="small" sx={{ minWidth: 560 }} aria-label={intl.formatMessage({ id: labelId })}>
@@ -108,7 +117,7 @@ export default function FixedMarketActivity({ ctx }: { ctx: FixedMarketContext }
             </TableRow>
           </TableHead>
           <TableBody>
-            {query.transactions.map((transaction) => {
+            {rows.map((transaction) => {
               const txLink = explorer.tx(transaction.txHash);
               return (
                 <TableRow key={transaction.id}>
@@ -138,19 +147,29 @@ export default function FixedMarketActivity({ ctx }: { ctx: FixedMarketContext }
             })}
           </TableBody>
         </Table>
+        {hidden > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', padding: 1.5 }}>
+            <Button size="small" onClick={() => setVisibleCount((count) => count + MORE_ROWS)}>
+              <FormattedMessage id="fixed.activity.showMore" values={{ count: hidden }} />
+            </Button>
+          </Box>
+        )}
       </TableContainer>
     );
   };
 
   return (
-    <Paper sx={{ marginBottom: 3 }}>
+    <Paper>
       <Typography variant="h4" component="h2" gutterBottom>
         <FormattedMessage id="fixed.activity.title" />
       </Typography>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tab}
-          onChange={(event, value: number) => setTab(value)}
+          onChange={(event, value: number) => {
+            setTab(value);
+            setVisibleCount(INITIAL_ROWS);
+          }}
           aria-label={intl.formatMessage({ id: 'fixed.activity.tabsAria' })}
         >
           <Tab

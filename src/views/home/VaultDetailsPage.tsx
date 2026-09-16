@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Grid, Tabs, Tab, Tooltip, IconButton, Stack, useTheme, Card } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { VaultsData } from 'types/vaults';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
@@ -12,9 +12,8 @@ import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
 import SubCard from 'ui-component/cards/SubCard';
-import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
-import { dispatchInfo, dispatchSuccess, dispatchError } from 'utils/snackbar';
-import { getChainName } from 'utils/chains';
+import { useAccount, useReadContract } from 'wagmi';
+import { useWalletChainSync } from 'hooks/useWalletChainSync';
 import { useSearchParams } from 'react-router-dom';
 import { formatShortUSDS } from 'utils/formatters';
 import { TokenIcon } from 'components/TokenIcon';
@@ -32,23 +31,7 @@ export default function VaultDetailsPage() {
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { address: userAddress, chainId: currentChainId } = useAccount();
-  const { switchChain } = useSwitchChain();
-
-  useEffect(() => {
-    if (targetChainId && currentChainId !== targetChainId) {
-      const networkName = getChainName(targetChainId);
-      dispatchInfo(intl.formatMessage({ id: 'network.switching' }, { network: networkName }));
-      switchChain(
-        { chainId: targetChainId },
-        {
-          onSuccess: () => dispatchSuccess(intl.formatMessage({ id: 'network.switched' }, { network: networkName })),
-          onError: (err) =>
-            dispatchError(intl.formatMessage({ id: 'network.switchFailed' }, { network: networkName, message: err.message }))
-        }
-      );
-    }
-  }, [targetChainId, currentChainId, intl]);
+  const { address: userAddress } = useAccount();
 
   const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
     variables: { address: vaultAddress },
@@ -62,6 +45,7 @@ export default function VaultDetailsPage() {
   const vault = data?.vaults.items[0];
   // Reads and writes target the vault's chain, not the chain the wallet happens to be on.
   const vaultChainId = targetChainId ?? vault?.chain?.id;
+  useWalletChainSync(vaultChainId);
 
   // Read user's vault balance
   const { data: vaultBalance, isLoading: isBalanceLoading } = useReadContract({

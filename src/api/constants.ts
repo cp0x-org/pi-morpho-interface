@@ -154,6 +154,7 @@ export const MorphoRequests = {
             fee
             utilization
             dailyNetBorrowApy
+            dailyNetSupplyApy
             totalLiquidityUsd
             sizeUsd
           }

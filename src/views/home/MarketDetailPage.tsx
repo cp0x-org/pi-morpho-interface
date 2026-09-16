@@ -1,26 +1,26 @@
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Card, Divider, Link } from '@mui/material';
+import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Chip, Link } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
-import { formatLLTV, formatShortUSDS } from '@/utils/formatters';
+import { formatLLTV, formatShortUSDS, shortenAddress } from '@/utils/formatters';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import React, { useCallback, useEffect, useState } from 'react';
-import { formatUnits } from 'viem';
+import { useCallback, useEffect, useState } from 'react';
 import { MarketData } from 'types/market';
-import ActionFormsSecondary from 'views/home/market/ActionFormsSecondary';
 import { useMarketData } from 'hooks/useMarketData';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 import { useFuturePosition } from 'hooks/useFuturePosition';
-import { useAccount, useSwitchChain } from 'wagmi';
-import { dispatchInfo, dispatchSuccess, dispatchError } from 'utils/snackbar';
+import { useAccount } from 'wagmi';
+import { useWalletChainSync } from 'hooks/useWalletChainSync';
 import { getChainName } from 'utils/chains';
+import { ChainIcon } from 'components/ChainIcon';
 import { TokenIcon } from 'components/TokenIcon';
-import { ArrowRightAlt } from '@mui/icons-material';
-import ActionFormsMain from 'views/home/market/ActionFormsMain';
+import MarketActionPanel from 'views/home/market/MarketActionPanel';
+import MarketDetailsCard from 'views/home/market/MarketDetailsCard';
+import MarketPositionCard from 'views/home/market/MarketPositionCard';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useMidnightMarketLookup } from 'hooks/midnight/useMidnightMarket';
@@ -36,8 +36,7 @@ export default function MarketDetailPage() {
   const navigate = useNavigate();
   const urlChainId = Number(searchParams.get('chainId')) || undefined;
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { address: userAddress, chainId: currentChainId } = useAccount();
-  const { switchChain } = useSwitchChain();
+  const { address: userAddress } = useAccount();
 
   const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
   const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
@@ -78,22 +77,9 @@ export default function MarketDetailPage() {
     navigate({ search: `?${nextParams.toString()}`, hash: location.hash }, { replace: true });
   }, [redirectChainId, urlChainId, searchParams, location.hash, navigate]);
 
-  useEffect(() => {
-    if (chainId && currentChainId && currentChainId !== chainId) {
-      const networkName = getChainName(chainId);
-      dispatchInfo(intl.formatMessage({ id: 'network.switching' }, { network: networkName }));
-      switchChain(
-        { chainId },
-        {
-          onSuccess: () => dispatchSuccess(intl.formatMessage({ id: 'network.switched' }, { network: networkName })),
-          onError: (err) =>
-            dispatchError(intl.formatMessage({ id: 'network.switchFailed' }, { network: networkName, message: err.message }))
-        }
-      );
-    }
-  }, [chainId, currentChainId, intl]);
+  useWalletChainSync(chainId);
 
-  const { accrualPosition, market, marketParams, refreshPositionData } = useMarketData({
+  const { accrualPosition, market, marketParams, oraclePrice, refreshPositionData } = useMarketData({
     marketId,
     chainId,
     marketItemData: marketData
@@ -161,9 +147,37 @@ export default function MarketDetailPage() {
     );
   }
 
+  const lltv = formatLLTV(marketData.lltv);
+  const copyTitle = copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' });
+  const naShort = intl.formatMessage({ id: 'common.naShort' });
+  const stats = [
+    { labelId: 'market.utilization', value: `${((marketData.state?.utilization || 0) * 100).toFixed(2)}%` },
+    { labelId: 'market.size', value: marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : naShort },
+    {
+      labelId: 'market.liquidity',
+      value: marketData.state.totalLiquidityUsd ? formatShortUSDS(marketData.state.totalLiquidityUsd) : naShort
+    },
+    {
+      labelId: 'market.borrowRate',
+      value: marketData.state.dailyNetBorrowApy ? `${(marketData.state.dailyNetBorrowApy * 100).toFixed(2)}%` : naShort
+    },
+    {
+      labelId: 'market.lendRate',
+      value: marketData.state.dailyNetSupplyApy ? `${(marketData.state.dailyNetSupplyApy * 100).toFixed(2)}%` : naShort
+    }
+  ];
+
+  const renderCopyButton = (ariaLabel: string, text: string) => (
+    <Tooltip title={copyTitle} placement="top">
+      <IconButton aria-label={ariaLabel} onClick={() => copyToClipboard(text)} sx={{ padding: '3px' }}>
+        <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
+      </IconButton>
+    </Tooltip>
+  );
+
   return (
     <Box sx={{ padding: '16px 0px' }}>
-      {/* Market header — compact top bar */}
+      {/* Market header — identity on the left, the numbers that change on the right, same shape as /fixed. */}
       <Paper sx={{ padding: '20px 24px', marginBottom: 3 }}>
         {/* The pair is rendered as separate inline chunks for layout reasons; this
             gives the page a single, machine-readable heading without changing it. */}
@@ -177,127 +191,109 @@ export default function MarketDetailPage() {
           />
         </Box>
         <Grid container alignItems="center" spacing={3}>
-          {/* Token pair */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                {marketData.collateralAsset?.symbol && (
-                  <TokenIcon
-                    sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', zIndex: 1 }}
-                    avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
-                    symbol={marketData.collateralAsset?.symbol}
-                  />
-                )}
-                {marketData.loanAsset?.symbol && (
-                  <TokenIcon
-                    sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', ml: '-18px', zIndex: 2 }}
-                    avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
-                    symbol={marketData.loanAsset?.symbol}
-                  />
-                )}
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
-                  {marketData.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
-                </Typography>
-                {marketData.collateralAsset?.address && (
-                  <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
-                    <IconButton
-                      aria-label={intl.formatMessage(
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Stack spacing={1.5}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  {marketData.collateralAsset?.symbol && (
+                    <TokenIcon
+                      sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', zIndex: 1 }}
+                      avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
+                      symbol={marketData.collateralAsset?.symbol}
+                    />
+                  )}
+                  {marketData.loanAsset?.symbol && (
+                    <TokenIcon
+                      sx={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', ml: '-18px', zIndex: 2 }}
+                      avatarProps={{ sx: { width: 38, height: 38 }, alt: '' }}
+                      symbol={marketData.loanAsset?.symbol}
+                    />
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
+                    {marketData.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
+                  </Typography>
+                  {marketData.collateralAsset?.address &&
+                    renderCopyButton(
+                      intl.formatMessage(
                         { id: 'market.copyCollateralAria' },
                         { symbol: marketData.collateralAsset?.symbol || '', address: marketData.collateralAsset?.address }
-                      )}
-                      onClick={() => copyToClipboard(marketData.collateralAsset?.address || '')}
-                      sx={{ padding: '3px' }}
-                    >
-                      <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Typography
-                  variant="h3"
-                  component="span"
-                  aria-hidden="true"
-                  sx={{ display: 'inline', mx: 1, color: theme.palette.grey[500] }}
-                >
-                  /
-                </Typography>
-                <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
-                  {marketData.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
-                </Typography>
-                {marketData.loanAsset?.address && (
-                  <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
-                    <IconButton
-                      aria-label={intl.formatMessage(
+                      ),
+                      marketData.collateralAsset.address
+                    )}
+                  <Typography
+                    variant="h3"
+                    component="span"
+                    aria-hidden="true"
+                    sx={{ display: 'inline', mx: 1, color: theme.palette.grey[500] }}
+                  >
+                    /
+                  </Typography>
+                  <Typography variant="h3" component="span" sx={{ display: 'inline' }}>
+                    {marketData.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
+                  </Typography>
+                  {marketData.loanAsset?.address &&
+                    renderCopyButton(
+                      intl.formatMessage(
                         { id: 'market.copyLoanAria' },
                         { symbol: marketData.loanAsset?.symbol || '', address: marketData.loanAsset?.address }
-                      )}
-                      onClick={() => copyToClipboard(marketData.loanAsset?.address || '')}
-                      sx={{ padding: '3px' }}
-                    >
-                      <ContentCopyIcon sx={{ fontSize: '16px', color: theme.palette.grey[500] }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
+                      ),
+                      marketData.loanAsset.address
+                    )}
+                </Box>
               </Box>
-            </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {chainId && <ChainIcon chainId={chainId} showName />}
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={intl.formatMessage({ id: 'market.lltvChip' }, { value: lltv != null ? `${lltv.toFixed(2)}%` : naShort })}
+                />
+                <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage id="market.marketIdLabel" values={{ id: shortenAddress(marketData.marketId) }} />
+                  </Typography>
+                  {renderCopyButton(
+                    intl.formatMessage({ id: 'market.copyMarketIdAria' }, { id: marketData.marketId }),
+                    marketData.marketId
+                  )}
+                </Box>
+              </Box>
+            </Stack>
           </Grid>
 
-          {/* Market stats */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Grid container spacing={1}>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Stack spacing={0.5}>
-                  <Typography variant="h4" component="p">{`${((marketData.state?.utilization || 0) * 100).toFixed(2)}%`}</Typography>
-                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
-                    <FormattedMessage id="market.utilization" />
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Stack spacing={0.5}>
-                  <Typography variant="h4" component="p">
-                    {marketData.state.sizeUsd ? formatShortUSDS(marketData.state.sizeUsd) : intl.formatMessage({ id: 'common.naShort' })}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
-                    <FormattedMessage id="market.size" />
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Stack spacing={0.5}>
-                  <Typography variant="h4" component="p">
-                    {marketData.state.totalLiquidityUsd
-                      ? formatShortUSDS(marketData.state.totalLiquidityUsd)
-                      : intl.formatMessage({ id: 'common.naShort' })}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
-                    <FormattedMessage id="market.liquidity" />
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Stack spacing={0.5}>
-                  <Typography variant="h4" component="p">
-                    {marketData.state.dailyNetBorrowApy
-                      ? `${(marketData.state.dailyNetBorrowApy * 100).toFixed(2)}%`
-                      : intl.formatMessage({ id: 'common.naShort' })}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
-                    <FormattedMessage id="market.borrowRate" />
-                  </Typography>
-                </Stack>
-              </Grid>
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Grid container spacing={2}>
+              {stats.map((stat) => (
+                <Grid key={stat.labelId} size={{ xs: 6, sm: 4 }}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="h4" component="p">
+                      {stat.value}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: theme.palette.grey[500] }}>
+                      <FormattedMessage id={stat.labelId} />
+                    </Typography>
+                  </Stack>
+                </Grid>
+              ))}
             </Grid>
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Main content: forms left, position right (sticky) */}
+      {/* Market data and your position on the left, the forms you act with on the right. Stacked on a phone the
+          forms come first: that is what the page is for, and the data is one scroll away. */}
       <Grid container spacing={3} alignItems="flex-start">
-        {/* Left: action forms stacked */}
-        <Grid size={{ xs: 12, md: 7 }}>
-          <ActionFormsMain
+        <Grid size={{ xs: 12, md: 7 }} sx={{ order: { xs: 2, md: 1 } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <MarketDetailsCard market={marketData} chainId={chainId} oraclePrice={oraclePrice as bigint | undefined} />
+            <MarketPositionCard market={marketData} position={accrualPosition} futurePosition={futurePosition} isChanged={isChanged} />
+          </Box>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 5 }} sx={{ order: { xs: 1, md: 2 } }}>
+          <MarketActionPanel
             market={marketData}
             chainId={chainId}
             marketParams={marketParams}
@@ -308,188 +304,6 @@ export default function MarketDetailPage() {
             onBorrowAmountChange={onBorrowAmountChange}
             onCollateralAmountChange={onCollateralAmountChange}
           />
-          <ActionFormsSecondary
-            market={marketData}
-            chainId={chainId}
-            marketParams={marketParams}
-            sdkMarket={market}
-            marketId={marketId}
-            accrualPosition={accrualPosition}
-            onPositionUpdate={refreshPositionData}
-            onBorrowAmountChange={() => {}}
-            onLoanAmountChange={() => {}}
-          />
-        </Grid>
-
-        {/* Right: position summary, sticky */}
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Box sx={{ position: 'sticky', top: '24px' }}>
-            {accrualPosition ? (
-              <Paper>
-                <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '24px' }}>
-                  <FormattedMessage id="common.yourPosition" />
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Card
-                      sx={{
-                        ...theme.applyStyles('dark', {
-                          bgcolor: 'background.default',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '20px'
-                        })
-                      }}
-                    >
-                      <Stack spacing={'20px'}>
-                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                          <FormattedMessage id="market.loanWithSymbol" values={{ symbol: marketData.loanAsset?.symbol }} />
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
-                            {accrualPosition.borrowAssets
-                              ? parseFloat(formatUnits(accrualPosition.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
-                              : '0'}
-                          </Typography>
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Box component="span" sx={visuallyHidden}>
-                                <FormattedMessage id="market.changesTo" />
-                              </Box>
-                              <Typography variant="h3" component="p">
-                                {futurePosition?.borrowAssets
-                                  ? futurePosition?.borrowAssets <= 0
-                                    ? '0'
-                                    : parseFloat(formatUnits(futurePosition?.borrowAssets, marketData.loanAsset?.decimals || 18)).toFixed(4)
-                                  : '0'}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      </Stack>
-                    </Card>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Card
-                      sx={{
-                        ...theme.applyStyles('dark', {
-                          bgcolor: 'background.default',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '20px'
-                        })
-                      }}
-                    >
-                      <Stack spacing={'20px'}>
-                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                          <FormattedMessage id="market.collateralWithSymbol" values={{ symbol: marketData.collateralAsset?.symbol }} />
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
-                            {accrualPosition.collateral
-                              ? parseFloat(formatUnits(accrualPosition.collateral, marketData.collateralAsset?.decimals || 18)).toFixed(4)
-                              : '0'}
-                          </Typography>
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Box component="span" sx={visuallyHidden}>
-                                <FormattedMessage id="market.changesTo" />
-                              </Box>
-                              <Typography variant="h3" component="p">
-                                {futurePosition?.collateral
-                                  ? futurePosition?.collateral <= 0
-                                    ? '0'
-                                    : parseFloat(
-                                        formatUnits(futurePosition?.collateral, marketData.collateralAsset?.decimals || 18)
-                                      ).toFixed(4)
-                                  : '0'}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      </Stack>
-                    </Card>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Card
-                      sx={{
-                        ...theme.applyStyles('dark', {
-                          bgcolor: 'background.default',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '20px'
-                        })
-                      }}
-                    >
-                      <Stack spacing={'20px'}>
-                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                          <FormattedMessage id="market.ltv" />
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="h3" component="p" sx={{ color: isChanged ? theme.palette.grey[500] : 'inherit' }}>
-                            {accrualPosition.ltv ? (parseFloat(formatUnits(accrualPosition?.ltv, 18)) * 100).toFixed(2) : '0'}
-                          </Typography>
-                          {isChanged && futurePosition && (
-                            <>
-                              <ArrowRightAlt style={{ color: theme.palette.grey[500] }} />
-                              <Box component="span" sx={visuallyHidden}>
-                                <FormattedMessage id="market.changesTo" />
-                              </Box>
-                              <Typography variant="h3" component="p">
-                                {futurePosition?.ltv
-                                  ? futurePosition?.ltv <= 0
-                                    ? '0'
-                                    : (parseFloat(formatUnits(futurePosition?.ltv, 18)) * 100).toFixed(2)
-                                  : '0'}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      </Stack>
-                    </Card>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Card
-                      sx={{
-                        ...theme.applyStyles('dark', {
-                          bgcolor: 'background.default',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '20px'
-                        })
-                      }}
-                    >
-                      <Stack spacing={'20px'}>
-                        <Typography variant="h5" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
-                          <FormattedMessage id="market.lltv" />
-                        </Typography>
-                        <Typography variant="h3" component="p">
-                          {formatLLTV(marketData.lltv)
-                            ? formatLLTV(marketData.lltv)?.toFixed(2) + '%'
-                            : intl.formatMessage({ id: 'common.naShort' })}
-                        </Typography>
-                      </Stack>
-                    </Card>
-                  </Grid>
-                </Grid>
-              </Paper>
-            ) : (
-              <Paper>
-                <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '16px' }}>
-                  <FormattedMessage id="common.yourPosition" />
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Typography variant="body1" sx={{ color: theme.palette.grey[500] }}>
-                  <FormattedMessage id="market.noPosition" />
-                </Typography>
-              </Paper>
-            )}
-          </Box>
         </Grid>
       </Grid>
     </Box>

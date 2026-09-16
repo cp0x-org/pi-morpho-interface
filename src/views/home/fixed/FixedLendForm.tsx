@@ -7,13 +7,15 @@ import { Alert } from '@mui/material';
 import { useMidnightQuote } from 'hooks/midnight/useMidnightQuote';
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
 import {
-  aprToPrice,
+  apyToPrice,
   DEFAULT_RATE_BUFFER_WAD,
   formatWadPercent,
   getDeadline,
   minUnitsForLend,
   percentInputToWad,
-  priceToApr,
+  priceToApy,
+  formatRateBound,
+  rateLimitGuard,
   wadToPercentInput
 } from 'utils/midnight';
 import { approveRequest, authorizeBundlesRequest, lendRequest } from 'utils/midnightTx';
@@ -36,18 +38,30 @@ export default function FixedLendForm({ ctx }: { ctx: FixedMarketContext }) {
 
   // 1. Quote without a guard: the best achievable average price for this size.
   const estimate = useMidnightQuote({ marketId: ctx.marketId, side: 'asks', assets: validAssets, settlementFee: ctx.settlementFee });
-  const estimatedApr = estimate.quote ? priceToApr(estimate.quote.averageBestPrice, market.maturity, ctx.nowSec) : undefined;
-  const suggestedMinApr =
-    estimatedApr != null ? (estimatedApr > DEFAULT_RATE_BUFFER_WAD ? estimatedApr - DEFAULT_RATE_BUFFER_WAD : 0n) : undefined;
+  const estimatedApy = estimate.quote ? priceToApy(estimate.quote.averageBestPrice, market.maturity, ctx.nowSec) : undefined;
+  const suggestedMinApy =
+    estimatedApy != null ? (estimatedApy > DEFAULT_RATE_BUFFER_WAD ? estimatedApy - DEFAULT_RATE_BUFFER_WAD : 0n) : undefined;
 
   // 2. Minimum rate defaults to the quote minus 0.5 points until the user edits it.
   useEffect(() => {
-    if (!rateTouched && suggestedMinApr != null) setRateInput(wadToPercentInput(suggestedMinApr));
-  }, [rateTouched, suggestedMinApr]);
+    if (!rateTouched && suggestedMinApy != null) setRateInput(wadToPercentInput(suggestedMinApy));
+  }, [rateTouched, suggestedMinApy]);
+
+  // A rate clicked in the order book wins over the default and counts as a manual edit, so the default
+  // effect above leaves it alone. The nonce makes a repeat click re-apply after the field was edited by hand.
+  const ratePick = ctx.ratePick?.side === 'lend' ? ctx.ratePick : undefined;
+  const appliedPick = useRef<number>(undefined);
+  useEffect(() => {
+    if (!ratePick || ratePick.nonce === appliedPick.current) return;
+    appliedPick.current = ratePick.nonce;
+    setRateInput(ratePick.percent);
+    setRateTouched(true);
+  }, [ratePick]);
 
   // 3. Minimum rate → worst (highest) acceptable average price → guarded quote and minimum units.
-  const minApr = percentInputToWad(rateInput);
-  const worstPrice = minApr != null ? aprToPrice(minApr, market.maturity, 'lend', ctx.nowSec) : undefined;
+  const minApy = percentInputToWad(rateInput);
+  const limitGuard = rateLimitGuard(estimatedApy, minApy, 'lend');
+  const worstPrice = minApy != null ? apyToPrice(minApy, market.maturity, 'lend', ctx.nowSec) : undefined;
   const guarded = useMidnightQuote({
     marketId: ctx.marketId,
     side: 'asks',
@@ -110,7 +124,8 @@ export default function FixedLendForm({ ctx }: { ctx: FixedMarketContext }) {
     !guarded.quote ||
     guarded.isLoading ||
     minUnits == null ||
-    minApr == null;
+    minApy == null ||
+    !!limitGuard?.exceeded;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -146,13 +161,25 @@ export default function FixedLendForm({ ctx }: { ctx: FixedMarketContext }) {
           setRateTouched(true);
         }}
         helperText={intl.formatMessage({ id: 'fixed.lend.minRateHelp' })}
-        invalid={rateInput !== '' && minApr == null}
+        invalid={rateInput !== '' && minApy == null}
       />
 
       <Box id="fixed-lend-feedback" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {assets === undefined && <Alert severity="error">{intl.formatMessage({ id: 'fixed.form.invalidAmount' })}</Alert>}
         {exceedsBalance && (
           <Alert severity="error">{intl.formatMessage({ id: 'fixed.form.exceedsBalance' }, { symbol: loan.symbol })}</Alert>
+        )}
+        {limitGuard?.exceeded && (
+          <Alert severity="error">
+            {intl.formatMessage(
+              { id: 'fixed.form.minRateTooLow' },
+              {
+                limit: formatWadPercent(minApy) ?? '-',
+                quote: formatWadPercent(estimatedApy) ?? '-',
+                bound: formatRateBound(limitGuard.bound, 'lend')
+              }
+            )}
+          </Alert>
         )}
         {estimate.isInsufficientLiquidity && (
           <Alert severity="warning">
@@ -174,7 +201,7 @@ export default function FixedLendForm({ ctx }: { ctx: FixedMarketContext }) {
 
       <FixedDetailsList
         rows={[
-          { label: intl.formatMessage({ id: 'fixed.lend.estimatedApr' }), value: formatWadPercent(estimatedApr) ?? '-' },
+          { label: intl.formatMessage({ id: 'fixed.lend.estimatedApr' }), value: formatWadPercent(estimatedApy) ?? '-' },
           {
             label: intl.formatMessage({ id: 'fixed.lend.receiveAtMaturity' }),
             value: expectedUnits != null ? formatTokenDisplay(expectedUnits, loan.decimals, loan.symbol) : '-'

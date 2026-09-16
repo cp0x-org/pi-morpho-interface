@@ -29,7 +29,7 @@ export default function FixedTxButton({ ctx, tx, steps, actionLabel, successMess
 
   if (!ctx.user) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, marginTop: '20px' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
         <Typography role="status" color="text.secondary">
           <FormattedMessage id="market.connectWallet" />
         </Typography>
@@ -53,7 +53,7 @@ export default function FixedTxButton({ ctx, tx, steps, actionLabel, successMess
   const txLink = tx.txHash ? explorer.tx(tx.txHash) : undefined;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, marginTop: '20px' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {steps.length > 1 && (
         <Box component="ol" aria-label={intl.formatMessage({ id: 'fixed.tx.stepsAria' })} sx={{ margin: 0, paddingLeft: 3 }}>
           {steps.map((step) => {

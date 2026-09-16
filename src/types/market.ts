@@ -4,6 +4,7 @@ export interface MarketState {
   fee: number;
   utilization: number;
   dailyNetBorrowApy: number;
+  dailyNetSupplyApy: number;
   totalLiquidity: string;
   totalLiquidityUsd: number;
   size: string;

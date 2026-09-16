@@ -39,35 +39,56 @@ import { UnfoldMore } from '@mui/icons-material';
 import { ChainIcon } from 'components/ChainIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { useMidnightBooks, useMidnightMarkets } from 'hooks/midnight/useMidnightMarkets';
+import { useMidnightOpenOrders } from 'hooks/midnight/useMidnightOpenOrders';
 import { useMidnightUserPositions } from 'hooks/midnight/useMidnightUserPositions';
+import { useMidnightWithdrawable } from 'hooks/midnight/useMidnightWithdrawable';
 import { useNowInSeconds } from 'hooks/midnight/useNowInSeconds';
 import { useTokensMetadata } from 'hooks/midnight/useTokensMetadata';
 import type { MidnightBookLevel, MidnightMarket } from 'types/midnight';
 import { visuallyHidden } from 'utils/a11y';
 import { getChainName } from 'utils/chains';
 import { formatShortUSDS, shortenAddress } from 'utils/formatters';
-import { formatMaturity, formatWadPercent, isMatured, MIDNIGHT_CHAIN_IDS, priceToApr, takerPrice } from 'utils/midnight';
+import {
+  findCollateralIndex,
+  formatMaturity,
+  formatWadPercent,
+  getOrderCollateralAmount,
+  isMatured,
+  isOrderCollateral,
+  MIDNIGHT_CHAIN_IDS,
+  outstandingLoans,
+  priceToApy,
+  takerPrice
+} from 'utils/midnight';
 import { routes, type FixedSide } from 'utils/routes';
+import FixedOrdersTable from './fixed/FixedOrdersTable';
 import FixedPositionsTable from './fixed/FixedPositionsTable';
 import PoweredByMorpho from './fixed/PoweredByMorpho';
 
 type SortField = 'network' | 'pair' | 'maturity' | 'outstanding' | 'borrowDepth' | 'lendDepth' | 'bestRate';
 type SortOrder = 'asc' | 'desc';
 
+// Order book sides are named after the maker, like markets.morpho.org: asks are resting borrow orders, bids are
+// resting lend orders. A taker is on the other side of each, so the borrow-order depth is what a lender can take.
 interface FixedMarketRow {
   market: MidnightMarket;
   loanSymbol: string;
   loanDecimals?: number;
   loanLogoURI?: string;
-  collaterals: { token: string; symbol: string; logoURI?: string; lltv: bigint }[];
+  collateral: { token: string; symbol: string; logoURI?: string; lltv: bigint; oracle: string };
   pair: string;
+  /** Credit still owed by borrowers (loan base units): total units minus the market's withdrawable liquidity. */
+  outstanding?: bigint;
   outstandingUsd?: number;
-  /** Σ top-of-book asks (loan base units): what lenders can take. */
-  lendDepth: bigint;
-  /** Σ top-of-book bids (loan base units): what borrowers can take. */
+  /** Σ asks (loan base units): resting borrow orders, the liquidity a lender can take. */
   borrowDepth: bigint;
-  bestLendApr?: bigint;
-  bestBorrowApr?: bigint;
+  /** Σ bids (loan base units): resting lend orders, the liquidity a borrower can take. */
+  lendDepth: bigint;
+  /** Rate on the best resting borrow order — what a lender earns by taking it. */
+  borrowOrdersRate?: bigint;
+  /** Rate on the best resting lend order — what a borrower pays by taking it. */
+  lendOrdersRate?: bigint;
+  hasBook: boolean;
   isMatured: boolean;
 }
 
@@ -94,6 +115,8 @@ export default function FixedMarketsPage() {
 
   const [showMatured, setShowMatured] = useState(false);
   const [showUnlisted, setShowUnlisted] = useState(false);
+  // Most listed markets are daily maturities nobody has quoted yet; Morpho only lists the ones with a book.
+  const [showWithoutBook, setShowWithoutBook] = useState(false);
   const [networkFilter, setNetworkFilter] = useState<number[]>([]);
   const [loanFilter, setLoanFilter] = useState<string[]>([]);
   const [collateralFilter, setCollateralFilter] = useState<string[]>([]);
@@ -112,7 +135,9 @@ export default function FixedMarketsPage() {
   const markets = useMemo(() => marketsQuery.data ?? [], [marketsQuery.data]);
   const marketIds = useMemo(() => markets.map((market) => market.marketId), [markets]);
   const booksQuery = useMidnightBooks(marketIds);
+  const { getWithdrawable } = useMidnightWithdrawable(markets);
   const positionsQuery = useMidnightUserPositions(userAddress);
+  const { orders: openOrders, refetch: refetchOpenOrders } = useMidnightOpenOrders(userAddress);
 
   const tokenRefs = useMemo(
     () => [
@@ -123,64 +148,70 @@ export default function FixedMarketsPage() {
       ...(positionsQuery.data ?? []).flatMap((position) => [
         { chainId: position.chainId, address: position.loanToken },
         ...position.collaterals.map((collateral) => ({ chainId: position.chainId, address: collateral.token }))
+      ]),
+      ...openOrders.flatMap((order) => [
+        { chainId: order.chainId, address: order.loanToken },
+        ...order.offers.flatMap((offer) => offer.collaterals.map((collateral) => ({ chainId: order.chainId, address: collateral.token })))
       ])
     ],
-    [markets, positionsQuery.data]
+    [markets, positionsQuery.data, openOrders]
   );
   const { getToken } = useTokensMetadata(tokenRefs);
 
   const rows = useMemo<FixedMarketRow[]>(() => {
     const books = new Map((booksQuery.data ?? []).map((book) => [book.marketId, book]));
-    return markets.map((market) => {
+    return markets.flatMap((market) => {
+      const collateralIndex = findCollateralIndex(market.loanToken, market.collaterals);
+      // Markets without a single collateral next to the loan token are not supported (see `findCollateralIndex`).
+      if (collateralIndex == null) return [];
+      const collateralParams = market.collaterals[collateralIndex];
+      const collateralToken = getToken(market.chainId, collateralParams.token);
       const loan = getToken(market.chainId, market.loanToken);
       const book = books.get(market.marketId);
       const fee = market.currentSettlementFeeWad ?? 0n;
       const loanSymbol = loan?.symbol ?? shortenAddress(market.loanToken);
-      const collaterals = market.collaterals.map((collateral) => {
-        const token = getToken(market.chainId, collateral.token);
-        return {
-          token: collateral.token,
-          symbol: token?.symbol ?? shortenAddress(collateral.token),
-          logoURI: token?.logoURI,
-          lltv: collateral.lltv
-        };
-      });
+      const collateral = {
+        token: collateralParams.token,
+        symbol: collateralToken?.symbol ?? shortenAddress(collateralParams.token),
+        logoURI: collateralToken?.logoURI,
+        lltv: collateralParams.lltv,
+        oracle: collateralParams.oracle
+      };
       const bestAsk = book?.asks[0];
       const bestBid = book?.bids[0];
+      const outstanding = outstandingLoans(market.totalUnits, getWithdrawable(market.chainId, market.marketId));
 
       return {
         market,
         loanSymbol,
         loanDecimals: loan?.decimals,
         loanLogoURI: loan?.logoURI,
-        collaterals,
-        pair: `${loanSymbol} / ${collaterals.map((collateral) => collateral.symbol).join(', ')}`,
+        collateral,
+        pair: `${loanSymbol} / ${collateral.symbol}`,
+        outstanding,
         outstandingUsd:
-          loan?.priceUsd != null && market.totalUnits != null
-            ? Number(formatUnits(market.totalUnits, loan.decimals)) * loan.priceUsd
-            : undefined,
-        lendDepth: sumAssets(book?.asks),
-        borrowDepth: sumAssets(book?.bids),
-        bestLendApr: bestAsk ? priceToApr(takerPrice('lend', bestAsk.price, fee), market.maturity, nowSec) : undefined,
-        bestBorrowApr: bestBid ? priceToApr(takerPrice('borrow', bestBid.price, fee), market.maturity, nowSec) : undefined,
+          loan?.priceUsd != null && outstanding != null ? Number(formatUnits(outstanding, loan.decimals)) * loan.priceUsd : undefined,
+        borrowDepth: sumAssets(book?.asks),
+        lendDepth: sumAssets(book?.bids),
+        borrowOrdersRate: bestAsk ? priceToApy(takerPrice('lend', bestAsk.price, fee), market.maturity, nowSec) : undefined,
+        lendOrdersRate: bestBid ? priceToApy(takerPrice('borrow', bestBid.price, fee), market.maturity, nowSec) : undefined,
+        hasBook: !!book && (book.asks.length > 0 || book.bids.length > 0),
         isMatured: isMatured(market.maturity, nowSec)
       };
     });
-  }, [markets, booksQuery.data, getToken, nowSec]);
+  }, [markets, booksQuery.data, getToken, getWithdrawable, nowSec]);
 
   const loanOptions = useMemo(() => Array.from(new Set(rows.map((row) => row.loanSymbol))).sort(), [rows]);
-  const collateralOptions = useMemo(
-    () => Array.from(new Set(rows.flatMap((row) => row.collaterals.map((collateral) => collateral.symbol)))).sort(),
-    [rows]
-  );
+  const collateralOptions = useMemo(() => Array.from(new Set(rows.map((row) => row.collateral.symbol))).sort(), [rows]);
   const maturityOptions = useMemo(() => Array.from(new Set(rows.map((row) => row.market.maturity))).sort((a, b) => a - b), [rows]);
 
   const visibleRows = useMemo(() => {
     const filtered = rows.filter(
       (row) =>
+        (showWithoutBook || row.hasBook) &&
         (networkFilter.length === 0 || networkFilter.includes(row.market.chainId)) &&
         (loanFilter.length === 0 || loanFilter.includes(row.loanSymbol)) &&
-        (collateralFilter.length === 0 || row.collaterals.some((collateral) => collateralFilter.includes(collateral.symbol))) &&
+        (collateralFilter.length === 0 || collateralFilter.includes(row.collateral.symbol)) &&
         (maturityFilter.length === 0 || maturityFilter.includes(row.market.maturity))
     );
     const direction = sortOrder === 'asc' ? 1 : -1;
@@ -200,19 +231,22 @@ export default function FixedMarketsPage() {
         case 'borrowDepth':
           return compareOptional(a.borrowDepth, b.borrowDepth, direction);
         case 'bestRate':
+          // The toggle picks a taker: a lender's rate comes off the best borrow order, a borrower's off the best lend order.
           return side === 'lend'
-            ? compareOptional(a.bestLendApr, b.bestLendApr, direction)
-            : compareOptional(a.bestBorrowApr, b.bestBorrowApr, direction);
+            ? compareOptional(a.borrowOrdersRate, b.borrowOrdersRate, direction)
+            : compareOptional(a.lendOrdersRate, b.lendOrdersRate, direction);
         default:
           return direction * (a.market.maturity - b.market.maturity) || byPairThenMaturity(a, b);
       }
     });
-  }, [rows, networkFilter, loanFilter, collateralFilter, maturityFilter, sortField, sortOrder, side]);
+  }, [rows, showWithoutBook, networkFilter, loanFilter, collateralFilter, maturityFilter, sortField, sortOrder, side]);
 
   const totalOutstandingUsd = visibleRows.reduce((total, row) => total + (row.outstandingUsd ?? 0), 0);
   const paginatedRows = visibleRows.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(visibleRows.length / rowsPerPage);
-  const positions = positionsQuery.data ?? [];
+  const allPositions = positionsQuery.data ?? [];
+  // Collateral parked for an open borrow order belongs to that order, not to a position.
+  const positions = allPositions.filter((position) => !isOrderCollateral(position, openOrders));
 
   const handleSideChange = (nextSide: FixedSide) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -283,6 +317,21 @@ export default function FixedMarketsPage() {
             <FormattedMessage id="fixed.positions.title" />
           </Typography>
           <FixedPositionsTable positions={positions} getToken={getToken} nowSec={nowSec} />
+        </Box>
+      )}
+
+      {userAddress && openOrders.length > 0 && (
+        <Box sx={{ marginBottom: 4 }}>
+          <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 1 }}>
+            <FormattedMessage id="fixed.orders.title" />
+          </Typography>
+          <FixedOrdersTable
+            orders={openOrders}
+            getToken={getToken}
+            getOrderCollateral={(chainId, marketId) => getOrderCollateralAmount(allPositions, openOrders, chainId, marketId)}
+            nowSec={nowSec}
+            onCancelled={refetchOpenOrders}
+          />
         </Box>
       )}
 
@@ -464,6 +513,18 @@ export default function FixedMarketsPage() {
           }
           label={intl.formatMessage({ id: 'fixed.list.showUnlisted' })}
         />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showWithoutBook}
+              onChange={(event) => {
+                setShowWithoutBook(event.target.checked);
+                setPage(1);
+              }}
+            />
+          }
+          label={intl.formatMessage({ id: 'fixed.list.showWithoutBook' })}
+        />
       </Stack>
 
       {showUnlisted && (
@@ -504,19 +565,20 @@ export default function FixedMarketsPage() {
                   <TableCell>
                     <FormattedMessage id="fixed.list.lltv" />
                   </TableCell>
+                  <TableCell>
+                    <FormattedMessage id="fixed.list.oracle" />
+                  </TableCell>
                   {renderSortHeader('maturity', 'fixed.list.maturity')}
                   {renderSortHeader('outstanding', 'fixed.list.outstanding')}
-                  {renderSortHeader('borrowDepth', 'fixed.list.borrowDepth', 'fixed.list.depthHint')}
-                  {renderSortHeader('lendDepth', 'fixed.list.lendDepth', 'fixed.list.depthHint')}
-                  {renderSortHeader('bestRate', side === 'lend' ? 'fixed.list.bestLendRate' : 'fixed.list.bestBorrowRate')}
+                  {renderSortHeader('borrowDepth', 'fixed.list.borrowDepth', 'fixed.list.borrowDepthHint')}
+                  {renderSortHeader('lendDepth', 'fixed.list.lendDepth', 'fixed.list.lendDepthHint')}
+                  {renderSortHeader('bestRate', 'fixed.list.bestRate', 'fixed.list.bestRateHint')}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedRows.map((row) => {
                   const maturity = formatMaturity(intl, row.market.maturity, nowSec);
-                  const bestRate = side === 'lend' ? row.bestLendApr : row.bestBorrowApr;
-                  const collateralSymbols = row.collaterals.map((collateral) => collateral.symbol);
-                  const href = routes.fixedMarket(row.market.marketId, row.loanSymbol, collateralSymbols, row.market.maturity);
+                  const href = routes.fixedMarket(row.market.marketId, row.loanSymbol, row.collateral.symbol, row.market.maturity);
 
                   return (
                     <TableRow key={row.market.marketId} hover onClick={() => navigate(href)} sx={{ cursor: 'pointer' }}>
@@ -543,21 +605,21 @@ export default function FixedMarketsPage() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {row.collaterals.map((collateral, index) => (
-                              <TokenIcon
-                                key={collateral.token}
-                                symbol={collateral.symbol}
-                                logoURI={collateral.logoURI}
-                                sx={{ display: 'flex', marginLeft: index > 0 ? '-12px' : 0 }}
-                                avatarProps={{ alt: '', sx: { width: 28, height: 28 } }}
-                              />
-                            ))}
-                          </Box>
-                          {collateralSymbols.join(', ')}
+                          <TokenIcon
+                            symbol={row.collateral.symbol}
+                            logoURI={row.collateral.logoURI}
+                            sx={{ display: 'flex' }}
+                            avatarProps={{ alt: '', sx: { width: 28, height: 28 } }}
+                          />
+                          {row.collateral.symbol}
                         </Box>
                       </TableCell>
-                      <TableCell>{row.collaterals.map((collateral) => formatLltv(collateral.lltv)).join(' / ')}</TableCell>
+                      <TableCell>{formatLltv(row.collateral.lltv)}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {shortenAddress(row.collateral.oracle)}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Typography variant="body2">{maturity.date}</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
@@ -575,7 +637,7 @@ export default function FixedMarketsPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{formatLoanAmount(row, row.market.totalUnits)}</Typography>
+                        <Typography variant="body2">{formatLoanAmount(row, row.outstanding)}</Typography>
                         {row.outstandingUsd != null && (
                           <Typography variant="body2" color="text.secondary">
                             ${formatShortUSDS(row.outstandingUsd)}
@@ -585,8 +647,14 @@ export default function FixedMarketsPage() {
                       <TableCell>{row.borrowDepth > 0n ? formatLoanAmount(row, row.borrowDepth) : '-'}</TableCell>
                       <TableCell>{row.lendDepth > 0n ? formatLoanAmount(row, row.lendDepth) : '-'}</TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {bestRate != null ? formatWadPercent(bestRate) : '-'}
+                        <Typography variant="body2" fontWeight="bold" component="span">
+                          <Box component="span" sx={{ opacity: side === 'lend' ? 1 : 0.5 }}>
+                            {formatWadPercent(row.borrowOrdersRate) ?? '—'}
+                          </Box>
+                          {' / '}
+                          <Box component="span" sx={{ opacity: side === 'borrow' ? 1 : 0.5 }}>
+                            {formatWadPercent(row.lendOrdersRate) ?? '—'}
+                          </Box>
                         </Typography>
                       </TableCell>
                     </TableRow>

@@ -1,57 +1,45 @@
-import { formatUnits } from 'viem';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
-import {
-  Chip,
-  IconButton,
-  Link,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tooltip,
-  Typography
-} from '@mui/material';
+import { Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 import { ChainIcon } from 'components/ChainIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
-import { useExplorerUrl } from 'hooks/midnight/useExplorerUrl';
 import { shortenAddress } from 'utils/formatters';
-import { collateralPriceInLoan, formatMaturity, formatWadPercent, SECONDS_PER_YEAR, WAD } from 'utils/midnight';
+import { formatMaturity, formatWadPercent, outstandingLoans, SECONDS_PER_YEAR } from 'utils/midnight';
 import { formatTokenDisplay } from './FixedAmountInput';
 import type { FixedMarketContext } from './types';
 
 interface FixedMarketHeaderProps {
   ctx: FixedMarketContext;
-  bestLendApr?: bigint;
-  bestBorrowApr?: bigint;
+  /** Compounded rate a taker gets on the best ask. */
+  bestLendApy?: bigint;
+  /** Compounded rate a taker pays on the best bid. */
+  bestBorrowApy?: bigint;
 }
 
 // ==============================|| FIXED-RATE MARKET HEADER ||============================== //
 
-export default function FixedMarketHeader({ ctx, bestLendApr, bestBorrowApr }: FixedMarketHeaderProps) {
+export default function FixedMarketHeader({ ctx, bestLendApy, bestBorrowApy }: FixedMarketHeaderProps) {
   const theme = useTheme();
   const intl = useIntl();
-  const explorer = useExplorerUrl(ctx.chainId);
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { loan, collaterals, market, sdkMarket, state } = ctx;
+  const { loan, collateral, market, sdkMarket, state } = ctx;
   const maturity = formatMaturity(intl, market.maturity, ctx.nowSec);
-  const outstanding = state?.totalUnits ?? sdkMarket?.totalUnits ?? market.totalUnits;
+  // Prefer the on-chain pair: subtracting an API total from an on-chain withdrawable would mix two block heights.
+  const outstanding = sdkMarket
+    ? outstandingLoans(sdkMarket.totalUnits, sdkMarket.withdrawable)
+    : outstandingLoans(state?.totalUnits ?? market.totalUnits);
   const copyTitle = copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' });
 
   const stats = [
     { labelId: 'fixed.header.outstanding', value: formatTokenDisplay(outstanding, loan.decimals, loan.symbol, 2) },
     { labelId: 'fixed.header.withdrawable', value: formatTokenDisplay(sdkMarket?.withdrawable, loan.decimals, loan.symbol, 2) },
-    { labelId: 'fixed.header.bestLendApr', value: formatWadPercent(bestLendApr) ?? '-' },
-    { labelId: 'fixed.header.bestBorrowApr', value: formatWadPercent(bestBorrowApr) ?? '-' },
+    { labelId: 'fixed.header.bestLendApy', value: formatWadPercent(bestLendApy) ?? '-' },
+    { labelId: 'fixed.header.bestBorrowApy', value: formatWadPercent(bestBorrowApy) ?? '-' },
     { labelId: 'fixed.header.settlementFee', value: formatWadPercent(ctx.settlementFee, 4) ?? '-' },
     {
       labelId: 'fixed.header.continuousFee',
@@ -81,15 +69,12 @@ export default function FixedMarketHeader({ ctx, bestLendApr, bestBorrowApr }: F
                   sx={{ display: 'flex', zIndex: 2 }}
                   avatarProps={{ alt: '', sx: { width: 38, height: 38 } }}
                 />
-                {collaterals.map((collateral) => (
-                  <TokenIcon
-                    key={collateral.token}
-                    symbol={collateral.symbol}
-                    logoURI={collateral.logoURI}
-                    sx={{ display: 'flex', marginLeft: '-14px' }}
-                    avatarProps={{ alt: '', sx: { width: 38, height: 38 } }}
-                  />
-                ))}
+                <TokenIcon
+                  symbol={collateral.symbol}
+                  logoURI={collateral.logoURI}
+                  sx={{ display: 'flex', marginLeft: '-14px' }}
+                  avatarProps={{ alt: '', sx: { width: 38, height: 38 } }}
+                />
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
                 <Typography variant="h3" component="span">
@@ -102,17 +87,13 @@ export default function FixedMarketHeader({ ctx, bestLendApr, bestBorrowApr }: F
                 <Typography variant="h3" component="span" aria-hidden="true" sx={{ mx: 1, color: theme.palette.grey[500] }}>
                   /
                 </Typography>
-                {collaterals.map((collateral) => (
-                  <Box key={collateral.token} component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <Typography variant="h3" component="span">
-                      {collateral.symbol}
-                    </Typography>
-                    {renderCopyButton(
-                      intl.formatMessage({ id: 'market.copyCollateralAria' }, { symbol: collateral.symbol, address: collateral.token }),
-                      collateral.token
-                    )}
-                  </Box>
-                ))}
+                <Typography variant="h3" component="span">
+                  {collateral.symbol}
+                </Typography>
+                {renderCopyButton(
+                  intl.formatMessage({ id: 'market.copyCollateralAria' }, { symbol: collateral.symbol, address: collateral.token }),
+                  collateral.token
+                )}
               </Box>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -161,87 +142,6 @@ export default function FixedMarketHeader({ ctx, bestLendApr, bestBorrowApr }: F
           </Grid>
         </Grid>
       </Grid>
-
-      <TableContainer sx={{ marginTop: 3 }}>
-        <Table size="small" sx={{ minWidth: 600 }} aria-label={intl.formatMessage({ id: 'fixed.header.collateralsAria' })}>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <FormattedMessage id="fixed.header.collateral" />
-              </TableCell>
-              <TableCell>
-                <FormattedMessage id="fixed.header.lltv" />
-              </TableCell>
-              <TableCell>
-                <FormattedMessage id="fixed.header.maxPenalty" />
-              </TableCell>
-              <TableCell>
-                <FormattedMessage id="fixed.header.oracle" />
-              </TableCell>
-              <TableCell>
-                <FormattedMessage id="fixed.header.oraclePrice" />
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {collaterals.map((collateral) => {
-              const oracleLink = explorer.address(collateral.oracle);
-              return (
-                <TableRow key={collateral.token}>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon
-                        symbol={collateral.symbol}
-                        logoURI={collateral.logoURI}
-                        sx={{ display: 'flex' }}
-                        avatarProps={{ alt: '', sx: { width: 24, height: 24 } }}
-                      />
-                      {collateral.symbol}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{`${Number(formatUnits(collateral.lltv, 16))}%`}</TableCell>
-                  <TableCell>{formatWadPercent(collateral.maxLif - WAD)}</TableCell>
-                  <TableCell>
-                    {oracleLink ? (
-                      <Link
-                        href={oracleLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={intl.formatMessage(
-                          { id: 'fixed.header.oracleAria' },
-                          { symbol: collateral.symbol, address: collateral.oracle }
-                        )}
-                      >
-                        {shortenAddress(collateral.oracle)}
-                      </Link>
-                    ) : (
-                      shortenAddress(collateral.oracle)
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {collateral.oraclePrice != null && collateral.decimals != null && loan.decimals != null ? (
-                      <FormattedMessage
-                        id="fixed.header.oraclePriceValue"
-                        values={{
-                          collateral: collateral.symbol,
-                          price: formatTokenDisplay(
-                            collateralPriceInLoan(collateral.oraclePrice, collateral.decimals),
-                            loan.decimals,
-                            loan.symbol,
-                            2
-                          )
-                        }}
-                      />
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
     </Paper>
   );
 }

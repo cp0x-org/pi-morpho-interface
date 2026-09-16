@@ -4,56 +4,65 @@ import Box from '@mui/material/Box';
 import { Alert } from '@mui/material';
 
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
-import { applySafetyFactor, computeLtv, computeMaxDebt, formatWadPercent, maxWithdrawableCollateral } from 'utils/midnight';
+import {
+  applySafetyFactor,
+  computeLtv,
+  computeMaxDebt,
+  formatWadPercent,
+  getOpenBorrowUnits,
+  maxWithdrawableCollateral
+} from 'utils/midnight';
 import { approveRequest, supplyCollateralRequest, withdrawCollateralRequest } from 'utils/midnightTx';
-import FixedAmountInput, { FixedCollateralSelect, FixedDetailsList, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
+import FixedAmountInput, { FixedDetailsList, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
 import FixedTxButton from './FixedTxButton';
 import type { FixedMarketContext } from './types';
 
 // ==============================|| FIXED-RATE ADD / WITHDRAW COLLATERAL ||============================== //
 
-export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketContext; mode: 'add' | 'withdraw' }) {
+/** `onDone` runs after a successful transaction, e.g. to close the dialog the form sits in. */
+export default function FixedCollateralForm({
+  ctx,
+  mode,
+  onDone
+}: {
+  ctx: FixedMarketContext;
+  mode: 'add' | 'withdraw';
+  onDone?: () => void;
+}) {
   const intl = useIntl();
   const tx = useTxSteps(ctx.chainId);
-  const { loan, collaterals } = ctx;
+  const { loan, collateral } = ctx;
   const debt = ctx.position?.debt ?? 0n;
-  const options = mode === 'withdraw' ? collaterals.filter((collateral) => collateral.positionAmount > 0n) : collaterals;
+  // What open borrow orders can still add here: the collateral they rely on stays put, as on markets.morpho.org.
+  const orderDebt = getOpenBorrowUnits(ctx.openOrders, ctx.marketId);
 
-  const [collateralIndex, setCollateralIndex] = useState(options[0]?.index ?? 0);
   const [amountInput, setAmountInput] = useState('');
 
-  const collateral = collaterals[collateralIndex] ?? options[0];
-  const amount = parseAmountInput(amountInput, collateral?.decimals);
+  const amount = parseAmountInput(amountInput, collateral.decimals);
   const validAmount = amount ?? 0n;
-  const holdings = collaterals.map((item) => ({ amount: item.positionAmount, oraclePrice: item.oraclePrice, lltv: item.lltv }));
-  const maxAmount = !collateral
-    ? 0n
-    : mode === 'add'
-      ? (collateral.walletBalance ?? 0n)
-      : maxWithdrawableCollateral(holdings, collateral.index, debt);
-  const holdingsAfter = holdings.map((holding, index) => {
-    if (index !== collateral?.index) return holding;
-    const nextAmount = mode === 'add' ? holding.amount + validAmount : holding.amount > validAmount ? holding.amount - validAmount : 0n;
-    return { ...holding, amount: nextAmount };
-  });
+  const holding = { amount: collateral.positionAmount, oraclePrice: collateral.oraclePrice, lltv: collateral.lltv };
+  const maxAmount = mode === 'add' ? (collateral.walletBalance ?? 0n) : maxWithdrawableCollateral(holding, debt + orderDebt);
+  const holdingAfter = {
+    ...holding,
+    amount: mode === 'add' ? holding.amount + validAmount : holding.amount > validAmount ? holding.amount - validAmount : 0n
+  };
   const exceeds = validAmount > maxAmount;
   // Once matured, unpaid debt is liquidatable whatever the collateral: withdrawals wait for the repayment.
   const blockedAfterMaturity = mode === 'withdraw' && ctx.isMatured && debt > 0n;
 
-  const latest = useRef({ amount: validAmount, collateralIndex: collateral?.index ?? 0 });
-  latest.current = { amount: validAmount, collateralIndex: collateral?.index ?? 0 };
+  const latest = useRef({ amount: validAmount });
+  latest.current = { amount: validAmount };
 
   const steps = useMemo<TxStep[]>(() => {
     const { user } = ctx;
-    if (!user || !collateral || validAmount === 0n) return [];
+    if (!user || validAmount === 0n) return [];
     const target = { chainId: ctx.chainId, marketId: ctx.marketId, marketParams: ctx.marketParams, user };
     if (mode === 'withdraw') {
       return [
         {
           key: 'withdraw',
           label: intl.formatMessage({ id: 'fixed.collateral.withdrawButton' }),
-          build: () =>
-            withdrawCollateralRequest({ ...target, collateralIndex: latest.current.collateralIndex, assets: latest.current.amount })
+          build: () => withdrawCollateralRequest({ ...target, collateralIndex: collateral.index, assets: latest.current.amount })
         }
       ];
     }
@@ -68,29 +77,16 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
     list.push({
       key: 'add',
       label: intl.formatMessage({ id: 'fixed.collateral.addButton' }),
-      build: () => supplyCollateralRequest({ ...target, collateralIndex: latest.current.collateralIndex, assets: latest.current.amount })
+      build: () => supplyCollateralRequest({ ...target, collateralIndex: collateral.index, assets: latest.current.amount })
     });
     return list;
   }, [ctx, collateral, mode, validAmount, intl]);
-
-  if (!collateral) return null;
 
   const formatLtv = (value?: bigint) => (value == null ? '-' : (formatWadPercent(value) ?? '-'));
   const actionLabel = intl.formatMessage({ id: mode === 'add' ? 'fixed.collateral.addButton' : 'fixed.collateral.withdrawButton' });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <FixedCollateralSelect
-        id={`fixed-collateral-${mode}-select`}
-        label={intl.formatMessage({ id: 'fixed.form.collateralSelect' })}
-        options={options}
-        value={collateral.index}
-        onChange={(index) => {
-          setCollateralIndex(index);
-          setAmountInput('');
-        }}
-      />
-
       <FixedAmountInput
         id={`fixed-collateral-${mode}-amount`}
         title={actionLabel}
@@ -123,6 +119,9 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
 
       <Box id={`fixed-collateral-${mode}-feedback`} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {blockedAfterMaturity && <Alert severity="warning">{intl.formatMessage({ id: 'fixed.collateral.blockedAfterMaturity' })}</Alert>}
+        {mode === 'withdraw' && orderDebt > 0n && (
+          <Alert severity="info">{intl.formatMessage({ id: 'fixed.collateral.backsOrder' })}</Alert>
+        )}
         {amount === undefined && <Alert severity="error">{intl.formatMessage({ id: 'fixed.form.invalidAmount' })}</Alert>}
         {exceeds && <Alert severity="error">{intl.formatMessage({ id: 'fixed.collateral.exceeds' })}</Alert>}
       </Box>
@@ -134,8 +133,8 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
               {
-                before: formatTokenDisplay(holdings[collateral.index].amount, collateral.decimals, collateral.symbol),
-                after: formatTokenDisplay(holdingsAfter[collateral.index].amount, collateral.decimals, collateral.symbol)
+                before: formatTokenDisplay(holding.amount, collateral.decimals, collateral.symbol),
+                after: formatTokenDisplay(holdingAfter.amount, collateral.decimals, collateral.symbol)
               }
             )
           },
@@ -143,7 +142,7 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
             label: intl.formatMessage({ id: 'fixed.form.ltv' }),
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
-              { before: formatLtv(computeLtv(debt, holdings)), after: formatLtv(computeLtv(debt, holdingsAfter)) }
+              { before: formatLtv(computeLtv(debt, holding)), after: formatLtv(computeLtv(debt, holdingAfter)) }
             )
           },
           {
@@ -151,8 +150,8 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
               {
-                before: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holdings)), loan.decimals, loan.symbol, 2),
-                after: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holdingsAfter)), loan.decimals, loan.symbol, 2)
+                before: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holding)), loan.decimals, loan.symbol, 2),
+                after: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holdingAfter)), loan.decimals, loan.symbol, 2)
               }
             )
           }
@@ -169,7 +168,10 @@ export default function FixedCollateralForm({ ctx, mode }: { ctx: FixedMarketCon
           { symbol: collateral.symbol }
         )}
         disabled={amount === undefined || validAmount === 0n || exceeds || blockedAfterMaturity}
-        onSuccess={() => setAmountInput('')}
+        onSuccess={() => {
+          setAmountInput('');
+          onDone?.();
+        }}
       />
     </Box>
   );

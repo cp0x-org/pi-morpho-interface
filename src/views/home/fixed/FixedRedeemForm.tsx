@@ -84,7 +84,9 @@ export default function FixedRedeemForm({ ctx }: { ctx: FixedMarketContext }) {
         actionLabel={intl.formatMessage({ id: 'fixed.redeem.button' })}
         successMessage={intl.formatMessage({ id: 'fixed.redeem.success' }, { symbol: loan.symbol })}
         disabled={units === undefined || validUnits === 0n || exceeds}
-        onSuccess={() => setUnitsInput('')}
+        onSuccess={() => {
+          setUnitsInput('');
+        }}
       />
     </Box>
   );

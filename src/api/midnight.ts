@@ -16,6 +16,7 @@ import type {
   MidnightMarketResponse,
   MidnightMarketState,
   MidnightMarketStateResponse,
+  MidnightOpenOrder,
   MidnightPageResponse,
   MidnightPositionPerformance,
   MidnightPositionPerformanceResponse,
@@ -286,6 +287,61 @@ export const getUserMarketPerformance = async (
   };
 };
 
+/* ---------- open orders ---------- */
+
+/**
+ * A maker's open orders on every Midnight chain, grouped by offer group.
+ *
+ * `GET /takeable-offers` only returns the offer each order shows right now: an order placed on markets.morpho.org is a
+ * series of offers with consecutive time windows (the tick steps up so the rate holds as maturity nears), and the rest
+ * of the series lives in the mempool payload, which the public API does not expose. Offers served for another Midnight
+ * deployment are dropped, as for books.
+ */
+export const getOpenOrders = async (maker: Address, signal?: AbortSignal): Promise<MidnightOpenOrder[]> => {
+  const takes = await collectPages(async (cursor) => {
+    const response = await MidnightApi.fetchTakeableOffers({ ...sdkConfig(signal), maker, cursor });
+    return { cursor: response.cursor, data: [...response.data] };
+  }, 10);
+
+  const orders = new Map<string, MidnightOpenOrder>();
+  takes.forEach(({ marketId, units, offer, ratifierData }) => {
+    const chainId = Number(offer.market.chainId);
+    if (!isExpectedMidnightAddress(chainId, offer.market.midnight)) return;
+    const key = `${chainId}:${offer.group.toLowerCase()}`;
+    const order = orders.get(key) ?? {
+      chainId,
+      group: offer.group,
+      maker: getAddress(offer.maker),
+      side: offer.buy ? 'lend' : 'borrow',
+      reduceOnly: offer.reduceOnly,
+      callback: getAddress(offer.callback),
+      loanToken: getAddress(offer.market.loanToken),
+      // Offers of one group share the cap mode and value.
+      cap: offer.maxAssets > 0n ? offer.maxAssets : offer.maxUnits,
+      capInUnits: offer.maxAssets === 0n,
+      offers: []
+    };
+    order.offers.push({
+      marketId: toMarketId(marketId),
+      collaterals: offer.market.collateralParams.map((collateral) => ({
+        token: getAddress(collateral.token),
+        lltv: collateral.lltv,
+        liquidationCursor: collateral.liquidationCursor,
+        oracle: getAddress(collateral.oracle)
+      })),
+      maturity: Number(offer.market.maturity),
+      tick: offer.tick,
+      start: Number(offer.start),
+      expiry: Number(offer.expiry),
+      units,
+      ratifier: getAddress(offer.ratifier),
+      ratifierData
+    });
+    orders.set(key, order);
+  });
+  return Array.from(orders.values());
+};
+
 /* ---------- transactions ---------- */
 
 export interface MidnightTransactionsPage {
@@ -323,9 +379,19 @@ export const getMarketTransactions = async (
 
 // `GET /books` rejects more than 20 ids (and limit > 20) with 400 VALIDATION_ERROR.
 const BOOKS_BATCH_SIZE = 20;
+// `GET /books` always answers with the top 3 levels per side and takes no `depth`, so full depth needs one
+// `GET /books/{id}` per market. Only markets that already showed a level are deepened, and never more than this many.
+const MAX_DEEP_BOOKS = 32;
 
-/** Top-of-book levels for many markets. Books served for another Midnight deployment are dropped. */
-export const getBooks = async (marketIds: Hex[], signal?: AbortSignal): Promise<MidnightBook[]> => {
+export interface GetBooksOptions {
+  /** Re-read every non-empty book through `GET /books/{id}` so the summed depth covers the whole book, like markets.morpho.org. */
+  deep?: boolean;
+  depth?: number;
+  signal?: AbortSignal;
+}
+
+/** Book levels for many markets. Books served for another Midnight deployment are dropped. */
+export const getBooks = async (marketIds: Hex[], { deep = false, depth = 100, signal }: GetBooksOptions = {}): Promise<MidnightBook[]> => {
   const ids = Array.from(new Set(marketIds.map(toMarketId)));
   const batches: Hex[][] = [];
   for (let i = 0; i < ids.length; i += BOOKS_BATCH_SIZE) batches.push(ids.slice(i, i + BOOKS_BATCH_SIZE));
@@ -333,10 +399,18 @@ export const getBooks = async (marketIds: Hex[], signal?: AbortSignal): Promise<
   const responses = await Promise.all(
     batches.map((batch) => MidnightApi.fetchBooks({ ...sdkConfig(signal), marketIds: batch, limit: batch.length }))
   );
-  return responses
+  const books = responses
     .flatMap((response) => response.data)
     .filter((book) => isExpectedMidnightAddress(book.chainId, book.midnight))
     .map(normalizeBook);
+
+  if (!deep) return books;
+
+  const deepen = books.filter((book) => book.asks.length > 0 || book.bids.length > 0).slice(0, MAX_DEEP_BOOKS);
+  const full = new Map(
+    (await Promise.all(deepen.map((book) => getBook(book.marketId, depth, signal).catch(() => book)))).map((book) => [book.marketId, book])
+  );
+  return books.map((book) => full.get(book.marketId) ?? book);
 };
 
 export const getBook = async (marketId: Hex, depth = 20, signal?: AbortSignal): Promise<MidnightBook> => {

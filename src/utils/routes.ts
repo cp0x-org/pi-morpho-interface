@@ -31,7 +31,7 @@ export const routes = {
   variableMarket: (marketId: string, chainId?: number, loanSymbol?: string, collateralSymbol?: string) =>
     withChainId(withSlug(`/variable/${marketId}`, slugify(loanSymbol, collateralSymbol)), chainId),
   fixed: (side?: FixedSide) => (side ? `/fixed?side=${side}` : '/fixed'),
-  fixedMarket: (marketId: string, loanSymbol?: string, collateralSymbols?: (string | undefined)[], maturity?: number) =>
-    withSlug(`/fixed/${marketId}`, buildFixedSlug(loanSymbol, collateralSymbols, maturity)),
+  fixedMarket: (marketId: string, loanSymbol?: string, collateralSymbol?: string, maturity?: number) =>
+    withSlug(`/fixed/${marketId}`, buildFixedSlug(loanSymbol, collateralSymbol, maturity)),
   portfolio: () => '/portfolio'
 };

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@tanstack/react-query';
 import { useReadContracts } from 'wagmi';
 import { getAddress, type Address } from 'viem';
 
@@ -38,6 +38,24 @@ export const tokenKey = (chainId: number, address: string) => `${chainId}:${addr
 
 const UNKNOWN_SYMBOL = 'UNKNOWN';
 
+/** Morpho GraphQL rejects `address_in` with more than 100 elements; the fixed-rate list alone needs about 150. */
+const ADDRESSES_PER_REQUEST = 100;
+
+const fetchAssets = async (addresses: string[], chainIds: number[]) => {
+  const chunks = Array.from({ length: Math.ceil(addresses.length / ADDRESSES_PER_REQUEST) }, (_, index) =>
+    addresses.slice(index * ADDRESSES_PER_REQUEST, (index + 1) * ADDRESSES_PER_REQUEST)
+  );
+  const responses = await Promise.all(
+    chunks.map((chunk) =>
+      appoloClients.morphoApi.query<AssetsByAddressData>({
+        query: MorphoRequests.GetAssetsByAddress,
+        variables: { addresses: chunk, chainIds }
+      })
+    )
+  );
+  return responses.flatMap((response) => response.data.assets.items);
+};
+
 /**
  * Symbol, decimals, logo and USD price for (chain, token) pairs: batched from the Morpho GraphQL API,
  * with an on-chain `symbol()` / `decimals()` fallback for tokens the API does not know.
@@ -66,16 +84,21 @@ export const useTokensMetadata = (tokens: TokenRef[]) => {
     [uniqueTokens]
   );
 
-  const { data, loading, error } = useQuery<AssetsByAddressData>(MorphoRequests.GetAssetsByAddress, {
-    client: appoloClients.morphoApi,
-    variables,
-    skip: uniqueTokens.length === 0
+  const {
+    data,
+    isLoading: loading,
+    error
+  } = useQuery({
+    queryKey: ['tokensMetadata', keysSignature],
+    queryFn: () => fetchAssets(variables.addresses, variables.chainIds),
+    enabled: uniqueTokens.length > 0,
+    staleTime: 5 * 60_000
   });
 
   const apiTokens = useMemo(() => {
     const requested = new Set(keysSignature.split(','));
     const result = new Map<string, TokenMetadata>();
-    data?.assets.items.forEach((item) => {
+    data?.forEach((item) => {
       const key = tokenKey(item.chain.id, item.address);
       if (!requested.has(key) || item.symbol === UNKNOWN_SYMBOL) return;
       result.set(key, {

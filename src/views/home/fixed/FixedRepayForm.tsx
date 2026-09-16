@@ -4,9 +4,9 @@ import Box from '@mui/material/Box';
 import { Alert, Checkbox, FormControlLabel } from '@mui/material';
 
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
-import { computeLtv, formatWadPercent, getDeadline, maxWithdrawableCollateral } from 'utils/midnight';
+import { computeLtv, formatWadPercent, getDeadline, getOpenBorrowUnits, maxWithdrawableCollateral } from 'utils/midnight';
 import { approveRequest, authorizeBundlesRequest, repayRequest } from 'utils/midnightTx';
-import FixedAmountInput, { FixedCollateralSelect, FixedDetailsList, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
+import FixedAmountInput, { FixedDetailsList, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
 import FixedTxButton from './FixedTxButton';
 import type { FixedMarketContext } from './types';
 
@@ -15,13 +15,11 @@ import type { FixedMarketContext } from './types';
 export default function FixedRepayForm({ ctx }: { ctx: FixedMarketContext }) {
   const intl = useIntl();
   const tx = useTxSteps(ctx.chainId);
-  const { loan, collaterals } = ctx;
+  const { loan, collateral } = ctx;
   const debt = ctx.position?.debt ?? 0n;
-  const withCollateral = collaterals.filter((collateral) => collateral.positionAmount > 0n);
 
   const [repayInput, setRepayInput] = useState('');
   const [withdrawEnabled, setWithdrawEnabled] = useState(false);
-  const [collateralIndex, setCollateralIndex] = useState(withCollateral[0]?.index ?? 0);
   const [withdrawInput, setWithdrawInput] = useState('');
 
   const repayAssets = parseAmountInput(repayInput, loan.decimals);
@@ -30,21 +28,19 @@ export default function FixedRepayForm({ ctx }: { ctx: FixedMarketContext }) {
   const maxRepay = debt < walletBalance ? debt : walletBalance;
   const debtAfter = debt > validRepay ? debt - validRepay : 0n;
 
-  const collateral = collaterals[collateralIndex] ?? collaterals[0];
-  const holdings = collaterals.map((item) => ({ amount: item.positionAmount, oraclePrice: item.oraclePrice, lltv: item.lltv }));
-  const maxWithdraw = collateral ? maxWithdrawableCollateral(holdings, collateral.index, debtAfter) : 0n;
-  const withdrawAssets = withdrawEnabled ? parseAmountInput(withdrawInput, collateral?.decimals) : 0n;
+  const holding = { amount: collateral.positionAmount, oraclePrice: collateral.oraclePrice, lltv: collateral.lltv };
+  // Collateral an open borrow order relies on stays put, as in the collateral form.
+  const maxWithdraw = maxWithdrawableCollateral(holding, debtAfter + getOpenBorrowUnits(ctx.openOrders, ctx.marketId));
+  const withdrawAssets = withdrawEnabled ? parseAmountInput(withdrawInput, collateral.decimals) : 0n;
   const validWithdraw = withdrawAssets ?? 0n;
-  const holdingsAfter = holdings.map((holding, index) =>
-    index === collateral?.index ? { ...holding, amount: holding.amount > validWithdraw ? holding.amount - validWithdraw : 0n } : holding
-  );
+  const holdingAfter = { ...holding, amount: holding.amount > validWithdraw ? holding.amount - validWithdraw : 0n };
 
   const exceedsDebt = validRepay > debt;
   const exceedsWallet = validRepay > walletBalance;
   const exceedsWithdrawable = validWithdraw > maxWithdraw;
 
-  const latest = useRef({ repay: validRepay, withdraw: validWithdraw, collateralIndex: collateral?.index ?? 0 });
-  latest.current = { repay: validRepay, withdraw: validWithdraw, collateralIndex: collateral?.index ?? 0 };
+  const latest = useRef({ repay: validRepay, withdraw: validWithdraw });
+  latest.current = { repay: validRepay, withdraw: validWithdraw };
 
   const steps = useMemo<TxStep[]>(() => {
     const { user, midnightBundles } = ctx;
@@ -74,12 +70,12 @@ export default function FixedRepayForm({ ctx }: { ctx: FixedMarketContext }) {
           marketParams: ctx.marketParams,
           user,
           repayAssets: latest.current.repay,
-          withdrawals: [{ collateralIndex: latest.current.collateralIndex, assets: latest.current.withdraw }],
+          withdrawals: [{ collateralIndex: collateral.index, assets: latest.current.withdraw }],
           deadline: getDeadline()
         })
     });
     return list;
-  }, [ctx, loan.allowanceBundles, loan.symbol, loan.token, validRepay, intl]);
+  }, [ctx, loan.allowanceBundles, loan.symbol, loan.token, collateral.index, validRepay, intl]);
 
   const formatLtv = (value?: bigint) => (value == null ? '-' : (formatWadPercent(value) ?? '-'));
   const disabled =
@@ -110,44 +106,32 @@ export default function FixedRepayForm({ ctx }: { ctx: FixedMarketContext }) {
         invalid={repayAssets === undefined || exceedsDebt || exceedsWallet}
       />
 
-      {withCollateral.length > 0 && (
+      {collateral.positionAmount > 0n && (
         <FormControlLabel
           control={<Checkbox checked={withdrawEnabled} onChange={(event) => setWithdrawEnabled(event.target.checked)} />}
           label={intl.formatMessage({ id: 'fixed.repay.withdrawToggle' })}
         />
       )}
 
-      {withdrawEnabled && collateral && (
-        <>
-          <FixedCollateralSelect
-            id="fixed-repay-collateral"
-            label={intl.formatMessage({ id: 'fixed.form.collateralSelect' })}
-            options={withCollateral}
-            value={collateral.index}
-            onChange={(index) => {
-              setCollateralIndex(index);
-              setWithdrawInput('');
-            }}
-          />
-          <FixedAmountInput
-            id="fixed-repay-withdraw-amount"
-            title={intl.formatMessage({ id: 'fixed.manage.tabWithdrawCollateral' })}
-            label={intl.formatMessage({ id: 'fixed.repay.withdrawLabel' })}
-            symbol={collateral.symbol}
-            logoURI={collateral.logoURI}
-            decimals={collateral.decimals}
-            value={withdrawInput}
-            onChange={setWithdrawInput}
-            maxAmount={maxWithdraw}
-            hint={intl.formatMessage(
-              { id: 'fixed.collateral.maxWithdrawable' },
-              { amount: formatTokenDisplay(maxWithdraw, collateral.decimals, collateral.symbol) }
-            )}
-            ariaLabel={intl.formatMessage({ id: 'fixed.collateral.withdrawInputAria' }, { symbol: collateral.symbol })}
-            describedBy="fixed-repay-feedback"
-            invalid={withdrawAssets === undefined || exceedsWithdrawable}
-          />
-        </>
+      {withdrawEnabled && (
+        <FixedAmountInput
+          id="fixed-repay-withdraw-amount"
+          title={intl.formatMessage({ id: 'fixed.manage.tabWithdrawCollateral' })}
+          label={intl.formatMessage({ id: 'fixed.repay.withdrawLabel' })}
+          symbol={collateral.symbol}
+          logoURI={collateral.logoURI}
+          decimals={collateral.decimals}
+          value={withdrawInput}
+          onChange={setWithdrawInput}
+          maxAmount={maxWithdraw}
+          hint={intl.formatMessage(
+            { id: 'fixed.collateral.maxWithdrawable' },
+            { amount: formatTokenDisplay(maxWithdraw, collateral.decimals, collateral.symbol) }
+          )}
+          ariaLabel={intl.formatMessage({ id: 'fixed.collateral.withdrawInputAria' }, { symbol: collateral.symbol })}
+          describedBy="fixed-repay-feedback"
+          invalid={withdrawAssets === undefined || exceedsWithdrawable}
+        />
       )}
 
       <Box id="fixed-repay-feedback" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -177,7 +161,7 @@ export default function FixedRepayForm({ ctx }: { ctx: FixedMarketContext }) {
             label: intl.formatMessage({ id: 'fixed.form.ltv' }),
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
-              { before: formatLtv(computeLtv(debt, holdings)), after: formatLtv(computeLtv(debtAfter, holdingsAfter)) }
+              { before: formatLtv(computeLtv(debt, holding)), after: formatLtv(computeLtv(debtAfter, holdingAfter)) }
             )
           }
         ]}
