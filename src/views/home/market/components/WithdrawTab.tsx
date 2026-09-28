@@ -5,21 +5,22 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { AccrualPosition, Market } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface WithdrawTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   sdkMarket: Market | null;
   accrualPosition: AccrualPosition | null;
   marketId: string;
@@ -29,7 +30,16 @@ interface WithdrawTabProps {
   onLoanAmountChange: (amount: bigint) => void;
 }
 
-export default function WithdrawTab({ market, sdkMarket, accrualPosition, marketId, onLoanAmountChange, onSuccess }: WithdrawTabProps) {
+export default function WithdrawTab({
+  market,
+  chainId,
+  marketParams,
+  sdkMarket,
+  accrualPosition,
+  marketId,
+  onLoanAmountChange,
+  onSuccess
+}: WithdrawTabProps) {
   // Internal state management
   const theme = useTheme();
   const intl = useIntl();
@@ -37,7 +47,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
   const [txError, setTxError] = useState<string | null>(null);
   // Use the custom transaction hook
   const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
@@ -95,7 +105,7 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
       return;
     }
 
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       dispatchError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
     }
@@ -109,16 +119,17 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
     try {
       // Execute transaction using the custom hook
       await sendTransaction({
-        address: chainConfig.contracts.Morpho as `0x${string}`,
+        address: morphoAddress as `0x${string}`,
         abi: morphoContractConfig.abi,
+        chainId,
         functionName: 'withdraw',
         args: [
           {
-            loanToken: market.loanAsset.address as `0x${string}`,
-            collateralToken: market.collateralAsset.address as `0x${string}`,
-            oracle: market.oracleAddress as `0x${string}`,
-            irm: market.irmAddress as `0x${string}`,
-            lltv: BigInt(market.lltv)
+            loanToken: marketParams.loanToken,
+            collateralToken: marketParams.collateralToken,
+            oracle: marketParams.oracle,
+            irm: marketParams.irm,
+            lltv: marketParams.lltv
           },
           amountBN,
           0n,
@@ -154,6 +165,8 @@ export default function WithdrawTab({ market, sdkMarket, accrualPosition, market
 
   // Determine if the button should be disabled
   const isButtonDisabled =
+    !marketParams ||
+    !morphoAddress ||
     !withdrawAmount ||
     parseFloat(normalizePointAmount(withdrawAmount)) <= 0 ||
     parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawable) ||

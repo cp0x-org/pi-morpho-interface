@@ -36,6 +36,7 @@ import { appoloClients } from '@/api/apollo-client';
 import { DECIMALS_SCALE_FACTOR, formatTokenAmount, formatShortUSDS } from 'utils/formatters';
 import { MarketData, MarketInterface } from 'types/market';
 import { ChainIcon } from 'components/ChainIcon';
+import { routes } from 'utils/routes';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 type SortableField =
@@ -313,13 +314,15 @@ export default function BorrowPage() {
                   <TableRow
                     key={position.marketId}
                     hover
-                    onClick={() => navigate(`/borrow/market/${position.marketId}`)}
+                    onClick={() =>
+                      navigate(routes.variableMarket(position.marketId, chain?.id || 1, position.loanSymbol, position.collateralSymbol))
+                    }
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>
                       <Link
                         component={RouterLink}
-                        to={`/borrow/market/${position.marketId}`}
+                        to={routes.variableMarket(position.marketId, chain?.id || 1, position.loanSymbol, position.collateralSymbol)}
                         color="inherit"
                         underline="none"
                         onClick={(e) => e.stopPropagation()}
@@ -629,7 +632,11 @@ export default function BorrowPage() {
                 key={market.marketId}
                 hover
                 sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/borrow/market/${market.marketId}?chainId=${market.chain?.id}`)}
+                onClick={() =>
+                  navigate(
+                    routes.variableMarket(market.marketId, market.chain?.id, market.loanAsset?.symbol, market.collateralAsset?.symbol)
+                  )
+                }
               >
                 <TableCell>{market.chain?.id ? <ChainIcon chainId={market.chain.id} /> : '-'}</TableCell>
                 <TableCell>
@@ -638,7 +645,12 @@ export default function BorrowPage() {
                       <TokenIcon symbol={market.loanAsset?.symbol} avatarProps={{ alt: '' }} />{' '}
                       <Link
                         component={RouterLink}
-                        to={`/borrow/market/${market.marketId}?chainId=${market.chain?.id}`}
+                        to={routes.variableMarket(
+                          market.marketId,
+                          market.chain?.id,
+                          market.loanAsset?.symbol,
+                          market.collateralAsset?.symbol
+                        )}
                         color="inherit"
                         underline="none"
                         onClick={(e) => e.stopPropagation()}

@@ -10,6 +10,17 @@ The interface is available in **English** and **Chinese (Simplified)**. Use the 
 
 Only interface text is translated. Data coming from the API and smart contracts (token symbols, vault and curator names, addresses, amounts, rates) is shown as-is.
 
+## Sections
+
+| Section | URL | What you can do |
+| --- | --- | --- |
+| Vaults | `/vaults`, `/vault/{address}?chainId=` | Morpho Vaults V1: deposit and withdraw |
+| Variable Rate | `/variable`, `/variable/{marketId}?chainId=` | Morpho Blue markets: supply collateral, borrow, repay, supply and withdraw the loan asset at a floating rate |
+| Fixed Rate | `/fixed`, `/fixed/{marketId}` | Morpho Midnight fixed-rate, fixed-term markets: order book, lend and borrow at a fixed APR, repay at par, add or withdraw collateral, redeem after maturity and exit early |
+| Portfolio | `/portfolio` | Your positions across networks, fixed-rate ones included |
+
+Fixed-rate markets run on the [Morpho Midnight](https://docs.morpho.org/learn/concepts/midnight/) protocol. Their market ids already commit to a chain, so those URLs need no `?chainId=`. Older links (`/dashboard`, `/earn`, `/earn/vault/...`, `/borrow`, `/borrow/market/...`) redirect to the new ones and keep their query parameters.
+
 ## Application Links
 - Website: [pi.cp0x.com](https://pi.cp0x.com/)
 - Interface: [morpho.cp0x.com](https://morpho.cp0x.com)

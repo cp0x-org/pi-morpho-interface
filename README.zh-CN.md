@@ -10,6 +10,17 @@
 
 请注意：仅界面文本会被翻译。来自 API 和智能合约的数据（代币代号、金库与策展人名称、地址、金额、收益率等）均按原样显示。
 
+## 界面板块
+
+| 板块 | 网址 | 可进行的操作 |
+| --- | --- | --- |
+| 金库 | `/vaults`、`/vault/{address}?chainId=` | Morpho Vaults V1：存入与提取 |
+| 浮动利率 | `/variable`、`/variable/{marketId}?chainId=` | Morpho Blue 市场：存入抵押品、借款、还款，以及按浮动利率存入和提取借款资产 |
+| 固定利率 | `/fixed`、`/fixed/{marketId}` | Morpho Midnight 固定利率、固定期限市场：订单簿、按固定年化利率出借与借款、按面值还款、追加或提取抵押品、到期后赎回以及提前退出 |
+| 投资组合 | `/portfolio` | 您在各网络上的仓位，包含固定利率仓位 |
+
+固定利率市场运行于 [Morpho Midnight](https://docs.morpho.org/learn/concepts/midnight/) 协议。其市场 id 本身已包含链信息，因此这些网址不需要 `?chainId=`。旧链接（`/dashboard`、`/earn`、`/earn/vault/...`、`/borrow`、`/borrow/market/...`）会重定向到新地址，并保留原有查询参数。
+
 ## 应用链接
 
 - 官网：[pi.cp0x.com](https://pi.cp0x.com/)

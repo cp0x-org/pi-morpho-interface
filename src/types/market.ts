@@ -4,6 +4,7 @@ export interface MarketState {
   fee: number;
   utilization: number;
   dailyNetBorrowApy: number;
+  dailyNetSupplyApy: number;
   totalLiquidity: string;
   totalLiquidityUsd: number;
   size: string;
@@ -27,7 +28,7 @@ export interface MarketInterface {
   price: string;
   marketId: string;
   lltv: string;
-  oracleAddress: string;
+  oracle: { address: string } | null;
   irmAddress: string;
   chain: MarketChain;
   loanAsset: Asset;

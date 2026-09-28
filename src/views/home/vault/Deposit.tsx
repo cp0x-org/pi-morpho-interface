@@ -20,10 +20,11 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 interface DepositProps {
   vaultAddress: string;
+  chainId?: number;
   vaultData?: Vault;
 }
 
-const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
+const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
   // Track when allowance checking is in progress (during debounce)
   const theme = useTheme();
   const intl = useIntl();
@@ -47,6 +48,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: vaultData?.asset.address as `0x${string}` | undefined,
     functionName: 'allowance',
     args: [userAddress as `0x${string}`, vaultAddress as `0x${string}`],
@@ -103,6 +105,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
   // Read user's token balance
   const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: vaultData?.asset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
@@ -255,6 +258,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         console.log('Initiating approval transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
+          chainId,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
           args: [vaultAddress as `0x${string}`, amountBN]
@@ -267,6 +271,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
         console.log('Initiating deposit transaction...');
         await depositTx.sendTransaction({
           abi: vaultConfig.abi,
+          chainId,
           address: vaultAddress as `0x${string}`,
           functionName: 'deposit',
           args: [amountBN, userAddress as `0x${string}`]
@@ -283,7 +288,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData }) => {
       );
       resetTransactionStates();
     }
-  }, [userAddress, vaultAddress, depositAmount, vaultData, depositTx, approveTx, isApproved, intl]);
+  }, [userAddress, vaultAddress, depositAmount, vaultData, depositTx, approveTx, isApproved, chainId, intl]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =

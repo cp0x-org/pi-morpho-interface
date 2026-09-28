@@ -26,6 +26,14 @@ import { formatUnits } from 'viem';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
+import { routes } from 'utils/routes';
+import { useMidnightOpenOrders } from 'hooks/midnight/useMidnightOpenOrders';
+import { useMidnightUserPositions } from 'hooks/midnight/useMidnightUserPositions';
+import { useNowInSeconds } from 'hooks/midnight/useNowInSeconds';
+import { useTokensMetadata } from 'hooks/midnight/useTokensMetadata';
+import { getOrderCollateralAmount, isOrderCollateral } from 'utils/midnight';
+import FixedOrdersTable from './fixed/FixedOrdersTable';
+import FixedPositionsTable from './fixed/FixedPositionsTable';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface MorphoPositionsData {
@@ -111,6 +119,31 @@ export default function DashboardPage() {
     chainResults.map((c) => c.result.data)
   );
 
+  // Fixed-rate (Midnight) positions come from one call covering every chain.
+  const nowSec = useNowInSeconds();
+  const fixedPositionsQuery = useMidnightUserPositions(userAddress);
+  const allFixedPositions = React.useMemo(() => fixedPositionsQuery.data ?? [], [fixedPositionsQuery.data]);
+  const { orders: openOrders, refetch: refetchOpenOrders } = useMidnightOpenOrders(userAddress);
+  // Collateral parked for an open borrow order belongs to that order, not to a position.
+  const fixedPositions = React.useMemo(
+    () => allFixedPositions.filter((position) => !isOrderCollateral(position, openOrders)),
+    [allFixedPositions, openOrders]
+  );
+  const fixedTokenRefs = React.useMemo(
+    () => [
+      ...allFixedPositions.flatMap((position) => [
+        { chainId: position.chainId, address: position.loanToken },
+        ...position.collaterals.map((collateral) => ({ chainId: position.chainId, address: collateral.token }))
+      ]),
+      ...openOrders.flatMap((order) => [
+        { chainId: order.chainId, address: order.loanToken },
+        ...order.offers.flatMap((offer) => offer.collaterals.map((collateral) => ({ chainId: order.chainId, address: collateral.token })))
+      ])
+    ],
+    [allFixedPositions, openOrders]
+  );
+  const { getToken } = useTokensMetadata(fixedTokenRefs);
+
   if (!userAddress) {
     return (
       <Box sx={{ padding: 2 }}>
@@ -129,13 +162,38 @@ export default function DashboardPage() {
       <Box component="h1" sx={visuallyHidden}>
         <FormattedMessage id="dashboard.title" />
       </Box>
+
+      {fixedPositions.length > 0 && (
+        <Box sx={{ marginBottom: 5 }}>
+          <Typography variant="h2" component="h2" sx={{ marginBottom: 2 }}>
+            <FormattedMessage id="fixed.positions.title" />
+          </Typography>
+          <FixedPositionsTable positions={fixedPositions} getToken={getToken} nowSec={nowSec} />
+        </Box>
+      )}
+
+      {openOrders.length > 0 && (
+        <Box sx={{ marginBottom: 5 }}>
+          <Typography variant="h2" component="h2" sx={{ marginBottom: 2 }}>
+            <FormattedMessage id="fixed.orders.title" />
+          </Typography>
+          <FixedOrdersTable
+            orders={openOrders}
+            getToken={getToken}
+            getOrderCollateral={(chainId, marketId) => getOrderCollateralAmount(allFixedPositions, openOrders, chainId, marketId)}
+            nowSec={nowSec}
+            onCancelled={refetchOpenOrders}
+          />
+        </Box>
+      )}
+
       {anyLoading && chainsWithData.length === 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
           <CircularProgress aria-label={intl.formatMessage({ id: 'dashboard.loading' })} />
         </Box>
       )}
 
-      {!anyLoading && chainsWithData.length === 0 && (
+      {!anyLoading && chainsWithData.length === 0 && fixedPositions.length === 0 && openOrders.length === 0 && (
         <Box sx={{ padding: 2 }}>
           <Typography variant="h4" component="p" role="status">
             <FormattedMessage id="dashboard.empty" />
@@ -191,7 +249,7 @@ export default function DashboardPage() {
                       <TableRow
                         key={position.vault.address}
                         hover
-                        onClick={() => navigate(`/earn/vault/${position.vault.address}`)}
+                        onClick={() => navigate(routes.vault(position.vault.address, chainId, position.vault.name))}
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
@@ -199,7 +257,7 @@ export default function DashboardPage() {
                             <TokenIcon symbol={position.vault.asset.symbol} />
                             <Link
                               component={RouterLink}
-                              to={`/earn/vault/${position.vault.address}`}
+                              to={routes.vault(position.vault.address, chainId, position.vault.name)}
                               color="inherit"
                               underline="none"
                               onClick={(e) => e.stopPropagation()}
@@ -266,13 +324,15 @@ export default function DashboardPage() {
                       <TableRow
                         key={position.marketId}
                         hover
-                        onClick={() => navigate(`/borrow/market/${position.marketId}?chainId=${chainId}`)}
+                        onClick={() =>
+                          navigate(routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol))
+                        }
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
                           <Link
                             component={RouterLink}
-                            to={`/borrow/market/${position.marketId}?chainId=${chainId}`}
+                            to={routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol)}
                             color="inherit"
                             underline="none"
                             onClick={(e) => e.stopPropagation()}

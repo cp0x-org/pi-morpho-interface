@@ -3,17 +3,17 @@ import { Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
+import { MarketParams } from '@morpho-org/blue-sdk';
 import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
@@ -21,13 +21,15 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 interface SupplyTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   marketId: string;
   onSuccess?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
 // accrualPosition.supplyShares, marketSdk.toSupplyShares/ toSupplyAssets...
-const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollateralAmountChange }) => {
+const SupplyTab: FC<SupplyTabProps> = ({ market, chainId, marketParams, marketId, onSuccess, onCollateralAmountChange }) => {
   const theme = useTheme();
   const intl = useIntl();
   // Track when allowance checking is in progress (during debounce)
@@ -37,7 +39,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
   const debouncedAddAmount = useDebounce(addAmount, 500);
 
   // Track process completion
@@ -50,6 +52,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   // Read user's loan token balance
   const { data: loanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
@@ -67,11 +70,12 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     abi: erc20ABIConfig.abi,
+    chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
     functionName: 'allowance',
-    args: [userAddress as `0x${string}`, chainConfig.contracts.Morpho as `0x${string}`],
+    args: [userAddress as `0x${string}`, morphoAddress as `0x${string}`],
     query: {
-      enabled: !!userAddress && !!market?.loanAsset && !!chainConfig.contracts.Morpho
+      enabled: !!userAddress && !!market?.loanAsset && !!morphoAddress
     }
   });
 
@@ -235,7 +239,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
 
     setTxError(null);
 
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       setTxError(intl.formatMessage({ id: 'tx.marketDataUnavailable' }));
       return;
     }
@@ -252,7 +256,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
     }
 
     const assetAddress = market.loanAsset.address;
-    const marketAddress = chainConfig.contracts.Morpho;
+    const marketAddress = morphoAddress;
     const assetDecimals = market.loanAsset.decimals;
 
     // Round down the amount to ensure we don't try to use more tokens than available
@@ -277,6 +281,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         console.log('Initiating approve transaction...');
         await approveTx.sendTransaction({
           abi: erc20ABIConfig.abi,
+          chainId,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
           args: [marketAddress as `0x${string}`, amountBN]
@@ -286,16 +291,17 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
       else if (isApproved && market && marketId && userAddress && debouncedAddAmount && !supplyTx.isCompleted) {
         console.log('Initiating supply transaction...');
         await supplyTx.sendTransaction({
-          address: chainConfig.contracts.Morpho,
+          address: morphoAddress,
           abi: morphoContractConfig.abi,
+          chainId,
           functionName: 'supply',
           args: [
             {
-              loanToken: market.loanAsset.address as `0x${string}`,
-              collateralToken: market.collateralAsset.address as `0x${string}`,
-              oracle: market.oracleAddress as `0x${string}`,
-              irm: market.irmAddress as `0x${string}`,
-              lltv: BigInt(market.lltv)
+              loanToken: marketParams.loanToken,
+              collateralToken: marketParams.collateralToken,
+              oracle: marketParams.oracle,
+              irm: marketParams.irm,
+              lltv: marketParams.lltv
             },
             amountBN,
             0n,
@@ -323,7 +329,20 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
         )
       );
     }
-  }, [userAddress, marketId, debouncedAddAmount, market, isApproved, chainConfig, approveTx, supplyTx, resetTransactionStates, intl]);
+  }, [
+    userAddress,
+    marketId,
+    debouncedAddAmount,
+    market,
+    isApproved,
+    chainId,
+    morphoAddress,
+    marketParams,
+    approveTx,
+    supplyTx,
+    resetTransactionStates,
+    intl
+  ]);
 
   // Check if any transaction is in progress
   const isTransactionInProgress =
@@ -365,6 +384,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
+    if (!marketParams || !morphoAddress) return true;
     if (!addAmount || parseFloat(addAmount) <= 0) return true;
     if (parseFloat(addAmount) > parseFloat(formattedLoanBalance)) return true;
 
@@ -375,7 +395,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, marketId, onSuccess, onCollater
     if (isTransactionInProgress) return true;
 
     return false;
-  }, [addAmount, formattedLoanBalance, allowanceChecking, isTransactionInProgress]);
+  }, [addAmount, formattedLoanBalance, allowanceChecking, isTransactionInProgress, marketParams, morphoAddress]);
 
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;

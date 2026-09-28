@@ -4,6 +4,7 @@ export const Base = 8453;
 export const AnvilTest = 1222;
 export const TenderlyTest = 1999999;
 import { mainnet, base, polygon, unichain } from 'wagmi/chains';
+import { getChainAddress } from '@morpho-org/morpho-ts';
 
 export const appChainConfig = {
   [mainnet.id]: {
@@ -27,5 +28,18 @@ export const appChainConfig = {
     }
   }
 } as const;
+
+/**
+ * Morpho Blue address for a chain: the morpho-ts registry first, the local config as a fallback.
+ * Returns undefined for chains where Morpho Blue is not deployed, so callers can disable reads/writes.
+ */
+export const getMorphoAddress = (chainId: number | undefined): `0x${string}` | undefined => {
+  if (!chainId) return undefined;
+  try {
+    return getChainAddress(chainId, 'morpho');
+  } catch {
+    return (appChainConfig as Record<number, { contracts: { Morpho: `0x${string}` } }>)[chainId]?.contracts.Morpho;
+  }
+};
 
 export const INPUT_DECIMALS = 12;

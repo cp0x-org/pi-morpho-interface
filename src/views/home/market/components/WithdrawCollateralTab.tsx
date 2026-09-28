@@ -5,21 +5,24 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { useConfigChainId } from 'hooks/useConfigChainId';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { AccrualPosition } from '@morpho-org/blue-sdk';
+import { AccrualPosition, MarketParams } from '@morpho-org/blue-sdk';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
-import { INPUT_DECIMALS } from '@/appconfig';
+import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
+import Divider from '@mui/material/Divider';
+import { SAFETY_FACTOR_BPS } from 'utils/midnight';
 
 interface WithdrawTabProps {
   market: MarketInterface;
+  chainId: number;
+  marketParams: MarketParams | null;
   accrualPosition: AccrualPosition | null;
   marketId: string;
   onSuccess?: () => void;
@@ -30,6 +33,8 @@ interface WithdrawTabProps {
 
 export default function WithdrawCollateralTab({
   market,
+  chainId,
+  marketParams,
   accrualPosition,
   marketId,
   onCollateralAmountChange,
@@ -42,18 +47,30 @@ export default function WithdrawCollateralTab({
   const [inputAmount, setInputAmount] = useState('');
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const { address: userAddress } = useAccount();
-  const { config: chainConfig } = useConfigChainId();
+  const morphoAddress = getMorphoAddress(chainId);
   const [txError, setTxError] = useState<string | null>(null);
   // Use the custom transaction hook
   const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
 
-  const formattedWithdrawableCollateral = useMemo(() => {
-    if (!accrualPosition?.withdrawableCollateral) return '0';
-    return formatUnits(
-      accrualPosition?.withdrawableCollateral as bigint,
-      market?.collateralAsset?.decimals ? market.collateralAsset.decimals : 0
-    );
-  }, [accrualPosition, market]);
+  const collateralDecimals = market?.collateralAsset?.decimals ?? 0;
+  const withdrawableCollateral = accrualPosition?.withdrawableCollateral ?? 0n;
+  // Withdrawing right up to the liquidation limit leaves nothing for the interest that accrues before the
+  // transaction lands or for the oracle moving, so it reverts; and a position left at the limit is liquidatable
+  // anyway. Keep the same 6% of headroom as BorrowTab and the fixed-rate forms. Without debt it is all collateral.
+  const safeWithdrawableCollateral = useMemo(() => {
+    if (!accrualPosition) return 0n;
+    const maxLtv = (accrualPosition.market.params.lltv * SAFETY_FACTOR_BPS) / 10_000n;
+    return accrualPosition.market.getWithdrawableCollateral(accrualPosition, { maxLtv }) ?? 0n;
+  }, [accrualPosition]);
+
+  // Limits are compared in base units: going through floats lets an 18-decimal amount round up past the limit.
+  const withdrawAmountBN = useMemo(() => {
+    try {
+      return withdrawAmount ? parseUnits(normalizePointAmount(withdrawAmount), collateralDecimals) : 0n;
+    } catch {
+      return 0n;
+    }
+  }, [withdrawAmount, collateralDecimals]);
 
   useEffect(() => {
     if (!market) {
@@ -103,32 +120,26 @@ export default function WithdrawCollateralTab({
       return;
     }
 
-    if (!market) {
+    if (!market || !marketParams || !morphoAddress) {
       dispatchError(intl.formatMessage({ id: 'tx.marketNotFound' }));
       return;
     }
-    const assetDecimals = market.collateralAsset.decimals;
-    const amountBN = parseUnits(normalizePointAmount(withdrawAmount), assetDecimals);
-    // const amountFloat = parseFloat(normalizePointAmount(withdrawAmount));
-    // const multiplier = Math.pow(10, assetDecimals);
-    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
     try {
       // Execute transaction using the custom hook
       await sendTransaction({
-        address: chainConfig.contracts.Morpho as `0x${string}`,
+        address: morphoAddress as `0x${string}`,
         abi: morphoContractConfig.abi,
+        chainId,
         functionName: 'withdrawCollateral',
         args: [
           {
-            loanToken: market.loanAsset.address as `0x${string}`,
-            collateralToken: market.collateralAsset.address as `0x${string}`,
-            oracle: market.oracleAddress as `0x${string}`,
-            irm: market.irmAddress as `0x${string}`,
-            lltv: BigInt(market.lltv)
+            loanToken: marketParams.loanToken,
+            collateralToken: marketParams.collateralToken,
+            oracle: marketParams.oracle,
+            irm: marketParams.irm,
+            lltv: marketParams.lltv
           },
-          amountBN,
+          withdrawAmountBN,
           userAddress as `0x${string}`,
           userAddress as `0x${string}`
         ]
@@ -144,26 +155,25 @@ export default function WithdrawCollateralTab({
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const decimals = market?.collateralAsset?.decimals || 0;
-      const rawValue = (parseFloat(formattedWithdrawableCollateral) * percent) / 100;
-      const factor = 10 ** decimals;
-      const value = Math.floor(rawValue * factor) / factor;
+      const value = formatUnits((safeWithdrawableCollateral * BigInt(percent)) / 100n, collateralDecimals);
+      const [whole, fraction] = value.split('.');
 
-      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
-      setWithdrawAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS, never rounded up.
+      setWithdrawAmount(value);
+      setInputAmount(formatAssetOutput(fraction ? `${whole}.${fraction.slice(0, INPUT_DECIMALS)}` : whole));
 
       // Set active percentage
       setActivePercentage(percent);
     },
-    [formattedWithdrawableCollateral, market?.collateralAsset?.decimals]
+    [safeWithdrawableCollateral, collateralDecimals]
   );
 
   // Determine if the button should be disabled
   const isButtonDisabled =
-    !withdrawAmount ||
-    parseFloat(normalizePointAmount(withdrawAmount)) <= 0 ||
-    parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral) ||
+    !marketParams ||
+    !morphoAddress ||
+    withdrawAmountBN <= 0n ||
+    withdrawAmountBN > safeWithdrawableCollateral ||
     txState === 'submitting' ||
     txState === 'submitted';
 
@@ -181,12 +191,17 @@ export default function WithdrawCollateralTab({
 
   const isTransactionInProgress = txState === 'submitting' || txState === 'submitted';
   const collateralSymbol = market?.collateralAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
-  const exceedsWithdrawable =
-    !!withdrawAmount && parseFloat(normalizePointAmount(withdrawAmount)) > parseFloat(formattedWithdrawableCollateral);
+  const exceedsWithdrawable = withdrawAmountBN > withdrawableCollateral;
+  const exceedsSafeLimit = withdrawAmountBN > safeWithdrawableCollateral;
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
   const statusMessage =
-    txError || (exceedsWithdrawable ? intl.formatMessage({ id: 'withdrawCollateral.exceeds' }, { symbol: collateralSymbol }) : '');
+    txError ||
+    (exceedsWithdrawable
+      ? intl.formatMessage({ id: 'withdrawCollateral.exceeds' }, { symbol: collateralSymbol })
+      : exceedsSafeLimit
+        ? intl.formatMessage({ id: 'withdrawCollateral.exceedsSafeLimit' }, { symbol: collateralSymbol })
+        : '');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0 }}>
@@ -269,7 +284,7 @@ export default function WithdrawCollateralTab({
             id: 'withdraw-collateral-amount',
             'aria-label': intl.formatMessage({ id: 'withdrawCollateral.inputAria' }, { symbol: collateralSymbol }),
             'aria-describedby': 'withdraw-collateral-limit withdraw-collateral-status',
-            'aria-invalid': exceedsWithdrawable || undefined
+            'aria-invalid': exceedsSafeLimit || undefined
           }}
         />
         <Box
@@ -357,18 +372,47 @@ export default function WithdrawCollateralTab({
           id="withdraw-collateral-limit"
           sx={{
             display: 'flex',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
             width: '100%',
             backgroundColor: theme.palette.background.paper,
             margin: '10px 0'
           }}
         >
-          <Typography variant="h4" fontWeight="normal">
-            <FormattedMessage id="common.withdrawable" />
-          </Typography>
-          <Typography variant="h4" fontWeight="normal">
-            {Number(formattedWithdrawableCollateral).toFixed(6)} {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '10px 0 20px 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              <FormattedMessage id="common.withdrawable" />
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {Number(formatUnits(withdrawableCollateral, collateralDecimals)).toFixed(6)}{' '}
+              {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
+            </Typography>
+          </Box>
+          <Divider sx={{ width: '100%', mx: 'auto', borderBottomWidth: 3 }} />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+              backgroundColor: theme.palette.background.paper,
+              margin: '20px 0 0 0'
+            }}
+          >
+            <Typography variant="h4" fontWeight="normal">
+              <FormattedMessage id="withdrawCollateral.safeWithdrawable" />
+            </Typography>
+            <Typography variant="h4" fontWeight="normal">
+              {Number(formatUnits(safeWithdrawableCollateral, collateralDecimals)).toFixed(6)}{' '}
+              {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
+            </Typography>
+          </Box>
         </Box>
         <Box id="withdraw-collateral-status" role="alert" sx={visuallyHidden}>
           {statusMessage}

@@ -41,6 +41,7 @@ import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { ChainIcon } from 'components/ChainIcon';
+import { routes } from 'utils/routes';
 import { formatUnits } from 'viem';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -123,7 +124,7 @@ export default function EarnPage() {
         if (morphoVault) {
           return {
             ...vault,
-            dailyNetApy: morphoVault.state?.dailyNetApy || 0,
+            avgNetApy: morphoVault.state?.avgNetApy || 0,
             curators: morphoVault.state?.curators || []
           };
         }
@@ -151,8 +152,8 @@ export default function EarnPage() {
     setPage(1); // Reset to first page when sorting
   };
 
-  const handleVaultClick = (vaultAddress: string, chainId?: number) => {
-    navigate(`/earn/vault/${vaultAddress}${chainId ? `?chainId=${chainId}` : ''}`);
+  const handleVaultClick = (vaultAddress: string, chainId?: number, name?: string) => {
+    navigate(routes.vault(vaultAddress, chainId, name));
   };
 
   const getUniqueNetworks = (vaults: Vault[]): string[] => {
@@ -190,8 +191,8 @@ export default function EarnPage() {
       } else if (sortField === 'name') {
         return sortOrder === 'asc' ? (a.name ?? '').localeCompare(b.name ?? '') : (b.name ?? '').localeCompare(a.name ?? '');
       } else if (sortField === 'apy') {
-        const apyA = a.state?.dailyNetApy ?? 0;
-        const apyB = b.state?.dailyNetApy ?? 0;
+        const apyA = a.state?.avgNetApy ?? 0;
+        const apyB = b.state?.avgNetApy ?? 0;
         return sortOrder === 'asc' ? apyA - apyB : apyB - apyA;
       } else if (sortField === 'totalAssetsUsd') {
         const totA = a.state?.totalAssetsUsd ?? 0;
@@ -260,7 +261,7 @@ export default function EarnPage() {
                   <TableRow
                     key={position.vault.address}
                     hover
-                    onClick={() => handleVaultClick(position.vault.address)}
+                    onClick={() => handleVaultClick(position.vault.address, chainId, position.vault.name)}
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>
@@ -268,7 +269,7 @@ export default function EarnPage() {
                         <TokenIcon symbol={position.vault.asset?.symbol} />
                         <Link
                           component={RouterLink}
-                          to={`/earn/vault/${position.vault.address}`}
+                          to={routes.vault(position.vault.address, chainId, position.vault.name)}
                           color="inherit"
                           underline="none"
                           onClick={(e) => e.stopPropagation()}
@@ -509,7 +510,7 @@ export default function EarnPage() {
               <TableRow
                 key={vault.address}
                 hover
-                onClick={() => handleVaultClick(vault.address, vault.chain?.id)}
+                onClick={() => handleVaultClick(vault.address, vault.chain?.id, vault.name)}
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>{vault.chain?.id ? <ChainIcon chainId={vault.chain.id} /> : '-'}</TableCell>
@@ -518,7 +519,7 @@ export default function EarnPage() {
                     <TokenIcon symbol={vault.asset?.symbol} />
                     <Link
                       component={RouterLink}
-                      to={`/earn/vault/${vault.address}${vault.chain?.id ? `?chainId=${vault.chain.id}` : ''}`}
+                      to={routes.vault(vault.address, vault.chain?.id, vault.name)}
                       color="inherit"
                       underline="none"
                       onClick={(e) => e.stopPropagation()}
@@ -536,7 +537,7 @@ export default function EarnPage() {
                     address={vault.address}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address, vault.chain?.id);
+                      handleVaultClick(vault.address, vault.chain?.id, vault.name);
                     }}
                   />
                 </TableCell>
@@ -546,11 +547,11 @@ export default function EarnPage() {
                     address={vault.asset?.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVaultClick(vault.address, vault.chain?.id);
+                      handleVaultClick(vault.address, vault.chain?.id, vault.name);
                     }}
                   />
                 </TableCell>
-                <TableCell>{vault.state?.dailyNetApy != null ? `${(vault.state.dailyNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                <TableCell>{vault.state?.avgNetApy != null ? `${(vault.state.avgNetApy * 100).toFixed(2)}%` : '-'}</TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">

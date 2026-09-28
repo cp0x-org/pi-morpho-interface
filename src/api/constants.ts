@@ -4,6 +4,9 @@ export const ApiUrls = {
   // morphoApi: 'https://api.morpho.org/graphql', // original with restrictions
   morphoApi: 'https://pi.cp0x.com/proxymorpho/', // cp0x proxy, no restrictions, base
   // morphoApi: 'https://pi.cp0x.com/proxymorpho/graphql', // cp0x proxy, no restrictions
+  // Morpho Midnight (fixed-rate markets) REST API. Documented as a "Private API": keep it configurable so it can be moved
+  // behind the cp0x proxy (the proxy needs its own location for /v0/midnight/).
+  midnightApi: 'https://api.morpho.org/v0/midnight',
   ethGraphApi:
     'https://gateway.thegraph.com/api/ae52646e3d3487806a739c9a253a358d/subgraphs/id/8Lz789DP5VKLXumTMTgygjU2xtuzx8AhbaacgN5PYCAs',
   baseGraphApi:
@@ -35,7 +38,7 @@ export const MorphoRequests = {
             name
           }
           state {
-            dailyNetApy
+            avgNetApy
             totalAssets
             totalAssetsUsd
             curators {
@@ -112,7 +115,7 @@ export const MorphoRequests = {
             network
           }
           state {
-            dailyNetApy
+            avgNetApy
             totalAssetsUsd
           }
         }
@@ -120,14 +123,21 @@ export const MorphoRequests = {
     }
   `,
   // marketDetailPage
+  // `chainIds: null` searches every network (used to recover a wrong or missing ?chainId=).
   GetMorphoMarketByAddress: gql`
-    query GetMarketByAddress($marketId: String!) {
-      markets(where: { uniqueKey_in: [$marketId] }, first: 1) {
+    query GetMarketByAddress($marketId: String!, $chainIds: [Int!]) {
+      markets(where: { uniqueKey_in: [$marketId], chainId_in: $chainIds }, first: 10) {
         items {
           marketId
           lltv
-          oracleAddress
+          oracle {
+            address
+          }
           irmAddress
+          chain {
+            id
+            network
+          }
           loanAsset {
             address
             symbol
@@ -144,8 +154,30 @@ export const MorphoRequests = {
             fee
             utilization
             dailyNetBorrowApy
+            dailyNetSupplyApy
             totalLiquidityUsd
             sizeUsd
+          }
+        }
+      }
+    }
+  `,
+  // fixed-rate markets: the Midnight REST API returns token addresses only.
+  // The API answers for every (address, chain) pair, including "UNKNOWN" placeholders: match by pair and skip those.
+  GetAssetsByAddress: gql`
+    query GetAssetsByAddress($addresses: [String!], $chainIds: [Int!]) {
+      assets(where: { address_in: $addresses, chainId_in: $chainIds }, first: 1000) {
+        items {
+          address
+          symbol
+          name
+          decimals
+          logoURI
+          chain {
+            id
+          }
+          price {
+            usd
           }
         }
       }
