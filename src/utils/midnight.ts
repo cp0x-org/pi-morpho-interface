@@ -438,19 +438,32 @@ export const computeCollateralValue = (holding: CollateralHolding) => (holding.a
 /** Borrowing capacity in loan-token base units: amount × oraclePrice / 1e36 × lltv / 1e18. Healthy while debt ≤ maxDebt. */
 export const computeMaxDebt = (holding: CollateralHolding) => (computeCollateralValue(holding) * holding.lltv) / WAD;
 
-/** Forms keep 6% of headroom below the liquidation limit, like the variable-rate BorrowTab. */
+/** Variable-rate forms keep 6% of headroom below the liquidation limit (BorrowTab, WithdrawCollateralTab). */
 export const SAFETY_FACTOR_BPS = 9_400n;
-const BPS = 10_000n;
 
-export const applySafetyFactor = (maxDebt: bigint) => (maxDebt * SAFETY_FACTOR_BPS) / BPS;
+/**
+ * Fixed-rate forms stop 5 LTV points below the liquidation limit, like markets.morpho.org (`BORROW_SAFETY_BUFFER_WAD`):
+ * LLTV 86% → 81%, 77% → 72%, 98% → 93%.
+ */
+export const BORROW_SAFETY_BUFFER_WAD = WAD / 20n;
 
-/** Largest amount of collateral that can leave the position while `debt` stays within the safety-adjusted capacity. */
+/** Highest LTV a fixed-rate form lets a position reach (WAD). */
+export const getSafeLtv = (lltv: bigint) => (lltv > BORROW_SAFETY_BUFFER_WAD ? lltv - BORROW_SAFETY_BUFFER_WAD : 0n);
+
+/** Debt the collateral can back at the safe LTV, in loan-token base units. */
+export const computeSafeMaxDebt = (holding: CollateralHolding) => (computeCollateralValue(holding) * getSafeLtv(holding.lltv)) / WAD;
+
+/**
+ * Largest amount of collateral that can leave the position while `debt` stays within the safe LTV. Rounded like
+ * markets.morpho.org's `computeMaxWithdrawCollateral`, so both show the same figure.
+ */
 export const maxWithdrawableCollateral = (holding: CollateralHolding, debt: bigint): bigint => {
   if (debt === 0n) return holding.amount;
-  if (!holding.oraclePrice || holding.lltv === 0n) return 0n;
+  const safeLtv = getSafeLtv(holding.lltv);
+  if (!holding.oraclePrice || safeLtv === 0n) return 0n;
 
-  const requiredCapacity = divUp(debt * BPS, SAFETY_FACTOR_BPS);
-  const neededAmount = divUp(requiredCapacity * WAD * ORACLE_PRICE_SCALE, holding.lltv * holding.oraclePrice);
+  const neededValue = divUp(debt * WAD, safeLtv);
+  const neededAmount = divUp(neededValue * ORACLE_PRICE_SCALE, holding.oraclePrice);
   return holding.amount > neededAmount ? holding.amount - neededAmount : 0n;
 };
 

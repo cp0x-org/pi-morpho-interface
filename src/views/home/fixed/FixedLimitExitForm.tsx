@@ -268,6 +268,7 @@ export default function FixedLimitExitForm({ ctx, side }: { ctx: FixedMarketCont
         hint={intl.formatMessage(
           { id: buy ? 'fixed.limit.debtHint' : 'fixed.limit.creditHint' },
           {
+            wallet: formatUnitsDisplay(loan.walletBalance),
             position: formatUnitsDisplay(positionUnits),
             value: maxAssets != null ? formatUnitsDisplay(maxAssets) : '-',
             open: formatUnitsDisplay(openExitUnits),

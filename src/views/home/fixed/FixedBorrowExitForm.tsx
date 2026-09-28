@@ -256,6 +256,7 @@ export default function FixedBorrowExitForm({ ctx }: { ctx: FixedMarketContext }
             ? intl.formatMessage(
                 { id: 'fixed.exit.debtHintThinBook' },
                 {
+                  wallet: formatTokenDisplay(loan.walletBalance, loan.decimals, loan.symbol),
                   debt: formatTokenDisplay(debt, loan.decimals, loan.symbol),
                   amount: maxPay != null ? formatTokenDisplay(maxPay, loan.decimals, loan.symbol) : '-'
                 }
@@ -263,6 +264,7 @@ export default function FixedBorrowExitForm({ ctx }: { ctx: FixedMarketContext }
             : intl.formatMessage(
                 { id: 'fixed.exit.debtHint' },
                 {
+                  wallet: formatTokenDisplay(loan.walletBalance, loan.decimals, loan.symbol),
                   debt: formatTokenDisplay(debt, loan.decimals, loan.symbol),
                   cost: fullCost != null ? formatTokenDisplay(fullCost, loan.decimals, loan.symbol) : '-'
                 }

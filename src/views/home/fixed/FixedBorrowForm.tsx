@@ -7,14 +7,14 @@ import { Alert } from '@mui/material';
 import { useMidnightQuote } from 'hooks/midnight/useMidnightQuote';
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
 import {
-  applySafetyFactor,
   apyToPrice,
   computeLtv,
-  computeMaxDebt,
+  computeSafeMaxDebt,
   DEFAULT_RATE_BUFFER_WAD,
   formatMaturity,
   formatWadPercent,
   getDeadline,
+  getSafeLtv,
   maxUnitsForBorrow,
   percentInputToWad,
   priceToApy,
@@ -85,9 +85,8 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
   const holdingBefore = { amount: collateral.positionAmount, oraclePrice: collateral.oraclePrice, lltv: collateral.lltv };
   const holdingAfter = { ...holdingBefore, amount: holdingBefore.amount + validCollateral };
   const debtAfter = debtBefore + (maxUnits ?? expectedUnits ?? 0n);
-  const maxDebtBefore = computeMaxDebt(holdingBefore);
-  const maxDebtAfter = computeMaxDebt(holdingAfter);
-  const safeDebtAfter = applySafetyFactor(maxDebtAfter);
+  const safeDebtBefore = computeSafeMaxDebt(holdingBefore);
+  const safeDebtAfter = computeSafeMaxDebt(holdingAfter);
   const ltvBefore = computeLtv(debtBefore, holdingBefore);
   const ltvAfter = computeLtv(debtAfter, holdingAfter);
   const exceedsSafeLimit = validLoan > 0n && debtAfter > safeDebtAfter;
@@ -234,7 +233,11 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
         {exceedsCollateralBalance && (
           <Alert severity="error">{intl.formatMessage({ id: 'fixed.form.exceedsBalance' }, { symbol: collateral.symbol })}</Alert>
         )}
-        {exceedsSafeLimit && <Alert severity="error">{intl.formatMessage({ id: 'fixed.borrow.exceedsSafeLimit' })}</Alert>}
+        {exceedsSafeLimit && (
+          <Alert severity="error">
+            {intl.formatMessage({ id: 'fixed.borrow.exceedsSafeLimit' }, { ltv: formatWadPercent(getSafeLtv(collateral.lltv)) })}
+          </Alert>
+        )}
         {limitGuard?.exceeded && (
           <Alert severity="error">
             {intl.formatMessage(
@@ -290,7 +293,7 @@ export default function FixedBorrowForm({ ctx }: { ctx: FixedMarketContext }) {
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
               {
-                before: formatTokenDisplay(applySafetyFactor(maxDebtBefore), loan.decimals, loan.symbol, 2),
+                before: formatTokenDisplay(safeDebtBefore, loan.decimals, loan.symbol, 2),
                 after: formatTokenDisplay(safeDebtAfter, loan.decimals, loan.symbol, 2)
               }
             )

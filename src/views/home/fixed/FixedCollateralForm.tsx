@@ -4,14 +4,7 @@ import Box from '@mui/material/Box';
 import { Alert } from '@mui/material';
 
 import { useTxSteps, type TxStep } from 'hooks/midnight/useTxSteps';
-import {
-  applySafetyFactor,
-  computeLtv,
-  computeMaxDebt,
-  formatWadPercent,
-  getOpenBorrowUnits,
-  maxWithdrawableCollateral
-} from 'utils/midnight';
+import { computeLtv, computeSafeMaxDebt, formatWadPercent, getOpenBorrowUnits, maxWithdrawableCollateral } from 'utils/midnight';
 import { approveRequest, supplyCollateralRequest, withdrawCollateralRequest } from 'utils/midnightTx';
 import FixedAmountInput, { FixedDetailsList, formatTokenDisplay, parseAmountInput } from './FixedAmountInput';
 import FixedTxButton from './FixedTxButton';
@@ -150,8 +143,8 @@ export default function FixedCollateralForm({
             value: intl.formatMessage(
               { id: 'fixed.form.beforeAfter' },
               {
-                before: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holding)), loan.decimals, loan.symbol, 2),
-                after: formatTokenDisplay(applySafetyFactor(computeMaxDebt(holdingAfter)), loan.decimals, loan.symbol, 2)
+                before: formatTokenDisplay(computeSafeMaxDebt(holding), loan.decimals, loan.symbol, 2),
+                after: formatTokenDisplay(computeSafeMaxDebt(holdingAfter), loan.decimals, loan.symbol, 2)
               }
             )
           }
