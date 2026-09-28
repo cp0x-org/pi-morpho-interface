@@ -307,6 +307,8 @@ export default function FixedMarketDetailPage() {
       <Grid container spacing={3} alignItems="flex-start">
         <Grid size={{ xs: 12, md: 7 }} sx={{ order: { xs: 2, md: 1 } }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* The position leads the column, above the order book: it is there, or says there is none. */}
+            <FixedPositionCard ctx={ctx} />
             <FixedOrderBook ctx={ctx} isLoading={bookQuery.isFetching} />
             {ctx.openOrders.length > 0 && (
               <Box component="section" aria-labelledby="fixed-open-orders-title">
@@ -329,7 +331,6 @@ export default function FixedMarketDetailPage() {
                 />
               </Box>
             )}
-            <FixedPositionCard ctx={ctx} />
             <FixedMarketActivity ctx={ctx} />
           </Box>
         </Grid>
