@@ -89,12 +89,12 @@ export default function MainLayout() {
   const { menuMaster, menuMasterLoading } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened;
 
-  // Morpho order. `match` lists the path prefixes owned by a section, detail pages included.
+  // Portfolio first, then Morpho's order. `match` lists the path prefixes owned by a section, detail pages included.
   const tabs = [
+    { labelId: 'nav.portfolio', path: routes.portfolio(), match: ['/portfolio'] },
     { labelId: 'nav.vaults', path: routes.vaults(), match: ['/vaults', '/vault/'] },
     { labelId: 'nav.variable', path: routes.variable(), match: ['/variable'] },
-    { labelId: 'nav.fixed', path: routes.fixed(), match: ['/fixed'] },
-    { labelId: 'nav.portfolio', path: routes.portfolio(), match: ['/portfolio'] }
+    { labelId: 'nav.fixed', path: routes.fixed(), match: ['/fixed'] }
   ];
 
   const navigate = useNavigate();
