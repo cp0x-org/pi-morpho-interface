@@ -19,7 +19,10 @@ interface MarketActionPanelProps {
   chainId?: number;
   market?: MarketInterface;
   marketId?: string;
+  /** A transaction from one of the tabs has been confirmed. */
   onPositionUpdate?: () => void;
+  /** Re-read the position from the chain. */
+  onRefresh?: () => void;
   onBorrowAmountChange: (amount: bigint) => void;
   onCollateralAmountChange: (amount: bigint) => void;
 }
@@ -61,9 +64,12 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
 
   const { market, marketId, chainId, accrualPosition, sdkMarket, marketParams } = props;
 
+  // Every tab reads the same page-level position and none of them fetches it on mount, so a switch is the moment to
+  // re-read it: the next tab's limits (max borrow, debt to repay) are exactly what the last action changed.
   const resetPreview = () => {
     props.onBorrowAmountChange(0n);
     props.onCollateralAmountChange(0n);
+    props.onRefresh?.();
   };
 
   const handleSideChange = (nextSide: FixedSide) => {

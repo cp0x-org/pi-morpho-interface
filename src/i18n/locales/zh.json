@@ -283,14 +283,16 @@
   },
   "withdrawCollateral": {
     "title": "提取抵押品",
+    "safeWithdrawable": "安全可提取：",
     "amountLabel": "提取金额：",
     "inputAria": "要提取的 {symbol} 抵押品数量",
-    "percentAria": "提取您可提取 {symbol} 抵押品的 {percent}%",
-    "maxAria": "提取可用的最大 {symbol} 抵押品",
+    "percentAria": "提取安全可提取 {symbol} 抵押品的 {percent}%",
+    "maxAria": "提取最大安全数量的 {symbol} 抵押品",
     "success": "已成功提取 {amount} {symbol}",
     "error": "提取失败",
     "errorWithReason": "提取失败：{message}",
-    "exceeds": "金额超出可提取的 {symbol} 抵押品"
+    "exceeds": "金额超出可提取的 {symbol} 抵押品",
+    "exceedsSafeLimit": "金额超出安全可提取的 {symbol} 上限"
   },
   "vault": {
     "loading": "正在加载金库详情",

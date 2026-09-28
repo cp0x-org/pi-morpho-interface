@@ -283,14 +283,16 @@
   },
   "withdrawCollateral": {
     "title": "Withdraw Collateral",
+    "safeWithdrawable": "Safe Withdrawable:",
     "amountLabel": "Withdraw Amount:",
     "inputAria": "Amount of {symbol} collateral to withdraw",
-    "percentAria": "Withdraw {percent}% of your withdrawable {symbol} collateral",
-    "maxAria": "Withdraw the maximum available {symbol} collateral",
+    "percentAria": "Withdraw {percent}% of the safe withdrawable {symbol} collateral",
+    "maxAria": "Withdraw the maximum safe amount of {symbol} collateral",
     "success": "Successfully withdrew {amount} {symbol}",
     "error": "Failed to withdraw",
     "errorWithReason": "Failed to withdraw: {message}",
-    "exceeds": "Amount exceeds the withdrawable {symbol} collateral"
+    "exceeds": "Amount exceeds the withdrawable {symbol} collateral",
+    "exceedsSafeLimit": "Amount exceeds the safe withdrawable {symbol} limit"
   },
   "vault": {
     "loading": "Loading vault details",

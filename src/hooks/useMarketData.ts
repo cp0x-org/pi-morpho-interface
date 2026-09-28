@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
@@ -8,9 +8,13 @@ import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { getMorphoAddress } from '@/appconfig';
 
 import { Position } from '@morpho-org/blue-sdk';
-import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
+import { AccrualPosition, MathLib, Market, MarketParams } from '@morpho-org/blue-sdk';
+import { Time } from '@morpho-org/morpho-ts';
 import type { MarketId } from '@morpho-org/blue-sdk/lib/types';
 import { isMarketId } from '@morpho-org/blue-sdk/lib/types';
+
+// One Base block and one mainnet block past the receipt.
+const FOLLOW_UP_REFRESH_DELAYS_MS = [3_000, 13_000];
 
 export const useMarketData = ({
   marketId,
@@ -153,7 +157,6 @@ export const useMarketData = ({
 
   // Function to refresh all position data
   const refreshPositionData = useCallback(async () => {
-    console.log('Refreshing position data...');
     try {
       await Promise.all([
         refetchPosition(),
@@ -164,7 +167,6 @@ export const useMarketData = ({
         refetchCollateralBalance(),
         refetchLoanBalance()
       ]);
-      console.log('Position data refreshed successfully');
     } catch (error) {
       console.error('Failed to refresh position data:', error);
     }
@@ -177,6 +179,18 @@ export const useMarketData = ({
     refetchCollateralBalance,
     refetchLoanBalance
   ]);
+
+  // Right after a receipt the RPC can still answer from the block before it (a node behind the load balancer, a
+  // cached eth_call), so the first read may come back unchanged and nothing would ask again. Read a couple more
+  // times once the next blocks are in.
+  const followUpRefreshes = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => followUpRefreshes.current.forEach(clearTimeout), []);
+
+  const refreshAfterTransaction = useCallback(() => {
+    followUpRefreshes.current.forEach(clearTimeout);
+    followUpRefreshes.current = FOLLOW_UP_REFRESH_DELAYS_MS.map((delay) => setTimeout(refreshPositionData, delay));
+    return refreshPositionData();
+  }, [refreshPositionData]);
 
   useEffect(() => {
     if (!position || !marketParams || !oraclePrice || !rateAtTarget || !marketState) return;
@@ -201,9 +215,17 @@ export const useMarketData = ({
       collateral: position[2]
     });
 
-    const tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
+    // The contract state is as of the market's last interaction, which can be days old on a quiet market. Every
+    // write accrues interest first, so debt read from the raw state is short and every limit built on it (max
+    // borrow, withdrawable collateral) promises more than the chain will allow.
+    let tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
+    try {
+      tmpAccrualPosition = tmpAccrualPosition.accrueInterest(MathLib.max(Time.timestamp(), market.lastUpdate));
+    } catch (accrualError) {
+      console.warn('Position accrual failed, using the raw on-chain position', accrualError);
+    }
 
-    setMarket(market);
+    setMarket(tmpAccrualPosition.market);
     setAccrualPosition(tmpAccrualPosition);
     setIsLoading(false);
   }, [position, marketParams, oraclePrice, rateAtTarget, marketState, userAddress, marketIdParam]);
@@ -221,6 +243,7 @@ export const useMarketData = ({
     accrualPosition,
     isLoading,
     refreshPositionData,
+    refreshAfterTransaction,
     errors: {
       mcError,
       opError,
