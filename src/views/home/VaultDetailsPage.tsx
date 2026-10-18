@@ -5,7 +5,9 @@ import { Typography, CircularProgress, Paper, Grid, Tabs, Tab, Tooltip, IconButt
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import React, { useMemo, useState } from 'react';
-import { VaultsData } from 'types/vaults';
+import { Vault, VaultsData, VaultsV2Data } from 'types/vaults';
+import { normalizeVaultV2 } from 'utils/vaults';
+import { VaultVersionChip } from 'components/VaultVersionChip';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
@@ -33,16 +35,37 @@ export default function VaultDetailsPage() {
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
   const { address: userAddress } = useAccount();
 
-  const { loading, error, data } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
+  const {
+    loading: v1Loading,
+    error: v1Error,
+    data: v1Data
+  } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
     variables: { address: vaultAddress },
     client: appoloClients.morphoApi
   });
+  const v1Vault = v1Data?.vaults.items[0];
+  // Vaults V2 are a separate API entity: looked up only when the address is not a V1 vault.
+  const {
+    loading: v2Loading,
+    error: v2Error,
+    data: v2Data
+  } = useQuery<VaultsV2Data>(MorphoRequests.GetMorphoVaultV2ByAddress, {
+    variables: { address: vaultAddress, chainIds: targetChainId ? [targetChainId] : null },
+    client: appoloClients.morphoApi,
+    skip: v1Loading || !!v1Vault
+  });
+  const loading = v1Loading || v2Loading;
+  const error = v1Error ?? v2Error;
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const vault = data?.vaults.items[0];
+  const vault = useMemo<Vault | undefined>(() => {
+    if (v1Vault) return { ...v1Vault, version: 'v1' };
+    const v2Vault = v2Data?.vaultV2s.items[0];
+    return v2Vault ? normalizeVaultV2(v2Vault) : undefined;
+  }, [v1Vault, v2Data]);
   // Reads and writes target the vault's chain, not the chain the wallet happens to be on.
   const vaultChainId = targetChainId ?? vault?.chain?.id;
   useWalletChainSync(vaultChainId);
@@ -139,6 +162,11 @@ export default function VaultDetailsPage() {
                     <Typography variant="h2" component="h1" sx={{ display: 'inline' }}>
                       {vault.name || intl.formatMessage({ id: 'common.na' })}
                     </Typography>
+                    {vault.version === 'v2' && (
+                      <Box sx={{ ml: 1 }}>
+                        <VaultVersionChip />
+                      </Box>
+                    )}
                     {vault.address && (
                       <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
                         <IconButton
@@ -208,6 +236,20 @@ export default function VaultDetailsPage() {
                     </Stack>
                   </SubCard>
                 </Grid>
+                {vault.version === 'v2' && vault.state.liquidityUsd != null && (
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <SubCard sx={{ border: 'none', backgroundColor: 'transparent', ':hover': { boxShadow: 'none' } }}>
+                      <Stack spacing={1}>
+                        <Typography variant="h3" component="p">
+                          {formatShortUSDS(vault.state.liquidityUsd)}
+                        </Typography>
+                        <Typography variant="h6" component="div" sx={{ fontWeight: 400, color: theme.palette.grey[500] }}>
+                          <FormattedMessage id="vault.liquidityUsd" />
+                        </Typography>
+                      </Stack>
+                    </SubCard>
+                  </Grid>
+                )}
               </Grid>
             </Box>
 

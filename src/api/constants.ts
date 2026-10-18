@@ -55,6 +55,82 @@ export const MorphoRequests = {
       }
     }
   `,
+  // EarnPage, Morpho Vaults V2: a separate entity with metrics on the object itself (no `state`).
+  // Unlisted V2 vaults are mostly test deployments, so only listed ones are shown.
+  // Paged (see hooks/useVaultsV2): the API's complexity limit allows ~170 V2 vaults per request, there are more.
+  GetVaultsV2Data: gql`
+    query GetVaultsV2($first: Int!, $skip: Int!) {
+      vaultV2s(where: { listed: true }, first: $first, skip: $skip, orderBy: Address, orderDirection: Asc) {
+        items {
+          address
+          symbol
+          name
+          chain {
+            id
+            network
+          }
+          asset {
+            id
+            symbol
+            address
+            decimals
+            name
+          }
+          totalAssets
+          totalAssetsUsd
+          liquidity
+          liquidityUsd
+          avgNetApy
+          curators {
+            items {
+              id
+              name
+              image
+            }
+          }
+        }
+      }
+    }
+  `,
+  // vaultdetailpage, Vaults V2. `chainIds: null` searches every network (missing ?chainId=).
+  GetMorphoVaultV2ByAddress: gql`
+    query GetVaultV2Details($address: String!, $chainIds: [Int!]) {
+      vaultV2s(where: { address_in: [$address], chainId_in: $chainIds }, first: 1) {
+        items {
+          address
+          symbol
+          name
+          chain {
+            id
+            network
+          }
+          asset {
+            id
+            symbol
+            address
+            decimals
+            name
+          }
+          totalAssets
+          totalAssetsUsd
+          liquidity
+          liquidityUsd
+          avgNetApy
+          curators {
+            items {
+              id
+              name
+              image
+              addresses {
+                address
+                chainId
+              }
+            }
+          }
+        }
+      }
+    }
+  `,
   // borrowpage
   GetMorphoMarkets: gql`
     query GetMarkets {
@@ -237,6 +313,29 @@ export const MorphoRequests = {
             assets
             assetsUsd
           }
+        }
+        vaultV2Positions {
+          vault {
+            address
+            name
+            totalAssets
+            totalAssetsUsd
+            avgNetApy
+            curators {
+              items {
+                id
+                name
+              }
+            }
+            asset {
+              address
+              name
+              decimals
+              symbol
+            }
+          }
+          assets
+          assetsUsd
         }
       }
     }

@@ -143,7 +143,8 @@
     "summaryCount": "Showing {count, plural, one {# vault} other {# vaults}}",
     "summaryBySymbols": "by {count, plural, one {# symbol} other {# symbols}}",
     "summaryByName": "by name \"{name}\"",
-    "summaryAndByName": "and name \"{name}\""
+    "summaryAndByName": "and name \"{name}\"",
+    "partialError": "Some vaults could not be loaded: {message}"
   },
   "borrow": {
     "title": "Borrow: Morpho markets",
@@ -309,7 +310,10 @@
     "tabDeposit": "Deposit",
     "tabWithdraw": "Withdraw",
     "copyVaultAria": "Copy vault contract address {address}",
-    "copyAssetAria": "Copy {symbol} token address {address}"
+    "copyAssetAria": "Copy {symbol} token address {address}",
+    "v2Badge": "V2",
+    "v2BadgeHint": "Morpho Vault V2",
+    "liquidityUsd": "Available Liquidity ($)"
   },
   "deposit": {
     "title": "Deposit Asset",

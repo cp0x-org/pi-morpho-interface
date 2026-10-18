@@ -143,7 +143,8 @@
     "summaryCount": "显示 {count, plural, other {# 个金库}}",
     "summaryBySymbols": "按 {count, plural, other {# 个代号}}",
     "summaryByName": "按名称“{name}”",
-    "summaryAndByName": "以及名称“{name}”"
+    "summaryAndByName": "以及名称“{name}”",
+    "partialError": "部分金库加载失败：{message}"
   },
   "borrow": {
     "title": "借款：Morpho 市场",
@@ -309,7 +310,10 @@
     "tabDeposit": "存款",
     "tabWithdraw": "提取",
     "copyVaultAria": "复制金库合约地址 {address}",
-    "copyAssetAria": "复制 {symbol} 代币地址 {address}"
+    "copyAssetAria": "复制 {symbol} 代币地址 {address}",
+    "v2Badge": "V2",
+    "v2BadgeHint": "Morpho 金库 V2",
+    "liquidityUsd": "可用流动性（美元）"
   },
   "deposit": {
     "title": "存入资产",
