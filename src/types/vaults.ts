@@ -43,6 +43,8 @@ export interface Vault {
   state: State;
   /** Missing on raw V1 API rows; set by the pages when both generations are mixed. */
   version?: VaultVersion;
+  /** Curated by Morpho. Unlisted vaults are shown only behind the "show unlisted" switch. */
+  listed?: boolean;
 }
 
 export interface VaultsData {
@@ -56,6 +58,7 @@ export interface VaultV2 {
   address: string;
   symbol: string;
   name: string;
+  listed: boolean | null;
   asset: Asset;
   chain: Chain;
   totalAssets: string | null;

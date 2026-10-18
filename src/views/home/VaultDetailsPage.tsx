@@ -162,11 +162,9 @@ export default function VaultDetailsPage() {
                     <Typography variant="h2" component="h1" sx={{ display: 'inline' }}>
                       {vault.name || intl.formatMessage({ id: 'common.na' })}
                     </Typography>
-                    {vault.version === 'v2' && (
-                      <Box sx={{ ml: 1 }}>
-                        <VaultVersionChip />
-                      </Box>
-                    )}
+                    <Box sx={{ ml: 1 }}>
+                      <VaultVersionChip version={vault.version} />
+                    </Box>
                     {vault.address && (
                       <Tooltip title={copySuccessMsg || intl.formatMessage({ id: 'common.copyAddress' })} placement="top">
                         <IconButton

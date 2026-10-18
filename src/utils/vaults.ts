@@ -13,6 +13,7 @@ export const normalizeVaultV2 = (vault: VaultV2): Vault => ({
   asset: vault.asset,
   chain: vault.chain,
   version: 'v2',
+  listed: vault.listed ?? undefined,
   state: {
     avgNetApy: vault.avgNetApy ?? 0,
     totalAssets: vault.totalAssets ?? '0',

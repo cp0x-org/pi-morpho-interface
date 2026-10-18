@@ -144,7 +144,10 @@
     "summaryBySymbols": "按 {count, plural, other {# 个代号}}",
     "summaryByName": "按名称“{name}”",
     "summaryAndByName": "以及名称“{name}”",
-    "partialError": "部分金库加载失败：{message}"
+    "partialError": "部分金库加载失败：{message}",
+    "showUnlisted": "显示未上架",
+    "unlistedWarning": "未上架金库未经 Morpho 审核，通常是废弃或测试部署：没有名称、没有策展人、存款为零。存入前请检查策展人、资产和配置。",
+    "unlisted": "未上架"
   },
   "borrow": {
     "title": "借款：Morpho 市场",
@@ -311,6 +314,8 @@
     "tabWithdraw": "提取",
     "copyVaultAria": "复制金库合约地址 {address}",
     "copyAssetAria": "复制 {symbol} 代币地址 {address}",
+    "v1Badge": "V1",
+    "v1BadgeHint": "Morpho 金库 V1",
     "v2Badge": "V2",
     "v2BadgeHint": "Morpho 金库 V2",
     "liquidityUsd": "可用流动性（美元）"

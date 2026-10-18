@@ -19,13 +19,15 @@ export const ApiUrls = {
 
 export const MorphoRequests = {
   //EarnPage
+  // `listed: null` returns every vault (the API caps a page at 1000, unlisted ones are mostly abandoned or test deployments).
   GetVaultsData: gql`
-    query GetVaults {
-      vaults(first: 1000) {
+    query GetVaults($listed: Boolean) {
+      vaults(where: { listed: $listed }, first: 1000) {
         items {
           address
           symbol
           name
+          listed
           chain {
             id
             network
@@ -59,12 +61,13 @@ export const MorphoRequests = {
   // Unlisted V2 vaults are mostly test deployments, so only listed ones are shown.
   // Paged (see hooks/useVaultsV2): the API's complexity limit allows ~170 V2 vaults per request, there are more.
   GetVaultsV2Data: gql`
-    query GetVaultsV2($first: Int!, $skip: Int!) {
-      vaultV2s(where: { listed: true }, first: $first, skip: $skip, orderBy: Address, orderDirection: Asc) {
+    query GetVaultsV2($first: Int!, $skip: Int!, $listed: Boolean) {
+      vaultV2s(where: { listed: $listed }, first: $first, skip: $skip, orderBy: Address, orderDirection: Asc) {
         items {
           address
           symbol
           name
+          listed
           chain {
             id
             network
@@ -100,6 +103,7 @@ export const MorphoRequests = {
           address
           symbol
           name
+          listed
           chain {
             id
             network

@@ -6,9 +6,13 @@ import Link from '@mui/material/Link';
 import { visuallyHidden } from 'utils/a11y';
 
 import {
+  Alert,
   Autocomplete,
   Avatar,
   Chip,
+  FormControlLabel,
+  Stack,
+  Switch,
   CircularProgress,
   FormControl,
   Grid,
@@ -77,6 +81,7 @@ export default function EarnPage() {
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
+  const [showUnlisted, setShowUnlisted] = useState(false);
   const { chainId } = useConfigChainId();
   const { address: userAddress } = useAccount();
   const {
@@ -103,9 +108,10 @@ export default function EarnPage() {
     error: morphoError,
     data: morphoData
   } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
-    client: appoloClients.morphoApi
+    client: appoloClients.morphoApi,
+    variables: { listed: showUnlisted ? null : true }
   });
-  const { data: vaultsV2, isLoading: vaultsV2Loading, error: vaultsV2Error } = useVaultsV2();
+  const { data: vaultsV2, isLoading: vaultsV2Loading, error: vaultsV2Error } = useVaultsV2({ includeUnlisted: showUnlisted });
 
   // Vaults V1 and V2 in one list; `version` tells the rows apart.
   const combinedVaults = React.useMemo<Vault[]>(
@@ -266,7 +272,7 @@ export default function EarnPage() {
                             <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
                           </Tooltip>
                         </Link>
-                        {position.vault.version === 'v2' && <VaultVersionChip />}
+                        <VaultVersionChip version={position.vault.version} />
                       </Box>
                     </TableCell>
 
@@ -310,6 +316,27 @@ export default function EarnPage() {
         <Typography role="alert" color="warning.main" sx={{ marginBottom: 2 }}>
           <FormattedMessage id="earn.partialError" values={{ message: partialError.message }} />
         </Typography>
+      )}
+
+      <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ marginBottom: 1 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showUnlisted}
+              onChange={(event) => {
+                setShowUnlisted(event.target.checked);
+                setPage(1);
+              }}
+            />
+          }
+          label={intl.formatMessage({ id: 'earn.showUnlisted' })}
+        />
+      </Stack>
+
+      {showUnlisted && (
+        <Alert severity="warning" sx={{ marginBottom: 2 }}>
+          <FormattedMessage id="earn.unlistedWarning" />
+        </Alert>
       )}
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
@@ -515,7 +542,10 @@ export default function EarnPage() {
                         <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
                       </Tooltip>
                     </Link>
-                    {vault.version === 'v2' && <VaultVersionChip />}
+                    <VaultVersionChip version={vault.version} />
+                    {vault.listed === false && (
+                      <Chip size="small" color="warning" variant="outlined" label={intl.formatMessage({ id: 'earn.unlisted' })} />
+                    )}
                   </Box>
                 </TableCell>
 

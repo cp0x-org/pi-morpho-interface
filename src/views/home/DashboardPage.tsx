@@ -282,7 +282,7 @@ export default function DashboardPage() {
                             >
                               {position.vault.name || shortenAddress(position.vault.address)}
                             </Link>
-                            {position.vault.version === 'v2' && <VaultVersionChip />}
+                            <VaultVersionChip version={position.vault.version} />
                           </Box>
                         </TableCell>
                         <TableCell>
