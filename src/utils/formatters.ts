@@ -1,4 +1,4 @@
-import { formatEther, formatUnits } from 'viem';
+import { formatEther, formatUnits, parseUnits } from 'viem';
 
 export const DECIMALS_SCALE_FACTOR = 3;
 /**
@@ -95,6 +95,29 @@ export const formatAssetOutput = (val: string): string => {
 };
 
 export const normalizePointAmount = (val: string) => val.replace(',', '.');
+
+/** Form text ("1,5" or "1.5") → base units. 0n for an empty or malformed field: never throws, so it is safe inside render and effects. */
+export const parseAmountOrZero = (value: string, decimals: number): bigint => {
+  if (!value) return 0n;
+  try {
+    return parseUnits(normalizePointAmount(value), decimals);
+  } catch {
+    return 0n;
+  }
+};
+
+/**
+ * `percent` of a base-unit amount as an exact decimal string. Base-unit math keeps 100% equal to the balance
+ * (float math can land a hair above it) and formatUnits never yields exponent notation ("2e-18"), which parseUnits rejects.
+ */
+export const percentOfAmount = (amount: bigint, percent: number, decimals: number): string =>
+  formatUnits((amount * BigInt(percent)) / 100n, decimals);
+
+/** Cuts a decimal string to `maxDecimals` for the input field, never rounding up. */
+export const truncateDecimals = (value: string, maxDecimals: number): string => {
+  const [whole, fraction] = value.split('.');
+  return fraction ? `${whole}.${fraction.slice(0, maxDecimals)}` : whole;
+};
 
 export const normalizeCommaAmount = (val: string) => {
   return val.replace(/\s/g, '').replace(/,/g, '');

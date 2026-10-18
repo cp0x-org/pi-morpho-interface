@@ -13,7 +13,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
-import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -51,13 +51,14 @@ export default function WithdrawTab({
   const [txError, setTxError] = useState<string | null>(null);
   // Use the custom transaction hook
   const { sendTransaction, txState, txError: txRawError, isCompleted, resetTx } = useWriteTransaction();
-  const formattedWithdrawable = useMemo(() => {
-    if (!accrualPosition?.supplyShares) return '0';
-    return formatUnits(
-      sdkMarket?.toSupplyAssets(accrualPosition?.supplyShares) as bigint,
-      market?.loanAsset?.decimals ? market.loanAsset.decimals : 0
-    );
-  }, [accrualPosition, market]);
+  const withdrawableBN = useMemo(() => {
+    if (!accrualPosition?.supplyShares || !sdkMarket) return 0n;
+    return sdkMarket.toSupplyAssets(accrualPosition.supplyShares);
+  }, [accrualPosition, sdkMarket]);
+  const formattedWithdrawable = useMemo(
+    () => formatUnits(withdrawableBN, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0),
+    [withdrawableBN, market]
+  );
 
   useEffect(() => {
     if (!market) {
@@ -65,15 +66,7 @@ export default function WithdrawTab({
       return;
     }
 
-    let amount = withdrawAmount ? normalizePointAmount(withdrawAmount) : '0';
-
-    const assetDecimals = market.loanAsset.decimals;
-    const amountBN = parseUnits(amount, assetDecimals);
-    // const amountFloat = parseFloat(amount);
-    // const multiplier = Math.pow(10, assetDecimals);
-    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-    onLoanAmountChange(-amountBN);
+    onLoanAmountChange(-parseAmountOrZero(withdrawAmount, market.loanAsset.decimals));
   }, [withdrawAmount, market]);
 
   // Handle successful transaction completion
@@ -148,19 +141,16 @@ export default function WithdrawTab({
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const decimals = market?.loanAsset?.decimals || 0;
-      const rawValue = (parseFloat(formattedWithdrawable) * percent) / 100;
-      const factor = 10 ** decimals;
-      const value = Math.floor(rawValue * factor) / factor;
+      const value = percentOfAmount(withdrawableBN, percent, market?.loanAsset?.decimals ?? 0);
 
-      // const value = ((parseFloat(formattedLoanBalance) * percent) / 100).toFixed(market?.loanAsset?.decimals);
-      setWithdrawAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+      setWithdrawAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
 
       // Set active percentage
       setActivePercentage(percent);
     },
-    [formattedWithdrawable, market?.loanAsset?.decimals]
+    [withdrawableBN, market?.loanAsset?.decimals]
   );
 
   // Determine if the button should be disabled
@@ -258,7 +248,8 @@ export default function WithdrawTab({
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setWithdrawAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setWithdrawAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {

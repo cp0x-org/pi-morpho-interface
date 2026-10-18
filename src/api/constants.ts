@@ -19,13 +19,15 @@ export const ApiUrls = {
 
 export const MorphoRequests = {
   //EarnPage
+  // `listed: null` returns every vault (the API caps a page at 1000, unlisted ones are mostly abandoned or test deployments).
   GetVaultsData: gql`
-    query GetVaults {
-      vaults(first: 1000) {
+    query GetVaults($listed: Boolean) {
+      vaults(where: { listed: $listed }, first: 1000) {
         items {
           address
           symbol
           name
+          listed
           chain {
             id
             network
@@ -42,6 +44,84 @@ export const MorphoRequests = {
             totalAssets
             totalAssetsUsd
             curators {
+              id
+              name
+              image
+              addresses {
+                address
+                chainId
+              }
+            }
+          }
+        }
+      }
+    }
+  `,
+  // EarnPage, Morpho Vaults V2: a separate entity with metrics on the object itself (no `state`).
+  // Unlisted V2 vaults are mostly test deployments, so only listed ones are shown.
+  // Paged (see hooks/useVaultsV2): the API's complexity limit allows ~170 V2 vaults per request, there are more.
+  GetVaultsV2Data: gql`
+    query GetVaultsV2($first: Int!, $skip: Int!, $listed: Boolean) {
+      vaultV2s(where: { listed: $listed }, first: $first, skip: $skip, orderBy: Address, orderDirection: Asc) {
+        items {
+          address
+          symbol
+          name
+          listed
+          chain {
+            id
+            network
+          }
+          asset {
+            id
+            symbol
+            address
+            decimals
+            name
+          }
+          totalAssets
+          totalAssetsUsd
+          liquidity
+          liquidityUsd
+          avgNetApy
+          curators {
+            items {
+              id
+              name
+              image
+            }
+          }
+        }
+      }
+    }
+  `,
+  // vaultdetailpage, Vaults V2. `chainIds: null` searches every network (missing ?chainId=).
+  GetMorphoVaultV2ByAddress: gql`
+    query GetVaultV2Details($address: String!, $chainIds: [Int!]) {
+      vaultV2s(where: { address_in: [$address], chainId_in: $chainIds }, first: 1) {
+        items {
+          address
+          symbol
+          name
+          listed
+          chain {
+            id
+            network
+          }
+          asset {
+            id
+            symbol
+            address
+            decimals
+            name
+          }
+          totalAssets
+          totalAssetsUsd
+          liquidity
+          liquidityUsd
+          avgNetApy
+          curators {
+            items {
               id
               name
               image
@@ -237,6 +317,29 @@ export const MorphoRequests = {
             assets
             assetsUsd
           }
+        }
+        vaultV2Positions {
+          vault {
+            address
+            name
+            totalAssets
+            totalAssetsUsd
+            avgNetApy
+            curators {
+              items {
+                id
+                name
+              }
+            }
+            asset {
+              address
+              name
+              decimals
+              symbol
+            }
+          }
+          assets
+          assetsUsd
         }
       }
     }

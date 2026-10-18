@@ -13,6 +13,7 @@ const CHAIN_NAMES: Record<number, string> = {
   10143: 'Monad Testnet',
   42161: 'Arbitrum One',
   4217: 'Tempo',
+  4663: 'Robinhood Chain'
 };
 
 export const getChainName = (chainId: number): string => CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;

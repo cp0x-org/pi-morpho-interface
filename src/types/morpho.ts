@@ -50,6 +50,7 @@ export interface UserVault {
   name: string;
   state: VaultState;
   asset: VaultAsset;
+  version?: 'v1' | 'v2';
 }
 
 /**
@@ -87,6 +88,21 @@ export interface UserVaultPosition {
   state: VaultPositionState;
 }
 
+/** `vaultV2Positions` entry: metrics sit on the vault itself. Normalized into `UserVaultPosition` by `utils/vaults`. */
+export interface UserVaultV2Position {
+  vault: {
+    address: string;
+    name: string;
+    asset: VaultAsset;
+    totalAssets: string | null;
+    totalAssetsUsd: number | null;
+    avgNetApy: number | null;
+    curators: { items: VaultCurator[] } | null;
+  };
+  assets: string | null;
+  assetsUsd: number | null;
+}
+
 /**
  * User data returned by the GetUserPositions query
  */
@@ -94,6 +110,7 @@ export interface MorphoUser {
   address: string;
   marketPositions: UserMarketPosition[];
   vaultPositions: UserVaultPosition[];
+  vaultV2Positions: UserVaultV2Position[];
 }
 
 /**

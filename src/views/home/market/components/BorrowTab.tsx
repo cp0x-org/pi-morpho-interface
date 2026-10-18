@@ -4,7 +4,7 @@ import Button from '@mui/material/Button';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { AccrualPosition, MarketParams } from '@morpho-org/blue-sdk';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
@@ -15,7 +15,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import Divider from '@mui/material/Divider';
-import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -47,16 +47,7 @@ export default function BorrowTab({ market, chainId, marketParams, accrualPositi
       return;
     }
 
-    let amount = borrowAmount ? normalizePointAmount(borrowAmount) : '0';
-    const assetDecimals = market.loanAsset.decimals;
-    // const amountFloat = parseFloat(amount);
-    // const multiplier = Math.pow(10, assetDecimals);
-    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    const amountBN = parseUnits(amount, assetDecimals);
-
-    onBorrowAmountChange(amountBN);
+    onBorrowAmountChange(parseAmountOrZero(borrowAmount, market.loanAsset.decimals));
   }, [borrowAmount, market]);
 
   // Use the transaction hook
@@ -68,29 +59,28 @@ export default function BorrowTab({ market, chainId, marketParams, accrualPositi
     return formatUnits(accrualPosition?.maxBorrowableAssets as bigint, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0);
   }, [accrualPosition, market]);
 
-  const formattedSafeMaxBorrowable = useMemo(() => {
-    if (!accrualPosition?.maxBorrowableAssets) return '0';
+  // 6% safety margin, in base units
+  const safeMaxBorrowableBN = useMemo(
+    () => (((accrualPosition?.maxBorrowableAssets as bigint | undefined) ?? 0n) * 94n) / 100n,
+    [accrualPosition]
+  );
 
-    let borrowable = formatUnits(
-      accrualPosition?.maxBorrowableAssets as bigint,
-      market?.loanAsset?.decimals ? market.loanAsset.decimals : 0
-    );
-
-    let safeBorrowable = Number(borrowable) * 0.94; // 6% safety margin
-
-    return safeBorrowable.toFixed(market?.loanAsset?.decimals ? market.loanAsset.decimals / 3 : 6);
-  }, [accrualPosition, market]);
+  const formattedSafeMaxBorrowable = useMemo(
+    () => formatUnits(safeMaxBorrowableBN, market?.loanAsset?.decimals ? market.loanAsset.decimals : 0),
+    [safeMaxBorrowableBN, market]
+  );
 
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const value = (parseFloat(formattedSafeMaxBorrowable) * percent) / 100;
-      setBorrowAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
+      const value = percentOfAmount(safeMaxBorrowableBN, percent, market?.loanAsset?.decimals ?? 0);
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+      setBorrowAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
 
       // Set active percentage
       setActivePercentage(percent);
     },
-    [formattedSafeMaxBorrowable]
+    [safeMaxBorrowableBN, market?.loanAsset?.decimals]
   );
 
   // Handle transaction state changes
@@ -131,12 +121,7 @@ export default function BorrowTab({ market, chainId, marketParams, accrualPositi
     }
 
     try {
-      const amountFloat = parseFloat(normalizePointAmount(borrowAmount));
-      const assetDecimals = market.loanAsset.decimals;
-
-      const multiplier = Math.pow(10, assetDecimals);
-      const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-      const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+      const amountBN = parseAmountOrZero(borrowAmount, market.loanAsset.decimals);
 
       await borrowTx.sendTransaction({
         address: morphoAddress as `0x${string}`,
@@ -239,7 +224,8 @@ export default function BorrowTab({ market, chainId, marketParams, accrualPositi
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setBorrowAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setBorrowAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {

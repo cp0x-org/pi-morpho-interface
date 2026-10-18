@@ -27,6 +27,8 @@ import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
 import { routes } from 'utils/routes';
+import { normalizeVaultV2Position } from 'utils/vaults';
+import { VaultVersionChip } from 'components/VaultVersionChip';
 import { useMidnightOpenOrders } from 'hooks/midnight/useMidnightOpenOrders';
 import { useMidnightUserPositions } from 'hooks/midnight/useMidnightUserPositions';
 import { useNowInSeconds } from 'hooks/midnight/useNowInSeconds';
@@ -49,9 +51,7 @@ interface MorphoPositionsData {
   borrowApy: string;
 }
 
-// All chains supported by Morpho
-const MORPHO_CHAIN_IDS = [1, 8453, 137, 42161, 130, 10, 480] as const;
-
+// Every network the interface supports (see wagmi-config): the API is queried per chain, one hook per entry below.
 function useChainPositions(chainId: number, address: string | undefined) {
   return useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
     client: appoloClients.morphoApi,
@@ -73,6 +73,12 @@ export default function DashboardPage() {
   const chain130 = useChainPositions(130, userAddress);
   const chain10 = useChainPositions(10, userAddress);
   const chain480 = useChainPositions(480, userAddress);
+  const chain999 = useChainPositions(999, userAddress);
+  const chain747474 = useChainPositions(747474, userAddress);
+  const chain143 = useChainPositions(143, userAddress);
+  const chain988 = useChainPositions(988, userAddress);
+  const chain4217 = useChainPositions(4217, userAddress);
+  const chain4663 = useChainPositions(4663, userAddress);
 
   const chainResults = [
     { chainId: 1, result: chain1 },
@@ -81,7 +87,13 @@ export default function DashboardPage() {
     { chainId: 42161, result: chain42161 },
     { chainId: 130, result: chain130 },
     { chainId: 10, result: chain10 },
-    { chainId: 480, result: chain480 }
+    { chainId: 480, result: chain480 },
+    { chainId: 999, result: chain999 },
+    { chainId: 747474, result: chain747474 },
+    { chainId: 143, result: chain143 },
+    { chainId: 988, result: chain988 },
+    { chainId: 4217, result: chain4217 },
+    { chainId: 4663, result: chain4663 }
   ];
 
   const anyLoading = chainResults.some((c) => c.result.loading);
@@ -108,7 +120,9 @@ export default function DashboardPage() {
               borrowApy: position.market.state.borrowApy || '0'
             }));
 
-          const vaultPositions = user.vaultPositions.filter((p) => parseFloat(p.state.assets || '0') > 0);
+          const vaultPositions = [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)].filter(
+            (p) => parseFloat(p.state.assets || '0') > 0
+          );
 
           if (marketPositions.length === 0 && vaultPositions.length === 0) return null;
 
@@ -268,6 +282,7 @@ export default function DashboardPage() {
                             >
                               {position.vault.name || shortenAddress(position.vault.address)}
                             </Link>
+                            <VaultVersionChip version={position.vault.version} />
                           </Box>
                         </TableCell>
                         <TableCell>

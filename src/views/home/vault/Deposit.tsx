@@ -14,7 +14,7 @@ import { parseUnits } from 'viem';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import { INPUT_DECIMALS } from '@/appconfig';
-import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters'; // или ethers.js
+import { DECIMALS_SCALE_FACTOR, formatAssetOutput, normalizePointAmount } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -428,7 +428,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setDepositAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setDepositAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {

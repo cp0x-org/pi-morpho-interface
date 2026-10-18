@@ -1,5 +1,3 @@
-// import { http, createConfig } from 'wagmi'
-// import { mainnet, sepolia, Chain } from 'wagmi/chains';
 import {
   mainnet,
   base,
@@ -8,7 +6,6 @@ import {
   arbitrum,
   optimism,
   worldchain,
-  gnosis,
   hyperEvm,
   katana,
   monad,
@@ -16,171 +13,65 @@ import {
   tempo,
   Chain
 } from 'wagmi/chains';
-// import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
+import { getDefaultConfig, Chain as RainbowKitChain } from '@rainbow-me/rainbowkit';
 
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { createConfig, http } from '@wagmi/core';
-import { mainnet as mainnetCore } from '@wagmi/core/chains';
+import { robinhood } from './chains/robinhood';
+import { RuntimeConfig } from './runtime-config';
 
-// import { Chain } from 'wagmi'
+// Public WalletConnect Cloud project id (it is sent to wallets anyway); `public/config.js` can override it.
+const DEFAULT_WALLETCONNECT_PROJECT_ID = '3bd0ad741725d54fbc9a4c7b6545720e';
 
-const mainTest: Chain = {
-  id: 1999999,
-  name: 'MyNet',
-  nativeCurrency: {
-    name: 'MainToken',
-    symbol: 'MTK',
-    decimals: 18
-  },
-  rpcUrls: {
-    default: {
-      http: ['https://virtual.mainnet.rpc.tenderly.co/f6a7b5d3-e340-4d72-a6ec-e4984cde3422']
-    },
-    public: {
-      http: ['https://virtual.mainnet.rpc.tenderly.co/f6a7b5d3-e340-4d72-a6ec-e4984cde3422']
-    }
-  },
-  blockExplorers: {
-    default: {
-      name: 'Tenderly Explorer',
-      url: 'https://dashboard.tenderly.co/'
-    }
-  },
-  testnet: false // или true, если это тестовая сеть
+/** Chains the interface supports, in the order wallets list them. */
+export const supportedChains: readonly [Chain, ...Chain[]] = [
+  mainnet,
+  base,
+  polygon,
+  unichain,
+  arbitrum,
+  optimism,
+  worldchain,
+  hyperEvm,
+  katana,
+  monad,
+  stable,
+  tempo,
+  robinhood
+];
+
+// RainbowKit ships icons only for a few well-known chains (Ethereum, Base, Polygon, Arbitrum, Optimism, ...); the rest
+// would show up blank in the network switcher, so they take the icons from public/chains/<id>.jpg.
+const CHAINS_WITHOUT_RAINBOWKIT_ICON = new Set<number>([
+  unichain.id,
+  worldchain.id,
+  hyperEvm.id,
+  katana.id,
+  monad.id,
+  stable.id,
+  tempo.id,
+  robinhood.id
+]);
+
+const withIcon = (chain: Chain): RainbowKitChain =>
+  CHAINS_WITHOUT_RAINBOWKIT_ICON.has(chain.id) ? { ...chain, iconUrl: `${import.meta.env.BASE_URL}chains/${chain.id}.jpg` } : chain;
+
+const withRpcUrls = (chain: Chain, rpc: string | string[] | undefined): Chain => {
+  const http = (Array.isArray(rpc) ? rpc : [rpc]).filter((url): url is string => typeof url === 'string' && url.length > 0);
+  if (http.length === 0) return chain;
+  // viem only reads `default`: a chain without it has no transport at all.
+  return { ...chain, rpcUrls: { ...chain.rpcUrls, default: { http } } };
 };
 
-const mainAnvil: Chain = {
-  id: 1222,
-  name: 'Anvil',
-  nativeCurrency: {
-    name: 'aEth',
-    symbol: 'MTK',
-    decimals: 18
-  },
-  rpcUrls: {
-    default: {
-      http: ['http://127.0.0.1:8545']
-    },
-    public: {
-      http: ['http://127.0.0.1:8545']
-    }
-  },
-  blockExplorers: {
-    default: {
-      name: 'None',
-      url: ''
-    }
-  },
-  testnet: false
-};
-
-const mainnetCustom = {
-  ...mainnet,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/eth/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://mainnet.gateway.tenderly.co/pdi7AAywqnL5vR9UcNZag'] }
-  }
-};
-
-const baseCustom = {
-  ...base,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/base/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://base.gateway.tenderly.co/4ZBIIWD6nHhRpKjsjBbW76'] }
-  }
-};
-
-const polygonCustom = {
-  ...polygon,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/polygon/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
-  }
-};
-
-const unichainCustom = {
-  ...unichain,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/unichain_mainnet/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
-  }
-};
-const arbitrumCustom = {
-  ...arbitrum,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/arbitrum/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
-  }
-};
-
-const optimismCustom = {
-  ...optimism,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/optimism/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-    // public: { http: ['https://polygon-mainnet.infura.io/v3/b685c66673a84c0dbd363bc4524c2e73'] }
-  }
-};
-
-const worldchainCustom = {
-  ...worldchain,
-  rpcUrls: {
-    default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] }
-  }
-};
-
-const hyperEvmCustom = {
-  ...hyperEvm,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/hyperevm/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-  }
-};
-
-const katanaCustom = {
-  ...katana,
-  rpcUrls: {
-    default: { http: ['https://rpc.katana.network'] }
-  }
-};
-
-const monadCustom = {
-  ...monad,
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/monad_mainnet/0bbd9696db932d0f65ee98a75d44554eb602ea2b77d39ec30227afdde73070c3'] }
-  }
-};
-
-const stableCustom = {
-  ...stable,
-  rpcUrls: {
-    default: { http: ['https://rpc.stable.xyz'] }
-  }
-};
-
-const tempoCustom = {
-  ...tempo,
-  rpcUrls: {
-    default: { http: ['https://rpc.tempo.xyz'] }
-  }
-};
-
-export const config = getDefaultConfig({
-  appName: 'Morpho Interface',
-  projectId: '3bd0ad741725d54fbc9a4c7b6545720e',
-  // chains: [mainnet, sepolia, mainTest],
-  chains: [
-    mainnetCustom,
-    baseCustom,
-    polygonCustom,
-    unichainCustom,
-    arbitrumCustom,
-    optimismCustom,
-    worldchainCustom,
-    hyperEvmCustom,
-    katanaCustom,
-    monadCustom,
-    stableCustom,
-    tempoCustom
-  ],
-  // chains: [mainnet, mainAnvil, mainTest],
-  ssr: false
-});
+/**
+ * Builds the wagmi/RainbowKit config once the runtime config is known. RPC endpoints never live in the source:
+ * they come from `public/config.js`, with each chain's public endpoint as the fallback.
+ */
+export const createWagmiConfig = (runtime: RuntimeConfig = {}) =>
+  getDefaultConfig({
+    appName: 'Morpho Interface',
+    projectId: runtime.walletConnectProjectId || DEFAULT_WALLETCONNECT_PROJECT_ID,
+    chains: supportedChains.map((chain) => withIcon(withRpcUrls(chain, runtime.rpcUrls?.[String(chain.id)]))) as [
+      RainbowKitChain,
+      ...RainbowKitChain[]
+    ],
+    ssr: false
+  });

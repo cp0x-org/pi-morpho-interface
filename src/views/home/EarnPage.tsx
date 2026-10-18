@@ -6,9 +6,13 @@ import Link from '@mui/material/Link';
 import { visuallyHidden } from 'utils/a11y';
 
 import {
+  Alert,
   Autocomplete,
   Avatar,
   Chip,
+  FormControlLabel,
+  Stack,
+  Switch,
   CircularProgress,
   FormControl,
   Grid,
@@ -43,6 +47,9 @@ import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morph
 import { ChainIcon } from 'components/ChainIcon';
 import { routes } from 'utils/routes';
 import { formatUnits } from 'viem';
+import { useVaultsV2 } from 'hooks/useVaultsV2';
+import { normalizeVaultV2Position } from 'utils/vaults';
+import { VaultVersionChip } from 'components/VaultVersionChip';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 const toTokenAmount = (raw: string, decimals: number): number => parseFloat(raw || '0') / Math.pow(10, decimals);
@@ -74,6 +81,7 @@ export default function EarnPage() {
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
+  const [showUnlisted, setShowUnlisted] = useState(false);
   const { chainId } = useConfigChainId();
   const { address: userAddress } = useAccount();
   const {
@@ -89,9 +97,10 @@ export default function EarnPage() {
     skip: !userAddress
   });
   const morphoVaultPositions = React.useMemo(() => {
-    if (!morphoPositionsData?.userByAddress) return [];
+    const user = morphoPositionsData?.userByAddress;
+    if (!user) return [];
 
-    return morphoPositionsData.userByAddress.vaultPositions;
+    return [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)];
   }, [morphoPositionsData]);
 
   const {
@@ -99,42 +108,19 @@ export default function EarnPage() {
     error: morphoError,
     data: morphoData
   } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
-    client: appoloClients.morphoApi
+    client: appoloClients.morphoApi,
+    variables: { listed: showUnlisted ? null : true }
   });
+  const { data: vaultsV2, isLoading: vaultsV2Loading, error: vaultsV2Error } = useVaultsV2({ includeUnlisted: showUnlisted });
 
-  // Combine data from both sources
-  const combinedVaults = React.useMemo(() => {
-    if (!morphoData) return [];
-
-    const vaults = [...morphoData.vaults.items];
-
-    // If Morpho data is available without errors, merge it with graph data
-    if (morphoData && !morphoError) {
-      const morphoVaultMap = new Map();
-
-      // Create a map of Morpho vaults by address for easy lookup
-      morphoData.vaults.items.forEach((morphoVault) => {
-        morphoVaultMap.set(morphoVault.address.toLowerCase(), morphoVault);
-      });
-
-      // Enrich graph data with Morpho data
-      return vaults.map((vault) => {
-        const morphoVault = morphoVaultMap.get(vault.address.toLowerCase());
-
-        if (morphoVault) {
-          return {
-            ...vault,
-            avgNetApy: morphoVault.state?.avgNetApy || 0,
-            curators: morphoVault.state?.curators || []
-          };
-        }
-
-        return vault;
-      });
-    }
-
-    return vaults;
-  }, [morphoData, morphoError]);
+  // Vaults V1 and V2 in one list; `version` tells the rows apart.
+  const combinedVaults = React.useMemo<Vault[]>(
+    () => [...(morphoData?.vaults.items ?? []).map((vault) => ({ ...vault, version: 'v1' as const })), ...(vaultsV2 ?? [])],
+    [morphoData, vaultsV2]
+  );
+  // One generation failing still leaves the other on screen; only both failing blocks the page.
+  const vaultsError = morphoError && vaultsV2Error ? morphoError : undefined;
+  const partialError = vaultsError ? undefined : (morphoError ?? vaultsV2Error);
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
@@ -203,7 +189,7 @@ export default function EarnPage() {
     });
   };
 
-  if (morphoLoading) {
+  if (morphoLoading || vaultsV2Loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
         <CircularProgress aria-label={intl.formatMessage({ id: 'earn.loading' })} />
@@ -211,11 +197,11 @@ export default function EarnPage() {
     );
   }
 
-  if (morphoError) {
+  if (vaultsError) {
     return (
       <Box sx={{ padding: 2 }}>
         <Typography role="alert" color="error">
-          <FormattedMessage id="earn.error" values={{ message: morphoError.message }} />
+          <FormattedMessage id="earn.error" values={{ message: vaultsError.message }} />
         </Typography>
       </Box>
     );
@@ -286,6 +272,7 @@ export default function EarnPage() {
                             <span>{truncateName(position.vault.name) || shortenAddress(position.vault.address)}</span>
                           </Tooltip>
                         </Link>
+                        <VaultVersionChip version={position.vault.version} />
                       </Box>
                     </TableCell>
 
@@ -325,13 +312,39 @@ export default function EarnPage() {
       <Typography variant="h3" component="h2" gutterBottom sx={{ marginBottom: 3 }}>
         <FormattedMessage id="earn.availableVaults" />
       </Typography>
+      {partialError && (
+        <Typography role="alert" color="warning.main" sx={{ marginBottom: 2 }}>
+          <FormattedMessage id="earn.partialError" values={{ message: partialError.message }} />
+        </Typography>
+      )}
+
+      <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ marginBottom: 1 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showUnlisted}
+              onChange={(event) => {
+                setShowUnlisted(event.target.checked);
+                setPage(1);
+              }}
+            />
+          }
+          label={intl.formatMessage({ id: 'earn.showUnlisted' })}
+        />
+      </Stack>
+
+      {showUnlisted && (
+        <Alert severity="warning" sx={{ marginBottom: 2 }}>
+          <FormattedMessage id="earn.unlistedWarning" />
+        </Alert>
+      )}
 
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
         <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
             multiple
             id="network-filter"
-            options={morphoData ? getUniqueNetworks(morphoData.vaults.items) : []}
+            options={getUniqueNetworks(combinedVaults)}
             value={networkFilter}
             onChange={(event, newValue) => {
               setNetworkFilter(newValue);
@@ -357,7 +370,7 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={morphoData ? getUniqueSymbols(morphoData.vaults.items) : []}
+            options={getUniqueSymbols(combinedVaults)}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -508,7 +521,7 @@ export default function EarnPage() {
           <TableBody>
             {paginatedVaults.map((vault) => (
               <TableRow
-                key={vault.address}
+                key={`${vault.chain?.id}-${vault.address}`}
                 hover
                 onClick={() => handleVaultClick(vault.address, vault.chain?.id, vault.name)}
                 sx={{ cursor: 'pointer' }}
@@ -529,6 +542,10 @@ export default function EarnPage() {
                         <span>{vault.name ? truncateName(vault.name) : shortenAddress(vault.address)}</span>
                       </Tooltip>
                     </Link>
+                    <VaultVersionChip version={vault.version} />
+                    {vault.listed === false && (
+                      <Chip size="small" color="warning" variant="outlined" label={intl.formatMessage({ id: 'earn.unlisted' })} />
+                    )}
                   </Box>
                 </TableCell>
 

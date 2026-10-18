@@ -19,6 +19,9 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
+# Default (key-less) runtime config; docker-compose mounts the real public/config.js over it.
+RUN [ -f dist/config.js ] || cp dist/config.example.js dist/config.js
+
 EXPOSE 4173
 
 CMD ["serve", "-s", "dist", "-l", "4173"]
