@@ -35,7 +35,8 @@ import '@fontsource/poppins/400.css';
 import '@fontsource/poppins/500.css';
 import '@fontsource/poppins/600.css';
 import '@fontsource/poppins/700.css';
-import { config } from './wagmi-config';
+import { createWagmiConfig } from './wagmi-config';
+import { loadRuntimeConfig } from './runtime-config';
 
 globalThis.Buffer = Buffer;
 
@@ -45,6 +46,10 @@ const queryClient = new QueryClient();
 
 const container = document.getElementById('root');
 const root = createRoot(container!);
+
+// RPC endpoints come from public/config.js, loaded by index.html before this bundle.
+const config = createWagmiConfig(loadRuntimeConfig());
+
 root.render(
   <Provider store={store}>
     <ConfigProvider>

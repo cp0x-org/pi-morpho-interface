@@ -8,7 +8,10 @@ Before running anything, you'll need to install the dependencies:
 
 ```
 pnpm install
+cp public/config.example.js public/config.js
 ```
+
+`public/config.js` (git-ignored) holds the RPC endpoints the browser loads at runtime; see the README for the format.
 
 ## Running the interface locally
 

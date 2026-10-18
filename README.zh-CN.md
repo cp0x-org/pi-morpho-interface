@@ -21,6 +21,24 @@
 
 固定利率市场运行于 [Morpho Midnight](https://docs.morpho.org/learn/concepts/midnight/) 协议。其市场 id 本身已包含链信息，因此这些网址不需要 `?chainId=`。旧链接（`/dashboard`、`/earn`、`/earn/vault/...`、`/borrow`、`/borrow/market/...`）会重定向到新地址，并保留原有查询参数。
 
+## 配置（RPC 节点）
+
+RPC 节点不会被打包进构建产物：`index.html` 会在应用包之前加载 `/config.js`，因此密钥不会进入打包文件或 git。
+
+```
+cp public/config.example.js public/config.js   # 已被 git 忽略，在此填写您自己的 RPC 地址（含密钥）
+```
+
+`rpcUrls` 将链 id 映射到一个地址或地址列表；未列出的链沿用 viem 定义中的公共节点。`walletConnectProjectId` 为可选项。支持的网络：Ethereum、Base、Polygon、Unichain、Arbitrum One、OP Mainnet、World Chain、HyperEVM、Katana、Monad、Stable、Tempo 和 Robinhood Chain。
+
+### Docker
+
+```
+docker compose up -d --build
+```
+
+镜像中只包含 `config.example.js`（公共节点）；`docker-compose.yml` 会把您的 `public/config.js` 挂载到 `/app/dist/config.js`，因此在执行 `up` 之前该文件必须已存在。界面监听 [http://localhost:4173]。
+
 ## 应用链接
 
 - 官网：[pi.cp0x.com](https://pi.cp0x.com/)

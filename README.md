@@ -21,6 +21,24 @@ Only interface text is translated. Data coming from the API and smart contracts 
 
 Fixed-rate markets run on the [Morpho Midnight](https://docs.morpho.org/learn/concepts/midnight/) protocol. Their market ids already commit to a chain, so those URLs need no `?chainId=`. Older links (`/dashboard`, `/earn`, `/earn/vault/...`, `/borrow`, `/borrow/market/...`) redirect to the new ones and keep their query parameters.
 
+## Configuration (RPC endpoints)
+
+RPC endpoints are not part of the build: `index.html` loads `/config.js` before the app bundle, so keys never end up in the bundle or in git.
+
+```
+cp public/config.example.js public/config.js   # git-ignored, put your own RPC URLs (with keys) here
+```
+
+`rpcUrls` maps a chain id to one URL or a list of URLs; a chain left out keeps the public endpoint from its viem definition. `walletConnectProjectId` is optional. Supported networks: Ethereum, Base, Polygon, Unichain, Arbitrum One, OP Mainnet, World Chain, HyperEVM, Katana, Monad, Stable, Tempo and Robinhood Chain.
+
+### Docker
+
+```
+docker compose up -d --build
+```
+
+The image ships only `config.example.js` (public endpoints); `docker-compose.yml` mounts your `public/config.js` over `/app/dist/config.js`, so the file must exist before `up`. The interface listens on [http://localhost:4173].
+
 ## Application Links
 - Website: [pi.cp0x.com](https://pi.cp0x.com/)
 - Interface: [morpho.cp0x.com](https://morpho.cp0x.com)

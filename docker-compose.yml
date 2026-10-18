@@ -1,0 +1,11 @@
+services:
+  morpho-interface:
+    build: .
+    image: cp0x/pi-morpho-interface:local
+    ports:
+      - '4173:4173'
+    volumes:
+      # RPC endpoints (with your keys) are read by the browser at runtime from /config.js.
+      # Create the file first: cp public/config.example.js public/config.js
+      - ./public/config.js:/app/dist/config.js:ro
+    restart: unless-stopped

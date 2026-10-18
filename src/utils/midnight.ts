@@ -15,7 +15,7 @@ export const ORACLE_PRICE_SCALE = 10n ** 36n;
 /** 365 days: the year used by TickLib.tickToApr. */
 export const SECONDS_PER_YEAR = Time.s.from.y(1n);
 /** Chains with a Midnight deployment registered in morpho-ts. */
-export const MIDNIGHT_CHAIN_IDS = [1, 8453];
+export const MIDNIGHT_CHAIN_IDS = [1, 8453, 4663];
 export const TX_DEADLINE_SECONDS = 20n * 60n;
 /** Borrowers are warned this long before maturity: unpaid debt is liquidatable right after it. */
 export const MATURITY_WARNING_SECONDS = 72n * 60n * 60n;

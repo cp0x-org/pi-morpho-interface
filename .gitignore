@@ -29,3 +29,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 /.idea/
+
+# runtime RPC config with private keys: copy public/config.example.js and keep it local
+/public/config.js

@@ -34,16 +34,16 @@ importers:
         version: 5.2.5
       '@morpho-org/blue-sdk':
         specifier: ^4.0.0
-        version: 4.0.0(@morpho-org/morpho-ts@2.13.0)
+        version: 4.0.0(@morpho-org/morpho-ts@2.15.0)
       '@morpho-org/blue-sdk-wagmi':
         specifier: ^3.0.0
-        version: 3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))
+        version: 3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))
       '@morpho-org/midnight-sdk':
         specifier: 1.4.0
-        version: 1.4.0(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
+        version: 1.4.0(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
       '@morpho-org/morpho-ts':
-        specifier: ^2.13.0
-        version: 2.13.0
+        specifier: ^2.15.0
+        version: 2.15.0
       '@mui/icons-material':
         specifier: 7.0.2
         version: 7.0.2(@mui/material@7.0.2(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react@19.1.2)(react@19.1.0)
@@ -1563,6 +1563,10 @@ packages:
     resolution: {integrity: sha512-5yb2gMI1BDm0JybZezeoX/3XhPDOtTbcFvpTXM9kxsoZjPZFh4XciqRbpD6N86HYZqWDhEaKUDuOyR0sQHEjMA==}
     engines: {node: '>=12.0.0'}
 
+  '@metamask/safe-event-emitter@3.1.3':
+    resolution: {integrity: sha512-Pnl74ukgoOkSItBRmZ9nnhdBbRtBI1ZvpeYjKNgxjVzDWa/AtruKZc+7LjfZ0iO8iYqh7Ts3bPs2Gu7M2hSf7g==}
+    engines: {node: '>=12.0.0'}
+
   '@metamask/sdk-communication-layer@0.32.0':
     resolution: {integrity: sha512-dmj/KFjMi1fsdZGIOtbhxdg3amxhKL/A5BqSU4uh/SyDKPub/OT+x5pX8bGjpTL1WPWY/Q0OIlvFyX3VWnT06Q==}
     peerDependencies:
@@ -1623,8 +1627,8 @@ packages:
       '@morpho-org/morpho-ts': ^2.8.0
       viem: ^2.0.0
 
-  '@morpho-org/morpho-ts@2.13.0':
-    resolution: {integrity: sha512-AexYjickJaPQtAGj9hNWY+vTFR3aPjn2NnrFW2zbPISR8d1d3gDJlZhlTFMtE/Hyw2Cd/Cp1IcX05Gs3JnuE+w==}
+  '@morpho-org/morpho-ts@2.15.0':
+    resolution: {integrity: sha512-bLGITX+sa4Fv1M1YQ7mpQhyONMZIDToLf/GpUVPErKJVxEFPfJg+G5BK93/XGMsaN8EYEvDjhZhMQrU658e1GQ==}
 
   '@mui/core-downloads-tracker@7.1.1':
     resolution: {integrity: sha512-yBckQs4aQ8mqukLnPC6ivIRv6guhaXi8snVl00VtyojBbm+l6VbVhyTSZ68Abcx7Ah8B+GZhrB7BOli+e+9LkQ==}
@@ -2243,6 +2247,9 @@ packages:
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
 
+  '@types/debug@4.1.13':
+    resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
+
   '@types/estree@1.0.7':
     resolution: {integrity: sha512-w28IoSUCJpidD/TGviZwwMJckNESJZXFu7NBZ5YJ4mEUnNraUn9Pm8HSZm/jDF1pDWYKspWE7oVphigUPRakIQ==}
 
@@ -2689,8 +2696,8 @@ packages:
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
 
-  bn.js@5.2.2:
-    resolution: {integrity: sha512-v2YAxEmKaBLahNwE1mjp4WON6huMNeuDvagFZW+ASCuA/ku0bXR9hSMw0XpiqMoA3+rmnyck/tPRSFQkoC9Cuw==}
+  bn.js@5.2.5:
+    resolution: {integrity: sha512-Vq886eXykuP5E6HcKSSStP3bJgrE6In5WKxVUvJ8XGpWWYs2xZHWqUwzCtGgEtBcxyd57KBFDPFoUfNzdaHCNg==}
 
   bowser@2.11.0:
     resolution: {integrity: sha512-AlcaJBi/pqqJBIQ8U9Mcpc9i8Aqxn88Skv5d+xBX006BY5u8N3mGLHa5Lgppa7L/HfwgwLgZ6NYs+Ag6uUmJRA==}
@@ -2957,6 +2964,15 @@ packages:
 
   debug@4.4.1:
     resolution: {integrity: sha512-KcKCqiftBJcZr++7ykoDIEwSa3XWowTfNPo92BYxjXiyYEVrUQh2aLyhxBCwww+heortUFxEJYcRzosstTEBYQ==}
+    engines: {node: '>=6.0'}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+
+  debug@4.4.3:
+    resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
     peerDependencies:
       supports-color: '*'
@@ -3259,6 +3275,9 @@ packages:
 
   eventemitter3@5.0.1:
     resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
+
+  eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
   events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
@@ -3714,6 +3733,9 @@ packages:
 
   isarray@1.0.0:
     resolution: {integrity: sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==}
+
+  isarray@2.0.5:
+    resolution: {integrity: sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw==}
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
@@ -4275,6 +4297,14 @@ packages:
   preact@10.26.8:
     resolution: {integrity: sha512-1nMfdFjucm5hKvq0IClqZwK4FJkGXhRrQstOQ3P4vp8HxKrJEMFcY6RdBRVTdfQS/UlnX6gfbPuTvaqx/bDoeQ==}
 
+  preact@10.29.8:
+    resolution: {integrity: sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q==}
+    peerDependencies:
+      preact-render-to-string: '>=5'
+    peerDependenciesMeta:
+      preact-render-to-string:
+        optional: true
+
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
@@ -4633,6 +4663,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   sentence-case@3.0.4:
     resolution: {integrity: sha512-8LS0JInaQMCRoQ7YUytAo/xUu5W2XnQxV2HI/6uM6U7CITS1RqPElr30V6uIqyMKM9lJGRVFy5/4CuzcixNYSg==}
 
@@ -4653,8 +4688,9 @@ packages:
   setimmediate@1.0.5:
     resolution: {integrity: sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==}
 
-  sha.js@2.4.11:
-    resolution: {integrity: sha512-QMEp5B7cftE7APOjk5Y6xgrbWu+WkLVQwk8JNjZ8nKRciZaByEW6MubieAiToS7+dwvrjGhH8jRXz3MVd0AYqQ==}
+  sha.js@2.4.12:
+    resolution: {integrity: sha512-8LzC5+bvI45BjpfXU8V5fdU2mfeKiQe1D1gIMn7XUlF3OTUrpdJpPPH4EMAnF0DsHHdSZqCdSss5qCmJKuiO3w==}
+    engines: {node: '>= 0.10'}
     hasBin: true
 
   shebang-command@2.0.0:
@@ -4848,6 +4884,10 @@ packages:
     resolution: {integrity: sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==}
     engines: {node: '>=0.6.0'}
 
+  to-buffer@1.2.2:
+    resolution: {integrity: sha512-db0E3UJjcFhpDhAF4tLo03oli3pwl3dbnzXOUIlRKrp+ldk/VUxzpWYZENsw2SZiuBjHAk7DfB0VU7NKdpb6sw==}
+    engines: {node: '>= 0.4'}
+
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
@@ -4910,6 +4950,10 @@ packages:
   type-fest@2.19.0:
     resolution: {integrity: sha512-RAH822pAdBgcNMAfWnCBU3CFZcfZ/i1eZjwFU/dsLKumyuuP3niueg2UAukXYF0E2AAoc82ZSSf9J0WQBinzHA==}
     engines: {node: '>=12.20'}
+
+  typed-array-buffer@1.0.3:
+    resolution: {integrity: sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw==}
+    engines: {node: '>= 0.4'}
 
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
@@ -5872,16 +5916,17 @@ snapshots:
 
   '@coinbase/wallet-sdk@3.9.3':
     dependencies:
-      bn.js: 5.2.2
+      bn.js: 5.2.5
       buffer: 6.0.3
       clsx: 1.2.1
       eth-block-tracker: 7.1.0
       eth-json-rpc-filters: 6.0.1
-      eventemitter3: 5.0.1
+      eventemitter3: 5.0.4
       keccak: 3.0.4
-      preact: 10.26.8
-      sha.js: 2.4.11
+      preact: 10.29.8
+      sha.js: 2.4.12
     transitivePeerDependencies:
+      - preact-render-to-string
       - supports-color
 
   '@coinbase/wallet-sdk@4.3.0':
@@ -7109,7 +7154,7 @@ snapshots:
   '@metamask/eth-json-rpc-provider@1.0.1':
     dependencies:
       '@metamask/json-rpc-engine': 7.3.3
-      '@metamask/safe-event-emitter': 3.1.2
+      '@metamask/safe-event-emitter': 3.1.3
       '@metamask/utils': 5.0.2
     transitivePeerDependencies:
       - supports-color
@@ -7117,7 +7162,7 @@ snapshots:
   '@metamask/json-rpc-engine@7.3.3':
     dependencies:
       '@metamask/rpc-errors': 6.4.0
-      '@metamask/safe-event-emitter': 3.1.2
+      '@metamask/safe-event-emitter': 3.1.3
       '@metamask/utils': 8.5.0
     transitivePeerDependencies:
       - supports-color
@@ -7176,6 +7221,8 @@ snapshots:
 
   '@metamask/safe-event-emitter@3.1.2': {}
 
+  '@metamask/safe-event-emitter@3.1.3': {}
+
   '@metamask/sdk-communication-layer@0.32.0(cross-fetch@4.1.0)(eciesjs@0.4.15)(eventemitter2@6.4.9)(readable-stream@3.6.2)(socket.io-client@4.8.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
     dependencies:
       bufferutil: 4.0.9
@@ -7227,9 +7274,9 @@ snapshots:
   '@metamask/utils@5.0.2':
     dependencies:
       '@ethereumjs/tx': 4.2.0
-      '@types/debug': 4.1.12
-      debug: 4.4.1
-      semver: 7.7.2
+      '@types/debug': 4.1.13
+      debug: 4.4.3
+      semver: 7.8.5
       superstruct: 1.0.4
     transitivePeerDependencies:
       - supports-color
@@ -7262,37 +7309,37 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
+  '@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
     dependencies:
-      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.13.0)
-      '@morpho-org/morpho-ts': 2.13.0
+      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.15.0)
+      '@morpho-org/morpho-ts': 2.15.0
       viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
 
-  '@morpho-org/blue-sdk-wagmi@3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))':
+  '@morpho-org/blue-sdk-wagmi@3.0.0(@morpho-org/blue-sdk-viem@3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)))(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(@tanstack/react-query@5.80.3(react@19.1.0))(react@19.1.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(wagmi@2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51))':
     dependencies:
-      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.13.0)
-      '@morpho-org/blue-sdk-viem': 3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0))(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
-      '@morpho-org/morpho-ts': 2.13.0
+      '@morpho-org/blue-sdk': 4.0.0(@morpho-org/morpho-ts@2.15.0)
+      '@morpho-org/blue-sdk-viem': 3.1.1(@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0))(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))
+      '@morpho-org/morpho-ts': 2.15.0
       '@tanstack/react-query': 5.80.3(react@19.1.0)
       react: 19.1.0
       viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
       wagmi: 2.15.5(@tanstack/query-core@5.80.2)(@tanstack/react-query@5.80.3(react@19.1.0))(@types/react@19.1.2)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))(zod@3.25.51)
 
-  '@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.13.0)':
+  '@morpho-org/blue-sdk@4.0.0(@morpho-org/morpho-ts@2.15.0)':
     dependencies:
-      '@morpho-org/morpho-ts': 2.13.0
+      '@morpho-org/morpho-ts': 2.15.0
       '@noble/hashes': 1.8.0
       '@types/lodash.isplainobject': 4.0.9
       '@types/lodash.mergewith': 4.6.9
       lodash.isplainobject: 4.0.6
       lodash.mergewith: 4.6.2
 
-  '@morpho-org/midnight-sdk@1.4.0(@morpho-org/morpho-ts@2.13.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
+  '@morpho-org/midnight-sdk@1.4.0(@morpho-org/morpho-ts@2.15.0)(viem@2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51))':
     dependencies:
-      '@morpho-org/morpho-ts': 2.13.0
+      '@morpho-org/morpho-ts': 2.15.0
       viem: 2.50.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.51)
 
-  '@morpho-org/morpho-ts@2.13.0': {}
+  '@morpho-org/morpho-ts@2.15.0': {}
 
   '@mui/core-downloads-tracker@7.1.1': {}
 
@@ -8108,6 +8155,10 @@ snapshots:
     dependencies:
       '@types/ms': 2.1.0
 
+  '@types/debug@4.1.13':
+    dependencies:
+      '@types/ms': 2.1.0
+
   '@types/estree@1.0.7': {}
 
   '@types/geojson-vt@3.2.5':
@@ -8365,6 +8416,7 @@ snapshots:
       - db0
       - encoding
       - ioredis
+      - preact-render-to-string
       - react
       - supports-color
       - uploadthing
@@ -9112,7 +9164,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  bn.js@5.2.2: {}
+  bn.js@5.2.5: {}
 
   bowser@2.11.0: {}
 
@@ -9386,6 +9438,10 @@ snapshots:
       ms: 2.1.3
 
   debug@4.4.1:
+    dependencies:
+      ms: 2.1.3
+
+  debug@4.4.3:
     dependencies:
       ms: 2.1.3
 
@@ -9676,7 +9732,7 @@ snapshots:
   eth-block-tracker@7.1.0:
     dependencies:
       '@metamask/eth-json-rpc-provider': 1.0.1
-      '@metamask/safe-event-emitter': 3.1.2
+      '@metamask/safe-event-emitter': 3.1.3
       '@metamask/utils': 5.0.2
       json-rpc-random-id: 1.0.1
       pify: 3.0.0
@@ -9685,7 +9741,7 @@ snapshots:
 
   eth-json-rpc-filters@6.0.1:
     dependencies:
-      '@metamask/safe-event-emitter': 3.1.2
+      '@metamask/safe-event-emitter': 3.1.3
       async-mutex: 0.2.6
       eth-query: 2.1.2
       json-rpc-engine: 6.1.0
@@ -9723,6 +9779,8 @@ snapshots:
   eventemitter2@6.4.9: {}
 
   eventemitter3@5.0.1: {}
+
+  eventemitter3@5.0.4: {}
 
   events@3.3.0: {}
 
@@ -10231,6 +10289,8 @@ snapshots:
   is-windows@1.0.2: {}
 
   isarray@1.0.0: {}
+
+  isarray@2.0.5: {}
 
   isexe@2.0.0: {}
 
@@ -10841,6 +10901,8 @@ snapshots:
 
   preact@10.26.8: {}
 
+  preact@10.29.8: {}
+
   prelude-ls@1.2.1: {}
 
   prettier-linter-helpers@1.0.0:
@@ -11206,6 +11268,8 @@ snapshots:
 
   semver@7.7.2: {}
 
+  semver@7.8.5: {}
+
   sentence-case@3.0.4:
     dependencies:
       no-case: 3.0.4
@@ -11229,10 +11293,11 @@ snapshots:
 
   setimmediate@1.0.5: {}
 
-  sha.js@2.4.11:
+  sha.js@2.4.12:
     dependencies:
       inherits: 2.0.4
       safe-buffer: 5.2.1
+      to-buffer: 1.2.2
 
   shebang-command@2.0.0:
     dependencies:
@@ -11411,6 +11476,12 @@ snapshots:
     dependencies:
       os-tmpdir: 1.0.2
 
+  to-buffer@1.2.2:
+    dependencies:
+      isarray: 2.0.5
+      safe-buffer: 5.2.1
+      typed-array-buffer: 1.0.3
+
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
@@ -11452,6 +11523,12 @@ snapshots:
   type-fest@0.21.3: {}
 
   type-fest@2.19.0: {}
+
+  typed-array-buffer@1.0.3:
+    dependencies:
+      call-bound: 1.0.4
+      es-errors: 1.3.0
+      is-typed-array: 1.1.15
 
   typescript@5.8.3: {}
 
@@ -11691,6 +11768,7 @@ snapshots:
       - encoding
       - immer
       - ioredis
+      - preact-render-to-string
       - supports-color
       - uploadthing
       - utf-8-validate
