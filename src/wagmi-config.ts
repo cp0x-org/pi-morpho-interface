@@ -13,7 +13,7 @@ import {
   tempo,
   Chain
 } from 'wagmi/chains';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { getDefaultConfig, Chain as RainbowKitChain } from '@rainbow-me/rainbowkit';
 
 import { robinhood } from './chains/robinhood';
 import { RuntimeConfig } from './runtime-config';
@@ -38,6 +38,22 @@ export const supportedChains: readonly [Chain, ...Chain[]] = [
   robinhood
 ];
 
+// RainbowKit ships icons only for a few well-known chains (Ethereum, Base, Polygon, Arbitrum, Optimism, ...); the rest
+// would show up blank in the network switcher, so they take the icons from public/chains/<id>.jpg.
+const CHAINS_WITHOUT_RAINBOWKIT_ICON = new Set<number>([
+  unichain.id,
+  worldchain.id,
+  hyperEvm.id,
+  katana.id,
+  monad.id,
+  stable.id,
+  tempo.id,
+  robinhood.id
+]);
+
+const withIcon = (chain: Chain): RainbowKitChain =>
+  CHAINS_WITHOUT_RAINBOWKIT_ICON.has(chain.id) ? { ...chain, iconUrl: `${import.meta.env.BASE_URL}chains/${chain.id}.jpg` } : chain;
+
 const withRpcUrls = (chain: Chain, rpc: string | string[] | undefined): Chain => {
   const http = (Array.isArray(rpc) ? rpc : [rpc]).filter((url): url is string => typeof url === 'string' && url.length > 0);
   if (http.length === 0) return chain;
@@ -53,6 +69,9 @@ export const createWagmiConfig = (runtime: RuntimeConfig = {}) =>
   getDefaultConfig({
     appName: 'Morpho Interface',
     projectId: runtime.walletConnectProjectId || DEFAULT_WALLETCONNECT_PROJECT_ID,
-    chains: supportedChains.map((chain) => withRpcUrls(chain, runtime.rpcUrls?.[String(chain.id)])) as [Chain, ...Chain[]],
+    chains: supportedChains.map((chain) => withIcon(withRpcUrls(chain, runtime.rpcUrls?.[String(chain.id)]))) as [
+      RainbowKitChain,
+      ...RainbowKitChain[]
+    ],
     ssr: false
   });
