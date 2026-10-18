@@ -15,7 +15,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
-import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -85,17 +85,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
       return;
     }
 
-    let amount = addAmount ? normalizePointAmount(addAmount) : '0';
-
-    const assetDecimals = market.collateralAsset.decimals;
-    const amountBN = parseUnits(amount, assetDecimals);
-    // const amountFloat = parseFloat(amount);
-    // const multiplier = Math.pow(10, assetDecimals);
-    // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    // Calculate amount with decimals
-    // const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    onCollateralAmountChange(amountBN);
+    onCollateralAmountChange(parseAmountOrZero(addAmount, market.collateralAsset.decimals));
   }, [addAmount, market]);
 
   useEffect(() => {
@@ -105,12 +95,6 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
     }
   }, [debouncedAddAmount, refetchAllowance]);
 
-  const safeDecimal = (value: string, decimals: number) => {
-    const floatValue = parseFloat(normalizePointAmount(value));
-    if (floatValue === 0) return '0';
-    // используем toFixed с количеством знаков >= decimals
-    return floatValue.toFixed(decimals);
-  };
   useEffect(() => {
     if (addAmount && addAmount !== debouncedAddAmount) {
       setAllowanceChecking(true); // Set checking state when amount changes
@@ -121,8 +105,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
   useEffect(() => {
     if (userAddress && debouncedAddAmount && allowanceData && market?.collateralAsset) {
       try {
-        const amountStr = safeDecimal(normalizePointAmount(debouncedAddAmount), market.collateralAsset.decimals);
-        const amountBN = parseUnits(amountStr, market.collateralAsset.decimals);
+        const amountBN = parseAmountOrZero(debouncedAddAmount, market.collateralAsset.decimals);
         const shouldBeApproved = allowanceData >= amountBN;
 
         // Only update state if it's different to avoid unnecessary re-renders
@@ -152,9 +135,10 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const value = (parseFloat(formattedCollateralBalance) * percent) / 100;
-      setAddAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(INPUT_DECIMALS).toString()));
+      const value = percentOfAmount((collateralBalance as bigint | undefined) ?? 0n, percent, market?.collateralAsset?.decimals ?? 0);
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+      setAddAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -165,7 +149,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
       resetTransactionStates();
       setIsApproved(false);
     },
-    [formattedCollateralBalance, addAmount, debouncedAddAmount, resetTransactionStates]
+    [collateralBalance, market?.collateralAsset?.decimals, addAmount, debouncedAddAmount, resetTransactionStates]
   );
 
   // Handle success/error notifications and update states
@@ -484,7 +468,8 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setAddAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setAddAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {

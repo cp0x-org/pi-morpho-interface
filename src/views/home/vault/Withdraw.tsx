@@ -13,7 +13,14 @@ import { Vault } from 'types/vaults';
 import { TokenIcon } from 'components/TokenIcon';
 import { INPUT_DECIMALS } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
-import { DECIMALS_SCALE_FACTOR, formatAssetOutput } from 'utils/formatters';
+import {
+  DECIMALS_SCALE_FACTOR,
+  formatAssetOutput,
+  normalizePointAmount,
+  parseAmountOrZero,
+  percentOfAmount,
+  truncateDecimals
+} from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -62,15 +69,9 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
 
     const assetDecimals = vaultData.asset.decimals;
 
-    // Round down the amount to ensure we don't try to withdraw more than available
-    const amountFloat = parseFloat(withdrawAmount);
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
+    const amountBN = parseAmountOrZero(withdrawAmount, assetDecimals);
 
-    // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    console.log('Attempting withdrawal with amount:', roundedAmount, 'Wei:', amountBN.toString());
+    console.log('Attempting withdrawal with amount:', withdrawAmount, 'Wei:', amountBN.toString());
 
     try {
       // This only sends the transaction to the network, doesn't mean it's confirmed
@@ -201,13 +202,11 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
   // Handle percentage button clicks with better formatting
   const handleWithdrawPercentClick = useCallback(
     (percent: number) => {
-      const decimals = vaultData?.asset?.decimals || 0;
-      const rawValue = (parseFloat(formattedVaultBalance) * percent) / 100;
-      const factor = 10 ** decimals;
-      const roundedValue = Math.floor(rawValue * factor) / factor;
+      const value = percentOfAmount((vaultBalance as bigint | undefined) ?? 0n, percent, vaultData?.asset?.decimals ?? 0);
 
-      setWithdrawAmount(roundedValue.toString());
-      setInputAmount(formatAssetOutput(roundedValue.toFixed(INPUT_DECIMALS).toString()));
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+      setWithdrawAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
 
       // Set active percentage
       setActivePercentage(percent);
@@ -216,7 +215,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
         resetWithdrawTx();
       }
     },
-    [formattedVaultBalance, withdrawTxState, resetWithdrawTx]
+    [vaultBalance, vaultData?.asset?.decimals, withdrawTxState, resetWithdrawTx]
   );
 
   const assetSymbol = vaultData?.asset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
@@ -303,7 +302,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setWithdrawAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setWithdrawAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {

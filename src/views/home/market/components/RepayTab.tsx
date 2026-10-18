@@ -15,7 +15,7 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
-import { formatAssetOutput, normalizePointAmount } from 'utils/formatters';
+import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -73,12 +73,16 @@ const RepayTab: FC<RepayTabProps> = ({
     }
   });
 
+  const loanBalanceBN = useMemo(() => {
+    if (!accrualPosition?.borrowShares || !sdkMarket) return 0n;
+    return sdkMarket.toBorrowAssets(accrualPosition.borrowShares);
+  }, [accrualPosition?.borrowShares, sdkMarket]);
+
   // Format balances for display
   const formattedLoanBalance = useMemo(() => {
-    // (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
-    if (!accrualPosition?.borrowShares || !sdkMarket || !market?.loanAsset?.decimals) return '0';
-    return formatUnits(sdkMarket?.toBorrowAssets(accrualPosition.borrowShares), market?.loanAsset?.decimals);
-  }, [accrualPosition?.borrowShares, market?.loanAsset?.decimals, sdkMarket]);
+    if (!market?.loanAsset?.decimals) return '0';
+    return formatUnits(loanBalanceBN, market.loanAsset.decimals);
+  }, [loanBalanceBN, market?.loanAsset?.decimals]);
 
   const formattedUserBalance = useMemo(() => {
     if (!userBalance) return '0';
@@ -103,17 +107,7 @@ const RepayTab: FC<RepayTabProps> = ({
       return;
     }
 
-    let amount = repayAmount ? normalizePointAmount(repayAmount) : '0';
-
-    const amountFloat = parseFloat(amount);
-    const assetDecimals = market.loanAsset.decimals;
-
-    const multiplier = Math.pow(10, assetDecimals);
-    const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
-    // Calculate amount with decimals
-    const amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
-
-    onBorrowAmountChange(-amountBN);
+    onBorrowAmountChange(-parseAmountOrZero(repayAmount, market.loanAsset.decimals));
   }, [repayAmount, market]);
 
   // Refetch allowance when input amount changes
@@ -162,15 +156,13 @@ const RepayTab: FC<RepayTabProps> = ({
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
     (percent: number) => {
-      const decimals = market?.loanAsset?.decimals || 0;
-      const inputDecimals = INPUT_DECIMALS > decimals && decimals != 0 ? decimals : INPUT_DECIMALS;
-      const loanBalance = parseFloat(formattedLoanBalance);
-      const userBalance = parseFloat(formattedUserBalance);
-      const base = userBalance < loanBalance ? userBalance : loanBalance;
-      const value = (base * percent) / 100;
+      const walletBalance = (userBalance as bigint | undefined) ?? 0n;
+      const base = walletBalance < loanBalanceBN ? walletBalance : loanBalanceBN;
+      const value = percentOfAmount(base, percent, market?.loanAsset?.decimals ?? 0);
 
-      setRepayAmount(value.toString());
-      setInputAmount(formatAssetOutput(value.toFixed(inputDecimals).toString()));
+      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+      setRepayAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
       setActivePercentage(percent);
 
       if (repayAmount !== debouncedRepayAmount) {
@@ -179,7 +171,7 @@ const RepayTab: FC<RepayTabProps> = ({
       resetTransactionStates();
       setIsApproved(false);
     },
-    [formattedLoanBalance, formattedUserBalance, market, repayAmount, debouncedRepayAmount, resetTransactionStates]
+    [loanBalanceBN, userBalance, market?.loanAsset?.decimals, repayAmount, debouncedRepayAmount, resetTransactionStates]
   );
 
   // Reset states when transaction is confirmed
@@ -509,7 +501,8 @@ const RepayTab: FC<RepayTabProps> = ({
           value={inputAmount}
           onChange={(e) => {
             let val = formatAssetOutput(e.target.value);
-            setRepayAmount(val);
+            // State keeps the dot form: parseFloat("0,5") is 0 and would keep the button disabled.
+            setRepayAmount(normalizePointAmount(val));
             setInputAmount(val);
             // Clear active percentage when user manually enters a value
             if (activePercentage !== null) {
