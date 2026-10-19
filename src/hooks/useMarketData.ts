@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
@@ -12,9 +12,7 @@ import { AccrualPosition, MathLib, Market, MarketParams } from '@morpho-org/blue
 import { Time } from '@morpho-org/morpho-ts';
 import type { MarketId } from '@morpho-org/blue-sdk/lib/types';
 import { isMarketId } from '@morpho-org/blue-sdk/lib/types';
-
-// One Base block and one mainnet block past the receipt.
-const FOLLOW_UP_REFRESH_DELAYS_MS = [3_000, 13_000];
+import { useRefreshAfterTransaction } from 'hooks/useRefreshAfterTransaction';
 
 export const useMarketData = ({
   marketId,
@@ -180,17 +178,8 @@ export const useMarketData = ({
     refetchLoanBalance
   ]);
 
-  // Right after a receipt the RPC can still answer from the block before it (a node behind the load balancer, a
-  // cached eth_call), so the first read may come back unchanged and nothing would ask again. Read a couple more
-  // times once the next blocks are in.
-  const followUpRefreshes = useRef<ReturnType<typeof setTimeout>[]>([]);
-  useEffect(() => () => followUpRefreshes.current.forEach(clearTimeout), []);
-
-  const refreshAfterTransaction = useCallback(() => {
-    followUpRefreshes.current.forEach(clearTimeout);
-    followUpRefreshes.current = FOLLOW_UP_REFRESH_DELAYS_MS.map((delay) => setTimeout(refreshPositionData, delay));
-    return refreshPositionData();
-  }, [refreshPositionData]);
+  // Reads again a couple of blocks after the receipt as well: the first read can still come from the block before it.
+  const refreshAfterTransaction = useRefreshAfterTransaction(chainId, refreshPositionData);
 
   useEffect(() => {
     if (!position || !marketParams || !oraclePrice || !rateAtTarget || !marketState) return;

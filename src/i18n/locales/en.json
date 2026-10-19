@@ -55,7 +55,9 @@
     "yourPosition": "Your Position",
     "filtered": "(filtered)",
     "token": "Token",
-    "tokenLower": "token"
+    "tokenLower": "token",
+    "balanceReadError": "Could not read the balance from the network. The value shown may be out of date.",
+    "retry": "Retry"
   },
   "table": {
     "vault": "Vault",

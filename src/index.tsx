@@ -53,7 +53,8 @@ const config = createWagmiConfig(loadRuntimeConfig());
 root.render(
   <Provider store={store}>
     <ConfigProvider>
-      <WagmiProvider reconnectOnMount={false} config={config}>
+      {/* Reconnect the wallet on page load: a reload otherwise shows every balance as 0 until the user clicks Connect again. */}
+      <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitThemeProvider>
             <App />

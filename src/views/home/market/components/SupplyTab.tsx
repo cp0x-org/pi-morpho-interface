@@ -10,6 +10,7 @@ import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { formatUnits, parseUnits } from 'viem';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
+import { BalanceReadError } from 'components/BalanceReadError';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
@@ -50,7 +51,11 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, chainId, marketParams, marketId
   const supplyTx = useWriteTransaction();
 
   // Read user's loan token balance
-  const { data: loanBalance } = useReadContract({
+  const {
+    data: loanBalance,
+    isError: isLoanBalanceError,
+    refetch: refetchLoanBalance
+  } = useReadContract({
     abi: erc20ABIConfig.abi,
     chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
@@ -581,6 +586,7 @@ const SupplyTab: FC<SupplyTabProps> = ({ market, chainId, marketParams, marketId
             {Number(formattedLoanBalance).toFixed(6)} {market.loanAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
+        <BalanceReadError id="supply-loan-balance-error" isError={isLoanBalanceError} onRetry={refetchLoanBalance} />
         <Box id="supply-loan-status" role="alert" sx={visuallyHidden}>
           {statusMessage}
         </Box>
