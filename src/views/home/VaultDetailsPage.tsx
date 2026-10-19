@@ -19,6 +19,8 @@ import { useWalletChainSync } from 'hooks/useWalletChainSync';
 import { useSearchParams } from 'react-router-dom';
 import { formatShortUSDS } from 'utils/formatters';
 import { TokenIcon } from 'components/TokenIcon';
+import { BalanceReadError } from 'components/BalanceReadError';
+import { useRefreshOnNewBlock } from 'hooks/useRefreshOnNewBlock';
 import { vaultConfig } from '@/appconfig/abi/Vault';
 import { formatUnits } from 'viem';
 import TabPanel from './components/TabPanel';
@@ -69,9 +71,16 @@ export default function VaultDetailsPage() {
   // Reads and writes target the vault's chain, not the chain the wallet happens to be on.
   const vaultChainId = targetChainId ?? vault?.chain?.id;
   useWalletChainSync(vaultChainId);
+  // Token and vault balances follow the chain, including changes made outside the interface (a swap in the wallet).
+  useRefreshOnNewBlock(vaultChainId);
 
   // Read user's vault balance
-  const { data: vaultBalance, isLoading: isBalanceLoading } = useReadContract({
+  const {
+    data: vaultBalance,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+    refetch: refetchVaultBalance
+  } = useReadContract({
     abi: vaultConfig.abi,
     address: vaultAddress as `0x${string}` | undefined,
     chainId: vaultChainId,
@@ -292,6 +301,7 @@ export default function VaultDetailsPage() {
                             {/*  </>*/}
                             {/*)}*/}
                           </Box>
+                          <BalanceReadError id="vault-balance-error" isError={isBalanceError} onRetry={refetchVaultBalance} />
                         </Stack>
                       </Card>
                     </Grid>

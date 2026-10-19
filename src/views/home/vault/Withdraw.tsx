@@ -8,6 +8,8 @@ import { formatUnits } from 'viem';
 import { vaultConfig } from '@/appconfig/abi/Vault';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { useRefreshAfterTransaction } from 'hooks/useRefreshAfterTransaction';
+import { BalanceReadError } from 'components/BalanceReadError';
 
 import { Vault } from 'types/vaults';
 import { TokenIcon } from 'components/TokenIcon';
@@ -99,7 +101,14 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
   }, [userAddress, vaultAddress, withdrawAmount, vaultData, withdrawTxState, resetWithdrawTx, writeWithdraw, chainId, intl]);
 
   // Read user's vault balance
-  const { data: vaultBalance, refetch: refetchVaultBalance } = useReadContract({
+  // Re-reads the vault balance (here and in the page header) and the token balance after a withdrawal.
+  const refreshAfterTransaction = useRefreshAfterTransaction(chainId);
+
+  const {
+    data: vaultBalance,
+    isError: isVaultBalanceError,
+    refetch: refetchVaultBalance
+  } = useReadContract({
     abi: vaultConfig.abi,
     chainId,
     address: vaultAddress as `0x${string}` | undefined,
@@ -130,10 +139,8 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
       );
       console.log('Withdrawal confirmed on blockchain!');
 
-      // After successful withdrawal, refresh vault balance
-      if (refetchVaultBalance) {
-        refetchVaultBalance();
-      }
+      // After successful withdrawal, refresh the vault balance now and a few blocks later
+      refreshAfterTransaction();
 
       // Reset the transaction state to enable the percentage buttons
       resetWithdrawTx();
@@ -149,7 +156,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
       setTxError(intl.formatMessage({ id: 'withdrawVault.errorRetry' }));
       console.error('Withdrawal transaction failed');
     }
-  }, [withdrawTxState, withdrawTxHash, refetchVaultBalance, vaultData?.asset.symbol, resetWithdrawTx, intl]);
+  }, [withdrawTxState, withdrawTxHash, refreshAfterTransaction, vaultData?.asset.symbol, resetWithdrawTx, intl]);
 
   // Reset form after confirmed withdrawal
   useEffect(() => {
@@ -424,6 +431,7 @@ const WithdrawTab: FC<WithdrawProps> = ({ vaultAddress = '', vaultData, chainId 
             {vaultData.asset.symbol}
           </Typography>
         </Box>
+        <BalanceReadError id="vault-withdraw-limit-error" isError={isVaultBalanceError} onRetry={refetchVaultBalance} />
         <Box id="vault-withdraw-status" role="alert" sx={visuallyHidden}>
           {statusMessage}
         </Box>

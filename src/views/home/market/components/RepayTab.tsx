@@ -10,6 +10,7 @@ import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
+import { BalanceReadError } from 'components/BalanceReadError';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
@@ -62,7 +63,11 @@ const RepayTab: FC<RepayTabProps> = ({
   const repayTx = useWriteTransaction();
 
   // Read user's loan token balance
-  const { data: userBalance } = useReadContract({
+  const {
+    data: userBalance,
+    isError: isUserBalanceError,
+    refetch: refetchUserBalance
+  } = useReadContract({
     abi: erc20ABIConfig.abi,
     chainId,
     address: market?.loanAsset.address as `0x${string}` | undefined,
@@ -649,6 +654,7 @@ const RepayTab: FC<RepayTabProps> = ({
             </Typography>
           </Box>
         </Box>
+        <BalanceReadError id="repay-wallet-balance-error" isError={isUserBalanceError} onRetry={refetchUserBalance} />
         <Box id="repay-status" role="alert" sx={visuallyHidden}>
           {statusMessage}
         </Box>
