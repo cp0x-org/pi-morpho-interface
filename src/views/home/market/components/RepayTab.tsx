@@ -3,10 +3,11 @@ import { Typography, useTheme } from '@mui/material';
 import Button from '@mui/material/Button';
 import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useBlock, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { formatUnits, parseUnits } from 'viem';
-import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
+import { AccrualPosition, Market, MarketParams, MathLib } from '@morpho-org/blue-sdk';
+import { Time } from '@morpho-org/morpho-ts';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
@@ -16,14 +17,23 @@ import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
+import { MaxRepayInputs, MaxRepayPlan, maxRepayPlanStands, planMaxRepay } from 'utils/repay';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
+
+/**
+ * The debt floor is taken this long before the latest block: the market state can be read a block or so behind it, and
+ * a big repay by someone else in between slows the interest down.
+ */
+const DEBT_FLOOR_LAG_SECONDS = 60n;
 
 interface RepayTabProps {
   market: MarketInterface;
   chainId: number;
   marketParams: MarketParams | null;
   accrualPosition: AccrualPosition | null;
+  /** The position on the market state as last written on chain, before accruing it to now. */
+  onchainPosition: AccrualPosition | null;
   sdkMarket: Market | null;
   marketId: string;
   onSuccess?: () => void;
@@ -36,6 +46,7 @@ const RepayTab: FC<RepayTabProps> = ({
   chainId,
   marketParams,
   accrualPosition,
+  onchainPosition,
   sdkMarket,
   marketId,
   onBorrowAmountChange,
@@ -52,6 +63,8 @@ const RepayTab: FC<RepayTabProps> = ({
   const [isApproved, setIsApproved] = useState(false);
   const [activePercentage, setActivePercentage] = useState<number | null>(null);
   const [inputAmount, setInputAmount] = useState('');
+  // The plan Max put in the field; it is what Approve and Repay send.
+  const [maxPlan, setMaxPlan] = useState<MaxRepayPlan | null>(null);
 
   // Hooks
   const { address: userAddress } = useAccount();
@@ -77,6 +90,28 @@ const RepayTab: FC<RepayTabProps> = ({
     if (!accrualPosition?.borrowShares || !sdkMarket) return 0n;
     return sdkMarket.toBorrowAssets(accrualPosition.borrowShares);
   }, [accrualPosition?.borrowShares, sdkMarket]);
+
+  const hasLoan = !!onchainPosition && onchainPosition.borrowShares > 0n;
+  const { data: latestBlock } = useBlock({ chainId, watch: true, query: { enabled: hasLoan } });
+
+  // What a Max plan is built from. Both bounds of the debt come from the market state as last written on chain, accrued
+  // once from its last update, as Morpho does when the repay lands: the debt to now, the floor to before the latest block.
+  const readMaxRepayInputs = useCallback((): MaxRepayInputs | null => {
+    if (!onchainPosition) return null;
+    const { market: onchainMarket, borrowShares } = onchainPosition;
+    const accruedTo = (timestamp: bigint) => onchainMarket.accrueInterest(MathLib.max(timestamp, onchainMarket.lastUpdate));
+    let debtAssets = onchainMarket.toBorrowAssets(borrowShares, 'Up');
+    let debtFloor = onchainMarket.toBorrowAssets(borrowShares, 'Down');
+    try {
+      const blockTime = latestBlock?.timestamp;
+      const now = Time.timestamp();
+      debtAssets = accruedTo(blockTime !== undefined && blockTime > now ? blockTime : now).toBorrowAssets(borrowShares, 'Up');
+      if (blockTime !== undefined) debtFloor = accruedTo(blockTime - DEBT_FLOOR_LAG_SECONDS).toBorrowAssets(borrowShares, 'Down');
+    } catch (accrualError) {
+      console.warn('Market accrual failed, planning Max on the debt as last written on chain', accrualError);
+    }
+    return { debtAssets, debtFloor, borrowShares, walletBalance: (userBalance as bigint | undefined) ?? 0n };
+  }, [onchainPosition, latestBlock?.timestamp, userBalance]);
 
   // Format balances for display
   const formattedLoanBalance = useMemo(() => {
@@ -129,11 +164,10 @@ const RepayTab: FC<RepayTabProps> = ({
   useEffect(() => {
     if (userAddress && debouncedRepayAmount && allowanceData && market?.loanAsset) {
       try {
-        let amountBigInt = parseUnits(normalizePointAmount(debouncedRepayAmount), market.loanAsset.decimals);
-
-        if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
-          amountBigInt = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
-        }
+        const amountBigInt =
+          activePercentage === 100 && maxPlan
+            ? maxPlan.requiredAllowance
+            : parseUnits(normalizePointAmount(debouncedRepayAmount), market.loanAsset.decimals);
 
         const shouldBeApproved = allowanceData >= amountBigInt;
 
@@ -145,13 +179,24 @@ const RepayTab: FC<RepayTabProps> = ({
         console.error('Error checking allowance:', error);
       }
     }
-  }, [userAddress, debouncedRepayAmount, allowanceData, isApproved, market]);
+  }, [userAddress, debouncedRepayAmount, allowanceData, isApproved, market, activePercentage, maxPlan]);
 
   // Reset transaction states
   const resetTransactionStates = useCallback(() => {
     approveTx.resetTx();
     repayTx.resetTx();
   }, [approveTx, repayTx]);
+
+  // Max shows what the transactions send: the whole debt when the plan closes the loan by shares, the assets otherwise.
+  const showMaxPlan = useCallback(
+    (plan: MaxRepayPlan) => {
+      const value = formatUnits(plan.shares > 0n ? loanBalanceBN : plan.assets, market?.loanAsset?.decimals ?? 0);
+      setMaxPlan(plan);
+      setRepayAmount(value);
+      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
+    },
+    [loanBalanceBN, market?.loanAsset?.decimals]
+  );
 
   // Handle percentage button clicks
   const handlePercentClick = useCallback(
@@ -160,9 +205,15 @@ const RepayTab: FC<RepayTabProps> = ({
       const base = walletBalance < loanBalanceBN ? walletBalance : loanBalanceBN;
       const value = percentOfAmount(base, percent, market?.loanAsset?.decimals ?? 0);
 
-      // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
-      setRepayAmount(value);
-      setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
+      const maxInputs = percent === 100 ? readMaxRepayInputs() : null;
+      if (maxInputs) {
+        showMaxPlan(planMaxRepay(maxInputs));
+      } else {
+        // The exact amount goes into the transaction; the field shows it cut to INPUT_DECIMALS.
+        setMaxPlan(null);
+        setRepayAmount(value);
+        setInputAmount(formatAssetOutput(truncateDecimals(value, INPUT_DECIMALS)));
+      }
       setActivePercentage(percent);
 
       if (repayAmount !== debouncedRepayAmount) {
@@ -171,7 +222,16 @@ const RepayTab: FC<RepayTabProps> = ({
       resetTransactionStates();
       setIsApproved(false);
     },
-    [loanBalanceBN, userBalance, market?.loanAsset?.decimals, repayAmount, debouncedRepayAmount, resetTransactionStates]
+    [
+      loanBalanceBN,
+      userBalance,
+      market?.loanAsset?.decimals,
+      repayAmount,
+      debouncedRepayAmount,
+      resetTransactionStates,
+      readMaxRepayInputs,
+      showMaxPlan
+    ]
   );
 
   // Reset states when transaction is confirmed
@@ -217,6 +277,7 @@ const RepayTab: FC<RepayTabProps> = ({
       // Clear input and update states
       setRepayAmount('');
       setInputAmount('');
+      setMaxPlan(null);
 
       // Set active percentage
       setActivePercentage(null);
@@ -278,21 +339,24 @@ const RepayTab: FC<RepayTabProps> = ({
     // const roundedAmount = Math.floor(amountFloat * multiplier) / multiplier;
     //
     // // Calculate amount with decimals
-    let isShares = false;
-    let sharesAmountBN = BigInt(0);
+    let sharesAmountBN = 0n;
     let amountBN = parseUnits(normalizePointAmount(debouncedRepayAmount), assetDecimals);
     // let amountBN = BigInt(Math.floor(roundedAmount * 10 ** assetDecimals));
+    let approveAmountBN = amountBN;
 
-    if (activePercentage == 100 && sdkMarket != null && accrualPosition != null) {
-      let userBalanceLocal = userBalance ? userBalance : 0n;
-      const fullAmountBN = (sdkMarket.toBorrowAssets(accrualPosition.borrowShares) * 1001n) / 1000n;
-      if (fullAmountBN <= userBalanceLocal) {
-        amountBN = fullAmountBN;
-        sharesAmountBN = accrualPosition.borrowShares;
-        isShares = true;
-      } else {
-        amountBN = userBalanceLocal;
+    if (activePercentage === 100 && maxPlan) {
+      // Send what the field shows; when the chain has moved so that it no longer stands, show the new plan instead and
+      // send nothing, so every transaction matches the amount on screen.
+      const maxInputs = readMaxRepayInputs();
+      if (!maxInputs || !maxRepayPlanStands(maxPlan, maxInputs)) {
+        if (maxInputs) showMaxPlan(planMaxRepay(maxInputs));
+        // The allowance check confirms the new plan's approval again.
+        setIsApproved(false);
+        return;
       }
+      amountBN = maxPlan.assets;
+      sharesAmountBN = maxPlan.shares;
+      approveAmountBN = maxPlan.approveAmount;
     }
 
     try {
@@ -304,7 +368,7 @@ const RepayTab: FC<RepayTabProps> = ({
           chainId,
           address: assetAddress as `0x${string}`,
           functionName: 'approve',
-          args: [marketAddress as `0x${string}`, amountBN]
+          args: [marketAddress as `0x${string}`, approveAmountBN]
         });
       }
       // Step 2: Repay loan if already approved
@@ -323,8 +387,8 @@ const RepayTab: FC<RepayTabProps> = ({
               irm: marketParams.irm,
               lltv: marketParams.lltv
             },
-            !isShares ? amountBN : 0n,
-            isShares ? sharesAmountBN : 0n,
+            amountBN,
+            sharesAmountBN,
             userAddress as `0x${string}`,
             '' as `0x${string}`
           ]
@@ -357,7 +421,12 @@ const RepayTab: FC<RepayTabProps> = ({
     approveTx,
     repayTx,
     resetTransactionStates,
-    intl
+    intl,
+    debouncedRepayAmount,
+    activePercentage,
+    maxPlan,
+    readMaxRepayInputs,
+    showMaxPlan
   ]);
 
   // Check if any transaction is in progress
@@ -402,7 +471,8 @@ const RepayTab: FC<RepayTabProps> = ({
   const isButtonDisabled = useCallback(() => {
     if (!marketParams || !morphoAddress) return true;
     if (!repayAmount || parseFloat(repayAmount) <= 0) return true;
-    if (parseFloat(repayAmount) > parseFloat(formattedLoanBalance)) return true;
+    // A Max plan is capped at the debt by construction; the debt shown can lag it on a quiet market.
+    if (!maxPlan && parseFloat(repayAmount) > parseFloat(formattedLoanBalance)) return true;
     if (parseFloat(repayAmount) > parseFloat(formattedUserBalance)) return true;
 
     // Disable during allowance checking (debounce period)
@@ -412,13 +482,22 @@ const RepayTab: FC<RepayTabProps> = ({
     if (isTransactionInProgress) return true;
 
     return false;
-  }, [repayAmount, formattedLoanBalance, formattedUserBalance, allowanceChecking, isTransactionInProgress, marketParams, morphoAddress]);
+  }, [
+    repayAmount,
+    formattedLoanBalance,
+    formattedUserBalance,
+    allowanceChecking,
+    isTransactionInProgress,
+    marketParams,
+    morphoAddress,
+    maxPlan
+  ]);
 
   // Determine if input and percentage buttons should be disabled
   const isInputDisabled = isTransactionInProgress;
 
   const loanSymbol = market?.loanAsset?.symbol || intl.formatMessage({ id: 'common.tokenLower' });
-  const exceedsLoan = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedLoanBalance);
+  const exceedsLoan = !maxPlan && !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedLoanBalance);
   const exceedsWallet = !!repayAmount && parseFloat(repayAmount) > parseFloat(formattedUserBalance);
   // Surfaced to assistive tech / automation only: the visual design has no slot
   // for these messages, but the state itself is real and must be machine readable.
@@ -508,6 +587,7 @@ const RepayTab: FC<RepayTabProps> = ({
             if (activePercentage !== null) {
               setActivePercentage(null);
             }
+            setMaxPlan(null);
           }}
           disabled={isInputDisabled}
           placeholder="0"

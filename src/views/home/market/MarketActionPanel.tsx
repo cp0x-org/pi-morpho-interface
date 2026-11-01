@@ -14,6 +14,7 @@ import { AddTab, BorrowTab, RepayTab, SupplyTab, TabPanel, WithdrawCollateralTab
 
 interface MarketActionPanelProps {
   accrualPosition: AccrualPosition | null;
+  onchainPosition: AccrualPosition | null;
   sdkMarket: Market | null;
   marketParams: MarketParams | null;
   chainId?: number;
@@ -62,7 +63,7 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
   const tabs = TABS[side];
   const activeIndex = Math.min(tabIndex, tabs.length - 1);
 
-  const { market, marketId, chainId, accrualPosition, sdkMarket, marketParams } = props;
+  const { market, marketId, chainId, accrualPosition, onchainPosition, sdkMarket, marketParams } = props;
 
   // Every tab reads the same page-level position and none of them fetches it on mount, so a switch is the moment to
   // re-read it: the next tab's limits (max borrow, debt to repay) are exactly what the last action changed.
@@ -109,6 +110,7 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
           <RepayTab
             {...shared}
             accrualPosition={accrualPosition}
+            onchainPosition={onchainPosition}
             sdkMarket={sdkMarket}
             onBorrowAmountChange={props.onBorrowAmountChange}
             onCollateralAmountChange={props.onCollateralAmountChange}
