@@ -79,11 +79,12 @@ export default function MarketDetailPage() {
 
   useWalletChainSync(chainId);
 
-  const { accrualPosition, market, marketParams, oraclePrice, refreshPositionData, refreshAfterTransaction } = useMarketData({
-    marketId,
-    chainId,
-    marketItemData: marketData
-  });
+  const { accrualPosition, onchainPosition, market, marketParams, oraclePrice, refreshPositionData, refreshAfterTransaction } =
+    useMarketData({
+      marketId,
+      chainId,
+      marketItemData: marketData
+    });
 
   const { futurePosition, isChanged } = useFuturePosition({
     currentPosition: accrualPosition,
@@ -300,6 +301,7 @@ export default function MarketDetailPage() {
             sdkMarket={market}
             marketId={marketId}
             accrualPosition={accrualPosition}
+            onchainPosition={onchainPosition}
             onPositionUpdate={refreshAfterTransaction}
             onRefresh={refreshPositionData}
             onBorrowAmountChange={onBorrowAmountChange}
