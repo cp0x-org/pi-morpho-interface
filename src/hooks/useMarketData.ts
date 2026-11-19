@@ -150,6 +150,7 @@ export const useMarketData = ({
   });
   const [market, setMarket] = useState<Market | null>(null);
   const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
+  const [onchainPosition, setOnchainPosition] = useState<AccrualPosition | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -208,6 +209,7 @@ export const useMarketData = ({
     // write accrues interest first, so debt read from the raw state is short and every limit built on it (max
     // borrow, withdrawable collateral) promises more than the chain will allow.
     let tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
+    const tmpOnchainPosition = tmpAccrualPosition;
     try {
       tmpAccrualPosition = tmpAccrualPosition.accrueInterest(MathLib.max(Time.timestamp(), market.lastUpdate));
     } catch (accrualError) {
@@ -216,6 +218,7 @@ export const useMarketData = ({
 
     setMarket(tmpAccrualPosition.market);
     setAccrualPosition(tmpAccrualPosition);
+    setOnchainPosition(tmpOnchainPosition);
     setIsLoading(false);
   }, [position, marketParams, oraclePrice, rateAtTarget, marketState, userAddress, marketIdParam]);
 
@@ -230,6 +233,8 @@ export const useMarketData = ({
     marketParams,
     market,
     accrualPosition,
+    /** The position on the market state as last written on chain, before accruing it to now. */
+    onchainPosition,
     isLoading,
     refreshPositionData,
     refreshAfterTransaction,

@@ -82,11 +82,12 @@ export default function MarketDetailPage() {
   // Wallet balances and the position follow the chain, including changes made outside the interface.
   useRefreshOnNewBlock(chainId);
 
-  const { accrualPosition, market, marketParams, oraclePrice, refreshPositionData, refreshAfterTransaction } = useMarketData({
-    marketId,
-    chainId,
-    marketItemData: marketData
-  });
+  const { accrualPosition, onchainPosition, market, marketParams, oraclePrice, refreshPositionData, refreshAfterTransaction } =
+    useMarketData({
+      marketId,
+      chainId,
+      marketItemData: marketData
+    });
 
   const { futurePosition, isChanged } = useFuturePosition({
     currentPosition: accrualPosition,
@@ -303,6 +304,7 @@ export default function MarketDetailPage() {
             sdkMarket={market}
             marketId={marketId}
             accrualPosition={accrualPosition}
+            onchainPosition={onchainPosition}
             onPositionUpdate={refreshAfterTransaction}
             onRefresh={refreshPositionData}
             onBorrowAmountChange={onBorrowAmountChange}

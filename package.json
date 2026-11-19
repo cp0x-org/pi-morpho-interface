@@ -71,7 +71,8 @@
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "knip": "knip",
     "codegen": "graphql-codegen --config codegen.ts",
-    "codegen:schema": "graphql-codegen --config codegen.schema.ts"
+    "codegen:schema": "graphql-codegen --config codegen.schema.ts",
+    "test": "node --test tests/repay.test.mjs"
   },
   "eslintConfig": {
     "extends": [
