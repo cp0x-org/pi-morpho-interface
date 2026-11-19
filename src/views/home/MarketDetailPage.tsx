@@ -15,6 +15,7 @@ import { appoloClients } from '@/api/apollo-client';
 import { useFuturePosition } from 'hooks/useFuturePosition';
 import { useAccount } from 'wagmi';
 import { useWalletChainSync } from 'hooks/useWalletChainSync';
+import { useRefreshOnNewBlock } from 'hooks/useRefreshOnNewBlock';
 import { getChainName } from 'utils/chains';
 import { ChainIcon } from 'components/ChainIcon';
 import { TokenIcon } from 'components/TokenIcon';
@@ -78,6 +79,8 @@ export default function MarketDetailPage() {
   }, [redirectChainId, urlChainId, searchParams, location.hash, navigate]);
 
   useWalletChainSync(chainId);
+  // Wallet balances and the position follow the chain, including changes made outside the interface.
+  useRefreshOnNewBlock(chainId);
 
   const { accrualPosition, market, marketParams, oraclePrice, refreshPositionData, refreshAfterTransaction } = useMarketData({
     marketId,

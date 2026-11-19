@@ -55,7 +55,9 @@
     "yourPosition": "您的仓位",
     "filtered": "（已筛选）",
     "token": "代币",
-    "tokenLower": "代币"
+    "tokenLower": "代币",
+    "balanceReadError": "无法从网络读取余额，显示的数值可能已过期。",
+    "retry": "重试"
   },
   "table": {
     "vault": "金库",

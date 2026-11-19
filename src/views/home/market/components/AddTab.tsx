@@ -10,6 +10,7 @@ import { morphoContractConfig } from '@/appconfig/abi/Morpho';
 import { formatUnits, parseUnits } from 'viem';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
+import { BalanceReadError } from 'components/BalanceReadError';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
 import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
@@ -50,7 +51,11 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
   const addCollateralTx = useWriteTransaction();
 
   // Read user's collateral token balance
-  const { data: collateralBalance } = useReadContract({
+  const {
+    data: collateralBalance,
+    isError: isCollateralBalanceError,
+    refetch: refetchCollateralBalance
+  } = useReadContract({
     abi: erc20ABIConfig.abi,
     chainId,
     address: market?.collateralAsset.address as `0x${string}` | undefined,
@@ -587,6 +592,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
             {market.collateralAsset?.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
+        <BalanceReadError id="add-collateral-balance-error" isError={isCollateralBalanceError} onRetry={refetchCollateralBalance} />
         <Box id="add-collateral-status" role="alert" sx={visuallyHidden}>
           {statusMessage}
         </Box>

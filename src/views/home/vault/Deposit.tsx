@@ -9,6 +9,8 @@ import { vaultConfig } from '@/appconfig/abi/Vault';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { useWriteTransaction } from 'hooks/useWriteTransaction';
+import { useRefreshAfterTransaction } from 'hooks/useRefreshAfterTransaction';
+import { BalanceReadError } from 'components/BalanceReadError';
 
 import { parseUnits } from 'viem';
 import { TokenIcon } from 'components/TokenIcon';
@@ -44,6 +46,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
   // Use transaction hooks
   const approveTx = useWriteTransaction();
   const depositTx = useWriteTransaction();
+  // Re-reads the token balance, the allowance and the page's vault balance after a deposit, now and a few blocks later.
+  const refreshAfterTransaction = useRefreshAfterTransaction(chainId);
 
   // Check allowance to determine if approval is needed
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
@@ -103,7 +107,11 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
   }, [userAddress, debouncedDepositAmount, allowanceData, isApproved, vaultAddress]);
 
   // Read user's token balance
-  const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
+  const {
+    data: tokenBalance,
+    isError: isBalanceError,
+    refetch: refetchBalance
+  } = useReadContract({
     abi: erc20ABIConfig.abi,
     chainId,
     address: vaultData?.asset.address as `0x${string}` | undefined,
@@ -208,13 +216,8 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
       );
       console.log('Deposit confirmed in blockchain!');
 
-      // After successful deposit, refresh balances
-      if (refetchAllowance) {
-        refetchAllowance();
-      }
-
-      // Refresh token balance
-      refetchBalance();
+      // After successful deposit, refresh balances (token, allowance and the vault balance shown on the page)
+      refreshAfterTransaction();
     } else if (depositTx.txState === 'error') {
       dispatchError(
         intl.formatMessage({ id: 'deposit.error' }, { symbol: vaultData?.asset.symbol || intl.formatMessage({ id: 'common.tokenLower' }) })
@@ -224,7 +227,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
     } else if (depositTx.txState === 'submitted') {
       console.log('Deposit transaction submitted, waiting for blockchain confirmation...');
     }
-  }, [depositTx.txState, vaultData?.asset.symbol, refetchAllowance, refetchBalance, intl]);
+  }, [depositTx.txState, vaultData?.asset.symbol, refreshAfterTransaction, intl]);
 
   const handleDeposit = useCallback(async () => {
     if (!userAddress || !vaultAddress || !depositAmount) {
@@ -547,6 +550,7 @@ const DepositTab: FC<DepositProps> = ({ vaultAddress, vaultData, chainId }) => {
             {vaultData.asset.symbol || intl.formatMessage({ id: 'common.na' })}
           </Typography>
         </Box>
+        <BalanceReadError id="vault-deposit-balance-error" isError={isBalanceError} onRetry={refetchBalance} />
         <Box id="vault-deposit-status" role="alert" sx={visuallyHidden}>
           {statusMessage}
         </Box>
