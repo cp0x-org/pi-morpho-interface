@@ -1,9 +1,11 @@
-import { useQuery } from '@apollo/client';
+import { useQueries } from '@tanstack/react-query';
 import React from 'react';
 
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import {
+  Alert,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -17,16 +19,17 @@ import {
   Link
 } from '@mui/material';
 import { visuallyHidden } from 'utils/a11y';
-import { MorphoRequests } from '@/api/constants';
-import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
-import { useAccount } from 'wagmi';
+import { userPositionsQuery } from '@/api/userPositions';
+import { supportedChains } from '@/wagmi-config';
+import useViewedAccount from 'hooks/useViewedAccount';
 import { DECIMALS_SCALE_FACTOR, formatShortUSDS, formatTokenAmount, shortenAddress } from 'utils/formatters';
-import { appoloClients } from '@/api/apollo-client';
-import { formatUnits } from 'viem';
+import { type Address, formatUnits } from 'viem';
+import { AccountLookup } from 'components/ViewedAccount';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
 import { routes } from 'utils/routes';
+import { withViewedAccount } from 'utils/viewedAccount';
 import { normalizeVaultV2Position } from 'utils/vaults';
 import { VaultVersionChip } from 'components/VaultVersionChip';
 import { useMidnightOpenOrders } from 'hooks/midnight/useMidnightOpenOrders';
@@ -39,6 +42,7 @@ import FixedPositionsTable from './fixed/FixedPositionsTable';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface MorphoPositionsData {
+  chainId: number;
   marketId: string;
   collateralSymbol: string;
   loanSymbol: string;
@@ -49,89 +53,58 @@ interface MorphoPositionsData {
   borrowUsd: string;
   supplyUsd: string;
   borrowApy: string;
-}
-
-// Every network the interface supports (see wagmi-config): the API is queried per chain, one hook per entry below.
-function useChainPositions(chainId: number, address: string | undefined) {
-  return useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
-    client: appoloClients.morphoApi,
-    variables: { chainId, address: address || '' },
-    skip: !address
-  });
+  healthFactor: number | null;
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const intl = useIntl();
-  const { address: userAddress } = useAccount();
+  const viewed = useViewedAccount();
+  const { account: userAddress, requestedAccount, isOther, rawAccount } = viewed;
+  const lookup = <AccountLookup key={rawAccount ?? undefined} {...viewed} />;
 
-  // Parallel queries for each chain — hooks must be called unconditionally
-  const chain1 = useChainPositions(1, userAddress);
-  const chain8453 = useChainPositions(8453, userAddress);
-  const chain137 = useChainPositions(137, userAddress);
-  const chain42161 = useChainPositions(42161, userAddress);
-  const chain130 = useChainPositions(130, userAddress);
-  const chain10 = useChainPositions(10, userAddress);
-  const chain480 = useChainPositions(480, userAddress);
-  const chain999 = useChainPositions(999, userAddress);
-  const chain747474 = useChainPositions(747474, userAddress);
-  const chain143 = useChainPositions(143, userAddress);
-  const chain988 = useChainPositions(988, userAddress);
-  const chain4217 = useChainPositions(4217, userAddress);
-  const chain4663 = useChainPositions(4663, userAddress);
+  const positions = useQueries({
+    queries: userAddress
+      ? supportedChains.map(({ id }) => ({
+          ...userPositionsQuery(id, userAddress, Boolean(requestedAccount)),
+          refetchInterval: requestedAccount ? 30_000 : 0
+        }))
+      : []
+  });
+  const chainResults = positions.map((result, index) => ({
+    chainId: supportedChains[index].id,
+    result,
+    unavailable: result.isError || result.isPaused || (result.isPending && result.errorUpdatedAt > 0)
+  }));
+  const failedChains = chainResults.filter(({ unavailable }) => unavailable);
+  const anyLoading = positions.some((result) => result.isLoading);
+  const chainsWithData = chainResults.flatMap(({ chainId, result, unavailable }) => {
+    const user = result.data;
+    if (unavailable || !user) return [];
 
-  const chainResults = [
-    { chainId: 1, result: chain1 },
-    { chainId: 8453, result: chain8453 },
-    { chainId: 137, result: chain137 },
-    { chainId: 42161, result: chain42161 },
-    { chainId: 130, result: chain130 },
-    { chainId: 10, result: chain10 },
-    { chainId: 480, result: chain480 },
-    { chainId: 999, result: chain999 },
-    { chainId: 747474, result: chain747474 },
-    { chainId: 143, result: chain143 },
-    { chainId: 988, result: chain988 },
-    { chainId: 4217, result: chain4217 },
-    { chainId: 4663, result: chain4663 }
-  ];
+    const marketPositions: MorphoPositionsData[] = user.marketPositions
+      .filter((p) => parseFloat(p.state.collateral || '0') > 0 || parseFloat(p.state.borrowAssets || '0') > 0)
+      .map((position) => ({
+        chainId,
+        marketId: position.market.marketId,
+        collateralSymbol: position.market.collateralAsset.symbol,
+        loanSymbol: position.market.loanAsset.symbol,
+        collateralBalance: position.state.collateral || '0',
+        loanBalance: position.state.borrowAssets || '0',
+        collateralDecimal: position.market.collateralAsset.decimals,
+        loanDecimal: position.market.loanAsset.decimals,
+        borrowUsd: position.state.borrowAssetsUsd || '0',
+        supplyUsd: position.state.supplyAssetsUsd || '0',
+        borrowApy: position.market.state.borrowApy || '0',
+        healthFactor: position.healthFactor
+      }));
 
-  const anyLoading = chainResults.some((c) => c.result.loading);
+    const vaultPositions = [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)].filter(
+      (p) => parseFloat(p.state.assets || '0') > 0
+    );
 
-  const chainsWithData = React.useMemo(
-    () => {
-      return chainResults
-        .map(({ chainId, result }) => {
-          const user = result.data?.userByAddress;
-          if (!user) return null;
-
-          const marketPositions: MorphoPositionsData[] = user.marketPositions
-            .filter((p) => parseFloat(p.state.collateral || '0') > 0 || parseFloat(p.state.borrowAssets || '0') > 0)
-            .map((position) => ({
-              marketId: position.market.marketId,
-              collateralSymbol: position.market.collateralAsset.symbol,
-              loanSymbol: position.market.loanAsset.symbol,
-              collateralBalance: position.state.collateral || '0',
-              loanBalance: position.state.borrowAssets || '0',
-              collateralDecimal: position.market.collateralAsset.decimals,
-              loanDecimal: position.market.loanAsset.decimals,
-              borrowUsd: position.state.borrowAssetsUsd || '0',
-              supplyUsd: position.state.supplyAssetsUsd || '0',
-              borrowApy: position.market.state.borrowApy || '0'
-            }));
-
-          const vaultPositions = [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)].filter(
-            (p) => parseFloat(p.state.assets || '0') > 0
-          );
-
-          if (marketPositions.length === 0 && vaultPositions.length === 0) return null;
-
-          return { chainId, marketPositions, vaultPositions };
-        })
-        .filter(Boolean) as { chainId: number; marketPositions: MorphoPositionsData[]; vaultPositions: any[] }[];
-    },
-    chainResults.map((c) => c.result.data)
-  );
+    return marketPositions.length || vaultPositions.length ? [{ chainId, marketPositions, vaultPositions }] : [];
+  });
 
   // Fixed-rate (Midnight) positions come from one call covering every chain.
   const nowSec = useNowInSeconds();
@@ -157,6 +130,11 @@ export default function DashboardPage() {
     [allFixedPositions, openOrders]
   );
   const { getToken } = useTokensMetadata(fixedTokenRefs);
+  const viewedPositions = isOther
+    ? chainsWithData
+        .flatMap(({ marketPositions }) => marketPositions)
+        .sort((left, right) => (left.healthFactor ?? Number.MAX_VALUE) - (right.healthFactor ?? Number.MAX_VALUE))
+    : [];
 
   if (!userAddress) {
     return (
@@ -164,9 +142,16 @@ export default function DashboardPage() {
         <Box component="h1" sx={visuallyHidden}>
           <FormattedMessage id="dashboard.title" />
         </Box>
-        <Typography variant="h4" component="p" role="status">
-          <FormattedMessage id="dashboard.connectWallet" />
-        </Typography>
+        {lookup}
+        {viewed.invalidAccount ? (
+          <Alert severity="error">
+            <FormattedMessage id="market.invalidAccount" />
+          </Alert>
+        ) : (
+          <Typography variant="h4" component="p" role="status">
+            <FormattedMessage id="dashboard.connectWallet" />
+          </Typography>
+        )}
       </Box>
     );
   }
@@ -176,13 +161,67 @@ export default function DashboardPage() {
       <Box component="h1" sx={visuallyHidden}>
         <FormattedMessage id="dashboard.title" />
       </Box>
+      {lookup}
+      {isOther && (
+        <Alert severity="info" sx={{ mb: 2 }} title={userAddress}>
+          <FormattedMessage id="portfolio.viewingAccount" values={{ address: shortenAddress(userAddress) }} />
+        </Alert>
+      )}
+      {failedChains.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography fontWeight={600}>
+            <FormattedMessage id="dashboard.incomplete" />
+          </Typography>
+          {failedChains.map(({ chainId, result }) => {
+            const network = getChainName(chainId);
+            const lastRead = result.dataUpdatedAt;
+            return (
+              <Box key={chainId} sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="body2">
+                  {lastRead ? (
+                    <FormattedMessage
+                      id="dashboard.staleNetwork"
+                      values={{
+                        network,
+                        time: (
+                          <time dateTime={new Date(lastRead).toISOString()}>
+                            {intl.formatDate(lastRead, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZoneName: 'short'
+                            })}
+                          </time>
+                        )
+                      }}
+                    />
+                  ) : (
+                    <FormattedMessage id="dashboard.unavailableNetwork" values={{ network }} />
+                  )}
+                </Typography>
+                <Button size="small" disabled={result.isFetching} onClick={() => void result.refetch()}>
+                  <FormattedMessage id="dashboard.retryNetwork" values={{ network }} />
+                </Button>
+              </Box>
+            );
+          })}
+        </Alert>
+      )}
+      {viewedPositions.length > 0 && (
+        <Box sx={{ mb: 5 }}>
+          <VariablePositionsTable positions={viewedPositions} requestedAccount={requestedAccount} isOther />
+        </Box>
+      )}
 
       {fixedPositions.length > 0 && (
         <Box sx={{ marginBottom: 5 }}>
           <Typography variant="h2" component="h2" sx={{ marginBottom: 2 }}>
             <FormattedMessage id="fixed.positions.title" />
           </Typography>
-          <FixedPositionsTable positions={fixedPositions} getToken={getToken} nowSec={nowSec} />
+          <FixedPositionsTable positions={fixedPositions} getToken={getToken} nowSec={nowSec} readOnly={isOther} />
         </Box>
       )}
 
@@ -197,6 +236,7 @@ export default function DashboardPage() {
             getOrderCollateral={(chainId, marketId) => getOrderCollateralAmount(allFixedPositions, openOrders, chainId, marketId)}
             nowSec={nowSec}
             onCancelled={refetchOpenOrders}
+            readOnly={isOther}
           />
         </Box>
       )}
@@ -207,198 +247,284 @@ export default function DashboardPage() {
         </Box>
       )}
 
-      {!anyLoading && chainsWithData.length === 0 && fixedPositions.length === 0 && openOrders.length === 0 && (
-        <Box sx={{ padding: 2 }}>
-          <Typography variant="h4" component="p" role="status">
-            <FormattedMessage id="dashboard.empty" />
-          </Typography>
-        </Box>
-      )}
-
-      {chainsWithData.map(({ chainId, marketPositions, vaultPositions }) => (
-        <Box key={chainId} sx={{ marginBottom: 5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, marginBottom: 2 }}>
-            <Typography variant="h2" component="h2">
-              {getChainName(chainId)}
+      {!anyLoading &&
+        failedChains.length === 0 &&
+        chainsWithData.length === 0 &&
+        fixedPositions.length === 0 &&
+        openOrders.length === 0 && (
+          <Box sx={{ padding: 2 }}>
+            <Typography variant="h4" component="p" role="status">
+              <FormattedMessage id="dashboard.empty" />
             </Typography>
-            {anyLoading && (
-              <CircularProgress
-                size={16}
-                aria-label={intl.formatMessage({ id: 'dashboard.refreshing' }, { network: getChainName(chainId) })}
-              />
+          </Box>
+        )}
+
+      {chainsWithData
+        .filter(({ vaultPositions }) => !isOther || vaultPositions.length > 0)
+        .map(({ chainId, marketPositions, vaultPositions }) => (
+          <Box key={chainId} sx={{ marginBottom: 5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, marginBottom: 2 }}>
+              <Typography variant="h2" component="h2">
+                {getChainName(chainId)}
+              </Typography>
+              {anyLoading && (
+                <CircularProgress
+                  size={16}
+                  aria-label={intl.formatMessage({ id: 'dashboard.refreshing' }, { network: getChainName(chainId) })}
+                />
+              )}
+            </Box>
+
+            {vaultPositions.length > 0 && (
+              <Box sx={{ marginBottom: 3 }}>
+                <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
+                  <FormattedMessage id="dashboard.vaults" />
+                </Typography>
+                <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
+                  <Table
+                    sx={{ minWidth: 650 }}
+                    aria-label={intl.formatMessage({ id: 'dashboard.vaultPositionsAria' }, { network: getChainName(chainId) })}
+                  >
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>
+                          <FormattedMessage id="table.vault" />
+                        </TableCell>
+                        <TableCell>
+                          <FormattedMessage id="table.balance" />
+                        </TableCell>
+                        <TableCell>
+                          <FormattedMessage id="table.apy" />
+                        </TableCell>
+                        <TableCell>
+                          <FormattedMessage id="table.totalDepositsUsd" />
+                        </TableCell>
+                        <TableCell>
+                          <FormattedMessage id="table.curators" />
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {vaultPositions.map((position) => (
+                        <TableRow
+                          key={position.vault.address}
+                          hover={!isOther}
+                          onClick={isOther ? undefined : () => navigate(routes.vault(position.vault.address, chainId, position.vault.name))}
+                          sx={{ cursor: isOther ? undefined : 'pointer' }}
+                        >
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <TokenIcon symbol={position.vault.asset.symbol} />
+                              {isOther ? (
+                                position.vault.name || shortenAddress(position.vault.address)
+                              ) : (
+                                <Link
+                                  component={RouterLink}
+                                  to={routes.vault(position.vault.address, chainId, position.vault.name)}
+                                  color="inherit"
+                                  underline="none"
+                                  onClick={(e) => e.stopPropagation()}
+                                  aria-label={intl.formatMessage(
+                                    { id: 'dashboard.openVaultAria' },
+                                    { name: position.vault.name || shortenAddress(position.vault.address), network: getChainName(chainId) }
+                                  )}
+                                >
+                                  {position.vault.name || shortenAddress(position.vault.address)}
+                                </Link>
+                              )}
+                              <VaultVersionChip version={position.vault.version} />
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            {Number(formatUnits(BigInt(position.state.assets), position.vault.asset.decimals)).toFixed(6)} (
+                            {Number(position.state.assetsUsd).toFixed(2)} $)
+                          </TableCell>
+                          <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
+                          <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {position.vault.state.curators?.map((curator: any) => (
+                                <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
+                                </Box>
+                              ))}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+            {!isOther && marketPositions.length > 0 && (
+              <VariablePositionsTable positions={marketPositions} chainId={chainId} requestedAccount={requestedAccount} />
             )}
           </Box>
+        ))}
+    </Box>
+  );
+}
 
-          {vaultPositions.length > 0 && (
-            <Box sx={{ marginBottom: 3 }}>
-              <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
-                <FormattedMessage id="dashboard.vaults" />
-              </Typography>
-              <TableContainer component={Paper} sx={{ marginBottom: 2 }}>
-                <Table
-                  sx={{ minWidth: 650 }}
-                  aria-label={intl.formatMessage({ id: 'dashboard.vaultPositionsAria' }, { network: getChainName(chainId) })}
+function VariablePositionsTable({
+  positions,
+  chainId,
+  requestedAccount,
+  isOther = false
+}: {
+  positions: MorphoPositionsData[];
+  chainId?: number;
+  requestedAccount?: Address;
+  isOther?: boolean;
+}) {
+  const intl = useIntl();
+  const navigate = useNavigate();
+
+  return (
+    <Box>
+      <Typography variant="h4" component={isOther ? 'h2' : 'h3'} gutterBottom sx={{ mb: 1, color: 'text.secondary' }}>
+        <FormattedMessage id="dashboard.markets" />
+      </Typography>
+      <TableContainer component={Paper}>
+        <Table
+          sx={{ minWidth: isOther ? 800 : 650 }}
+          aria-label={
+            chainId
+              ? intl.formatMessage({ id: 'dashboard.marketPositionsAria' }, { network: getChainName(chainId) })
+              : intl.formatMessage({ id: 'dashboard.markets' })
+          }
+        >
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <FormattedMessage id="table.market" />
+              </TableCell>
+              {isOther && (
+                <TableCell>
+                  <FormattedMessage id="table.network" />
+                </TableCell>
+              )}
+              <TableCell>
+                <FormattedMessage id="table.collateral" />
+              </TableCell>
+              <TableCell>
+                <FormattedMessage id="table.loan" />
+              </TableCell>
+              {isOther ? (
+                <>
+                  <TableCell>
+                    <FormattedMessage id="market.healthFactor" />
+                  </TableCell>
+                  <TableCell aria-label={intl.formatMessage({ id: 'market.actionsTitle' })} />
+                </>
+              ) : (
+                <TableCell>
+                  <FormattedMessage id="table.borrowApy" />
+                </TableCell>
+              )}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {positions.map((position) => {
+              const hasDebt = Number(position.loanBalance) > 0;
+              const href = routes.variableMarket(position.marketId, position.chainId, position.loanSymbol, position.collateralSymbol);
+              const manageHref = withViewedAccount(href, requestedAccount, isOther ? (hasDebt ? 'repay' : 'add') : undefined);
+              return (
+                <TableRow
+                  key={`${position.chainId}:${position.marketId}`}
+                  hover
+                  onClick={() => navigate(manageHref)}
+                  sx={{ cursor: 'pointer' }}
                 >
-                  <TableHead>
-                    <TableRow>
+                  <TableCell>
+                    <Link
+                      component={RouterLink}
+                      to={manageHref}
+                      color="inherit"
+                      underline="none"
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={intl.formatMessage(
+                        { id: 'dashboard.openMarketAria' },
+                        { pair: `${position.collateralSymbol}/${position.loanSymbol}`, network: getChainName(position.chainId) }
+                      )}
+                    >
+                      {position.collateralSymbol}/{position.loanSymbol}
+                    </Link>
+                  </TableCell>
+                  {isOther && <TableCell>{getChainName(position.chainId)}</TableCell>}
+                  <TableCell>
+                    {Number(position.collateralBalance) > 0 ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TokenIcon symbol={position.collateralSymbol} avatarProps={{ alt: '' }} />
+                        {formatTokenAmount(
+                          position.collateralBalance,
+                          position.collateralDecimal,
+                          position.collateralDecimal / DECIMALS_SCALE_FACTOR
+                        )}{' '}
+                        {position.collateralSymbol}
+                      </Box>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {hasDebt ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TokenIcon symbol={position.loanSymbol} avatarProps={{ alt: '' }} />
+                        {formatTokenAmount(position.loanBalance, position.loanDecimal, position.loanDecimal / DECIMALS_SCALE_FACTOR)}{' '}
+                        {position.loanSymbol}
+                      </Box>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  {isOther ? (
+                    <>
                       <TableCell>
-                        <FormattedMessage id="table.vault" />
+                        {hasDebt ? (position.healthFactor?.toFixed(2) ?? '—') : '—'}
+                        {hasDebt && position.healthFactor != null && position.healthFactor < 1 && (
+                          <Typography display="block" variant="caption" color="error">
+                            <FormattedMessage id="dashboard.liquidatable" />
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <FormattedMessage id="table.balance" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.apy" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.totalDepositsUsd" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.curators" />
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {vaultPositions.map((position) => (
-                      <TableRow
-                        key={position.vault.address}
-                        hover
-                        onClick={() => navigate(routes.vault(position.vault.address, chainId, position.vault.name))}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TokenIcon symbol={position.vault.asset.symbol} />
-                            <Link
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {hasDebt && (
+                            <Button
                               component={RouterLink}
-                              to={routes.vault(position.vault.address, chainId, position.vault.name)}
-                              color="inherit"
-                              underline="none"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={intl.formatMessage(
-                                { id: 'dashboard.openVaultAria' },
-                                { name: position.vault.name || shortenAddress(position.vault.address), network: getChainName(chainId) }
-                              )}
+                              to={withViewedAccount(href, requestedAccount, 'repay')}
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              {position.vault.name || shortenAddress(position.vault.address)}
-                            </Link>
-                            <VaultVersionChip version={position.vault.version} />
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          {Number(formatUnits(BigInt(position.state.assets), position.vault.asset.decimals)).toFixed(6)} (
-                          {Number(position.state.assetsUsd).toFixed(2)} $)
-                        </TableCell>
-                        <TableCell>{(Number(position.vault.state.avgNetApy) * 100).toFixed(2)} %</TableCell>
-                        <TableCell>$ {formatShortUSDS(parseFloat(position.vault.state.totalAssetsUsd))}</TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {position.vault.state.curators?.map((curator: any) => (
-                              <Box key={curator.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <CuratorIcon symbol={curator.id} /> {curator.name ? curator.name : curator.id}
-                              </Box>
-                            ))}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-
-          {marketPositions.length > 0 && (
-            <Box>
-              <Typography variant="h4" component="h3" gutterBottom sx={{ marginBottom: 1, color: 'text.secondary' }}>
-                <FormattedMessage id="dashboard.markets" />
-              </Typography>
-              <TableContainer component={Paper}>
-                <Table
-                  sx={{ minWidth: 650 }}
-                  aria-label={intl.formatMessage({ id: 'dashboard.marketPositionsAria' }, { network: getChainName(chainId) })}
-                >
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>
-                        <FormattedMessage id="table.market" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.collateral" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.loan" />
-                      </TableCell>
-                      <TableCell>
-                        <FormattedMessage id="table.borrowApy" />
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {marketPositions.map((position) => (
-                      <TableRow
-                        key={position.marketId}
-                        hover
-                        onClick={() =>
-                          navigate(routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol))
-                        }
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>
-                          <Link
+                              <FormattedMessage id="market.tabRepay" />
+                            </Button>
+                          )}
+                          <Button
                             component={RouterLink}
-                            to={routes.variableMarket(position.marketId, chainId, position.loanSymbol, position.collateralSymbol)}
-                            color="inherit"
-                            underline="none"
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label={intl.formatMessage(
-                              { id: 'dashboard.openMarketAria' },
-                              { pair: `${position.collateralSymbol}/${position.loanSymbol}`, network: getChainName(chainId) }
-                            )}
+                            to={withViewedAccount(href, requestedAccount, 'add')}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            onClick={(event) => event.stopPropagation()}
                           >
-                            {position.collateralSymbol}/{position.loanSymbol}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          {parseFloat(position.collateralBalance) > 0 ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <TokenIcon symbol={position.collateralSymbol} avatarProps={{ alt: '' }} />
-                              {formatTokenAmount(
-                                position.collateralBalance,
-                                position.collateralDecimal,
-                                position.collateralDecimal / DECIMALS_SCALE_FACTOR
-                              )}{' '}
-                              {position.collateralSymbol}
-                            </Box>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {parseFloat(position.loanBalance) > 0 ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <TokenIcon symbol={position.loanSymbol} avatarProps={{ alt: '' }} />
-                              {formatTokenAmount(
-                                position.loanBalance,
-                                position.loanDecimal,
-                                position.loanDecimal / DECIMALS_SCALE_FACTOR
-                              )}{' '}
-                              {position.loanSymbol}
-                            </Box>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell>{(Number(position.borrowApy) * 100).toFixed(2)} %</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-        </Box>
-      ))}
+                            <FormattedMessage id="portfolio.addCollateral" />
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <TableCell>{(Number(position.borrowApy) * 100).toFixed(2)} %</TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 }

@@ -268,6 +268,7 @@ export const MorphoRequests = {
       userByAddress(chainId: $chainId, address: $address) {
         address
         marketPositions {
+          healthFactor
           market {
             marketId
             collateralAsset {

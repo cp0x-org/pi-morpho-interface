@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAccount } from 'wagmi';
 import { AccrualPosition, Market, MarketParams } from '@morpho-org/blue-sdk';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Box from '@mui/material/Box';
 import { Paper, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import type { Address } from 'viem';
 
 import ConnectButtonCustom from 'components/ConnectButtonCustom';
 import { MarketInterface } from 'types/market';
+import { shortenAddress } from 'utils/formatters';
 import type { FixedSide } from 'utils/routes';
 import { AddTab, BorrowTab, RepayTab, SupplyTab, TabPanel, WithdrawCollateralTab, WithdrawTab } from './components';
 
 interface MarketActionPanelProps {
+  account?: Address;
+  connected?: Address;
+  isOther: boolean;
   accrualPosition: AccrualPosition | null;
   onchainPosition: AccrualPosition | null;
   sdkMarket: Market | null;
@@ -28,11 +32,11 @@ interface MarketActionPanelProps {
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-type ActionTab = 'addCollateral' | 'borrow' | 'repay' | 'withdrawCollateral' | 'supply' | 'withdraw';
+type ActionTab = 'add' | 'borrow' | 'repay' | 'withdrawCollateral' | 'supply' | 'withdraw';
 
 const TABS: Record<FixedSide, { key: ActionTab; labelId: string }[]> = {
   borrow: [
-    { key: 'addCollateral', labelId: 'market.tabAddCollateral' },
+    { key: 'add', labelId: 'market.tabAddCollateral' },
     { key: 'borrow', labelId: 'market.tabBorrow' },
     { key: 'repay', labelId: 'market.tabRepay' },
     { key: 'withdrawCollateral', labelId: 'market.tabWithdrawCollateral' }
@@ -55,13 +59,15 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
   const theme = useTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { address: userAddress } = useAccount();
-  const [tabIndex, setTabIndex] = useState(0);
+  const { account, connected, isOther } = props;
 
   // This page is the borrower's entry point (it used to live at /borrow), so borrowing is the default side.
-  const side: FixedSide = searchParams.get('side') === 'lend' ? 'lend' : 'borrow';
+  const side: FixedSide = !isOther && searchParams.get('side') === 'lend' ? 'lend' : 'borrow';
   const tabs = TABS[side];
-  const activeIndex = Math.min(tabIndex, tabs.length - 1);
+  const isLocked = (tab: string) => isOther && tab !== 'repay' && tab !== 'add';
+  const requestedTab = searchParams.get('tab') ?? '';
+  const requestedIndex = tabs.findIndex((tab) => tab.key === requestedTab && !isLocked(tab.key));
+  const activeIndex = requestedIndex >= 0 ? requestedIndex : isOther ? tabs.findIndex((tab) => tab.key === 'repay') : 0;
 
   const { market, marketId, chainId, accrualPosition, onchainPosition, sdkMarket, marketParams } = props;
 
@@ -74,27 +80,39 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
   };
 
   const handleSideChange = (nextSide: FixedSide) => {
+    if (isOther) return;
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('side', nextSide);
+    nextParams.delete('tab');
     setSearchParams(nextParams, { replace: true });
-    setTabIndex(0);
     resetPreview();
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, value: number) => {
-    setTabIndex(value);
+  const handleTabChange = (_: unknown, value: number) => {
+    const nextTab = tabs[value].key;
+    if (isLocked(nextTab)) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', nextTab);
+    setSearchParams(nextParams, { replace: true });
     resetPreview();
   };
 
   const onSuccess = () => props.onPositionUpdate?.();
 
   const renderTab = (tab: ActionTab) => {
-    if (!market || !marketId || !chainId) return null;
+    if (!market || !marketId || !chainId || !account || isLocked(tab)) return null;
+    if (!connected) return <ConnectButtonCustom />;
     const shared = { market, chainId, marketParams, marketId, onSuccess };
     switch (tab) {
-      case 'addCollateral':
+      case 'add':
         return (
-          <AddTab {...shared} onBorrowAmountChange={props.onBorrowAmountChange} onCollateralAmountChange={props.onCollateralAmountChange} />
+          <AddTab
+            {...shared}
+            targetAccount={account}
+            isOther={isOther}
+            onBorrowAmountChange={props.onBorrowAmountChange}
+            onCollateralAmountChange={props.onCollateralAmountChange}
+          />
         );
       case 'borrow':
         return (
@@ -109,6 +127,8 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
         return (
           <RepayTab
             {...shared}
+            targetAccount={account}
+            isOther={isOther}
             accrualPosition={accrualPosition}
             onchainPosition={onchainPosition}
             sdkMarket={sdkMarket}
@@ -159,7 +179,8 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
         <ToggleButton value="borrow" sx={{ px: 3 }}>
           <FormattedMessage id="fixed.list.sideBorrow" />
         </ToggleButton>
-        <ToggleButton value="lend" sx={{ px: 3 }}>
+        <ToggleButton value="lend" disabled={isOther} sx={{ px: 3, gap: 0.5 }}>
+          {isOther && <LockOutlinedIcon fontSize="inherit" />}
           <FormattedMessage id="fixed.list.sideLend" />
         </ToggleButton>
       </ToggleButtonGroup>
@@ -177,7 +198,7 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
     );
   }
 
-  if (!userAddress) {
+  if (!connected && !isOther) {
     return (
       <Paper>
         {header}
@@ -205,6 +226,9 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
           {tabs.map((tab, index) => (
             <Tab
               key={tab.key}
+              disabled={isLocked(tab.key)}
+              icon={isLocked(tab.key) ? <LockOutlinedIcon fontSize="inherit" /> : undefined}
+              iconPosition="start"
               label={intl.formatMessage({ id: tab.labelId })}
               id={`market-action-tab-${index}`}
               aria-controls={`market-action-tabpanel-${index}`}
@@ -218,6 +242,11 @@ export default function MarketActionPanel(props: MarketActionPanelProps) {
           {renderTab(tab.key)}
         </TabPanel>
       ))}
+      {isOther && account && (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1.5 }}>
+          <FormattedMessage id="position.ownerOnly" values={{ address: shortenAddress(account) }} />
+        </Typography>
+      )}
     </Paper>
   );
 }

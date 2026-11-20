@@ -9,12 +9,14 @@ import { ArrowRightAlt } from '@mui/icons-material';
 
 import { MarketInterface } from 'types/market';
 import { visuallyHidden } from 'utils/a11y';
+import { shortenAddress } from 'utils/formatters';
 
 /** Matches both the simulated position and an `AccrualPosition`, whose `ltv` is null while there is no debt. */
 interface FuturePosition {
   borrowAssets?: bigint | null;
   collateral?: bigint | null;
   ltv?: bigint | null;
+  healthFactor?: bigint | null;
 }
 
 interface MarketPositionCardProps {
@@ -22,6 +24,7 @@ interface MarketPositionCardProps {
   position: AccrualPosition | null;
   futurePosition?: FuturePosition | null;
   isChanged?: boolean;
+  viewedAccount?: string;
 }
 
 const formatAmount = (amount: bigint | null | undefined, decimals: number | undefined, symbol?: string) => {
@@ -38,7 +41,7 @@ const formatPercent = (value: bigint | null | undefined) =>
 // Only what belongs to the user. Market-wide parameters such as the liquidation LTV moved to MarketDetailsCard:
 // they never change per user, so mixing them in here made the card read as if LLTV were part of the position.
 
-export default function MarketPositionCard({ market, position, futurePosition, isChanged }: MarketPositionCardProps) {
+export default function MarketPositionCard({ market, position, futurePosition, isChanged, viewedAccount }: MarketPositionCardProps) {
   const theme = useTheme();
   const intl = useIntl();
 
@@ -48,7 +51,11 @@ export default function MarketPositionCard({ market, position, futurePosition, i
 
   const title = (
     <Typography variant="h4" component="h2" gutterBottom sx={{ marginBottom: '16px' }}>
-      <FormattedMessage id="common.yourPosition" />
+      {viewedAccount ? (
+        <FormattedMessage id="position.viewedTitle" values={{ address: shortenAddress(viewedAccount) }} />
+      ) : (
+        <FormattedMessage id="common.yourPosition" />
+      )}
     </Typography>
   );
 
@@ -103,7 +110,15 @@ export default function MarketPositionCard({ market, position, futurePosition, i
     // Below 1 the position is liquidatable, so the number carries more weight than the raw LTV.
     cells.push({
       labelId: 'market.healthFactor',
-      value: parseFloat(formatUnits(position.healthFactor, 18)).toFixed(2)
+      value: parseFloat(formatUnits(position.healthFactor, 18)).toFixed(2),
+      future:
+        viewedAccount && isChanged && futurePosition
+          ? futurePosition.borrowAssets === 0n
+            ? '∞'
+            : futurePosition.healthFactor != null
+              ? parseFloat(formatUnits(futurePosition.healthFactor, 18)).toFixed(2)
+              : undefined
+          : undefined
     });
   }
 

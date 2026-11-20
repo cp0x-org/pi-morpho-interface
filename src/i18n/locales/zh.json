@@ -125,9 +125,14 @@
     "connectWallet": "请连接钱包以查看您的仓位。",
     "loading": "正在加载您的仓位",
     "refreshing": "正在刷新 {network} 上的仓位",
+    "incomplete": "投资组合数据不完整。",
+    "unavailableNetwork": "{network} 的数据暂不可用。",
+    "retryNetwork": "重新获取 {network} 数据",
+    "staleNetwork": "{network} 的数据已过期。上次成功读取时间为 {time}。",
     "empty": "在所有网络上均未找到仓位。",
     "vaults": "金库",
     "markets": "市场",
+    "liquidatable": "可被清算",
     "vaultPositionsAria": "您在 {network} 上的金库仓位",
     "marketPositionsAria": "您在 {network} 上的市场仓位",
     "openVaultAria": "打开 {network} 上的金库 {name}",
@@ -171,6 +176,7 @@
     "loading": "正在加载市场详情",
     "error": "加载市场详情出错：{message}",
     "notFound": "未找到市场",
+    "invalidAccount": "此链接中的账户地址无效。请更正地址后继续。",
     "multipleNetworks": "该市场存在于多个网络中，请选择一个：",
     "incorrectData": "市场数据有误",
     "heading": "市场 {collateral} / {loan}",
@@ -222,6 +228,7 @@
     "percentAria": "使用您 {symbol} 余额的 {percent}%",
     "maxAria": "使用可用的全部 {symbol} 余额",
     "button": "增加抵押",
+    "forAccount": "为 {address} 添加抵押品",
     "pending": "正在增加抵押…",
     "failed": "增加抵押失败 - 请重试",
     "success": "{symbol} 增加成功",
@@ -254,6 +261,7 @@
     "maxAria": "全额偿还 {symbol} 借款",
     "loan": "借款：",
     "button": "偿还借款",
+    "forAccount": "为 {address} 还款",
     "pending": "正在偿还借款…",
     "failed": "还款失败 - 请重试",
     "success": "{symbol} 偿还成功",
@@ -741,5 +749,21 @@
   "more-items": "更多项目",
   "account-settings": "账户设置",
   "social-profile": "社交资料",
-  "logout": "退出登录"
+  "logout": "退出登录",
+  "portfolio": {
+    "viewAddress": "查看地址",
+    "viewAccount": "查看",
+    "myWallet": "我的钱包",
+    "invalidAddress": "请输入有效的以太坊地址。",
+    "viewingAccount": "正在查看 {address}。你可用自己的钱包还款或增加抵押物。只有仓位所有者可以借款或提取。",
+    "addCollateral": "增加抵押物"
+  },
+  "position": {
+    "viewedLabel": "仓位所属地址",
+    "viewedTitle": "{address} 的仓位",
+    "returnToWallet": "退出 {address} 的查看模式，返回我的钱包",
+    "walletPays": "由你的钱包 {wallet} 支付。你可以还款或增加抵押物。只有仓位所有者可以借款或提取。",
+    "connectToPay": "连接钱包即可还款或增加抵押物。只有仓位所有者可以借款或提取。",
+    "ownerOnly": "只有 {address} 的所有者可以借款或提取。"
+  }
 }

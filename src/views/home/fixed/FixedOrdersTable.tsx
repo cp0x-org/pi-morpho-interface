@@ -31,6 +31,7 @@ interface FixedOrdersTableProps {
   getOrderCollateral: (chainId: number, marketId: string) => bigint | undefined;
   nowSec: bigint;
   onCancelled: () => void;
+  readOnly?: boolean;
 }
 
 const KIND_COLORS: Record<OrderKind, 'success' | 'warning' | 'info'> = {
@@ -46,7 +47,14 @@ const KIND_COLORS: Record<OrderKind, 'success' | 'warning' | 'info'> = {
  * Resting maker orders, kept apart from positions: an order has moved no funds yet and can be cancelled.
  * One row per order; an order quoting several markets lists one line per market in the market-specific cells.
  */
-export default function FixedOrdersTable({ orders, getToken, getOrderCollateral, nowSec, onCancelled }: FixedOrdersTableProps) {
+export default function FixedOrdersTable({
+  orders,
+  getToken,
+  getOrderCollateral,
+  nowSec,
+  onCancelled,
+  readOnly = false
+}: FixedOrdersTableProps) {
   const intl = useIntl();
 
   /** Time left like markets.morpho.org shows it: "50d 5h", "5h 12m", "12m". */
@@ -98,11 +106,13 @@ export default function FixedOrdersTable({ orders, getToken, getOrderCollateral,
               <TableCell>
                 <FormattedMessage id="fixed.orders.expires" />
               </TableCell>
-              <TableCell>
-                <Box component="span" sx={visuallyHidden}>
-                  <FormattedMessage id="fixed.orders.actions" />
-                </Box>
-              </TableCell>
+              {!readOnly && (
+                <TableCell>
+                  <Box component="span" sx={visuallyHidden}>
+                    <FormattedMessage id="fixed.orders.actions" />
+                  </Box>
+                </TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -140,15 +150,19 @@ export default function FixedOrdersTable({ orders, getToken, getOrderCollateral,
                         <Box key={market.offer.marketId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <TokenIcon symbol={loanSymbol} logoURI={loan?.logoURI} avatarProps={{ alt: '' }} />
                           <Box>
-                            <Link
-                              component={RouterLink}
-                              to={market.href}
-                              color="inherit"
-                              underline="hover"
-                              aria-label={intl.formatMessage({ id: 'fixed.positions.openAria' }, { pair: market.pair })}
-                            >
-                              {market.pair}
-                            </Link>
+                            {readOnly ? (
+                              market.pair
+                            ) : (
+                              <Link
+                                component={RouterLink}
+                                to={market.href}
+                                color="inherit"
+                                underline="hover"
+                                aria-label={intl.formatMessage({ id: 'fixed.positions.openAria' }, { pair: market.pair })}
+                              >
+                                {market.pair}
+                              </Link>
+                            )}
                             <Typography variant="body2" color="text.secondary">
                               {market.collateralParams ? (
                                 <FormattedMessage
@@ -222,9 +236,11 @@ export default function FixedOrdersTable({ orders, getToken, getOrderCollateral,
                       </Box>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <FixedCancelOrderButton order={order} onCancelled={onCancelled} />
-                  </TableCell>
+                  {!readOnly && (
+                    <TableCell>
+                      <FixedCancelOrderButton order={order} onCancelled={onCancelled} />
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

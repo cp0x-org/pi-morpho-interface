@@ -1,24 +1,27 @@
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
+import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
-import { Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Chip, Link } from '@mui/material';
+import { Alert, Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Chip, Link } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
 import { formatLLTV, formatShortUSDS, shortenAddress } from '@/utils/formatters';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useCallback, useEffect, useState } from 'react';
 import { MarketData } from 'types/market';
+import { userPositionsQuery } from '@/api/userPositions';
 import { useMarketData } from 'hooks/useMarketData';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import { MorphoRequests } from '@/api/constants';
 import { appoloClients } from '@/api/apollo-client';
 import { useFuturePosition } from 'hooks/useFuturePosition';
-import { useAccount } from 'wagmi';
 import { useWalletChainSync } from 'hooks/useWalletChainSync';
 import { useRefreshOnNewBlock } from 'hooks/useRefreshOnNewBlock';
+import useViewedAccount from 'hooks/useViewedAccount';
 import { getChainName } from 'utils/chains';
 import { ChainIcon } from 'components/ChainIcon';
 import { TokenIcon } from 'components/TokenIcon';
+import { ViewedPositionBanner } from 'components/ViewedAccount';
 import MarketActionPanel from 'views/home/market/MarketActionPanel';
 import MarketDetailsCard from 'views/home/market/MarketDetailsCard';
 import MarketPositionCard from 'views/home/market/MarketPositionCard';
@@ -28,6 +31,25 @@ import { useMidnightMarketLookup } from 'hooks/midnight/useMidnightMarket';
 import { routes } from 'utils/routes';
 
 export default function MarketDetailPage() {
+  const viewed = useViewedAccount();
+  if (viewed.invalidAccount) {
+    return (
+      <Alert severity="error">
+        <FormattedMessage id="market.invalidAccount" />
+      </Alert>
+    );
+  }
+  return <MarketDetail {...viewed} />;
+}
+
+function withMarketChain(searchParams: URLSearchParams, chainId: number, hash: string) {
+  const nextParams = new URLSearchParams(searchParams);
+  nextParams.set('chainId', String(chainId));
+  return { search: nextParams.toString(), hash };
+}
+
+function MarketDetail({ account, connected, isOther, ownHref, requestedAccount }: ReturnType<typeof useViewedAccount>) {
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const intl = useIntl();
 
@@ -37,10 +59,6 @@ export default function MarketDetailPage() {
   const navigate = useNavigate();
   const urlChainId = Number(searchParams.get('chainId')) || undefined;
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
-  const { address: userAddress } = useAccount();
-
-  const [diffBorrowAmount, setDiffBorrowAmount] = useState<bigint>(0n);
-  const [diffCollateralAmount, setDiffCollateralAmount] = useState<bigint>(0n);
 
   // Blue market ids are not unique across chains, so the lookup is scoped to ?chainId=.
   // Without it, or when the market is not on that chain, search every chain and fix the URL.
@@ -73,9 +91,7 @@ export default function MarketDetailPage() {
 
   useEffect(() => {
     if (!redirectChainId || redirectChainId === urlChainId) return;
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('chainId', String(redirectChainId));
-    navigate({ search: `?${nextParams.toString()}`, hash: location.hash }, { replace: true });
+    navigate(withMarketChain(searchParams, redirectChainId, location.hash), { replace: true });
   }, [redirectChainId, urlChainId, searchParams, location.hash, navigate]);
 
   useWalletChainSync(chainId);
@@ -86,24 +102,39 @@ export default function MarketDetailPage() {
     useMarketData({
       marketId,
       chainId,
-      marketItemData: marketData
+      marketItemData: marketData,
+      userAddress: account
     });
+
+  const onPositionUpdate = useCallback(() => {
+    void refreshAfterTransaction();
+    if (!requestedAccount || !chainId) return;
+    // Refresh the account's cached portfolio even when the portfolio page is unmounted.
+    void queryClient
+      .fetchQuery(userPositionsQuery(chainId, requestedAccount))
+      .catch((error) => console.warn('Failed to refresh the viewed account portfolio', error));
+  }, [chainId, queryClient, refreshAfterTransaction, requestedAccount]);
+
+  const positionKey = `${chainId}:${marketId}:${account}:${connected}`;
+  const previewKey = `${positionKey}:${searchParams.get('side')}:${searchParams.get('tab')}`;
+  const [preview, setPreview] = useState({ key: previewKey, borrow: 0n, collateral: 0n });
+  if (preview.key !== previewKey) setPreview({ key: previewKey, borrow: 0n, collateral: 0n });
 
   const { futurePosition, isChanged } = useFuturePosition({
     currentPosition: accrualPosition,
     market,
-    userAddress,
+    userAddress: account,
     marketId,
-    diffBorrowAmount,
-    diffCollateralAmount
+    diffBorrowAmount: preview.borrow,
+    diffCollateralAmount: preview.collateral
   });
 
   const onBorrowAmountChange = useCallback((amount: bigint) => {
-    setDiffBorrowAmount(amount);
+    setPreview((previous) => ({ ...previous, borrow: amount }));
   }, []);
 
   const onCollateralAmountChange = useCallback((amount: bigint) => {
-    setDiffCollateralAmount(amount);
+    setPreview((previous) => ({ ...previous, collateral: amount }));
   }, []);
 
   if (loading || lookupLoading || (redirectChainId && redirectChainId !== urlChainId) || fixedMarketLookup.isFetching || !!fixedMarketId) {
@@ -132,7 +163,7 @@ export default function MarketDetailPage() {
         </Typography>
         <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: 'wrap' }}>
           {chainCandidates.map((item) => (
-            <Link key={item.chain.id} component={RouterLink} to={{ search: `?chainId=${item.chain.id}` }} replace>
+            <Link key={item.chain.id} component={RouterLink} to={withMarketChain(searchParams, item.chain.id, location.hash)} replace>
               {getChainName(item.chain.id)}
             </Link>
           ))}
@@ -181,6 +212,7 @@ export default function MarketDetailPage() {
 
   return (
     <Box sx={{ padding: '16px 0px' }}>
+      {isOther && account && <ViewedPositionBanner account={account} connected={connected} ownHref={ownHref} />}
       {/* Market header — identity on the left, the numbers that change on the right, same shape as /fixed. */}
       <Paper sx={{ padding: '20px 24px', marginBottom: 3 }}>
         {/* The pair is rendered as separate inline chunks for layout reasons; this
@@ -292,12 +324,22 @@ export default function MarketDetailPage() {
         <Grid size={{ xs: 12, md: 7 }} sx={{ order: { xs: 2, md: 1 } }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <MarketDetailsCard market={marketData} chainId={chainId} oraclePrice={oraclePrice as bigint | undefined} />
-            <MarketPositionCard market={marketData} position={accrualPosition} futurePosition={futurePosition} isChanged={isChanged} />
+            <MarketPositionCard
+              market={marketData}
+              position={accrualPosition}
+              futurePosition={futurePosition}
+              isChanged={isChanged}
+              viewedAccount={isOther ? account : undefined}
+            />
           </Box>
         </Grid>
 
         <Grid size={{ xs: 12, md: 5 }} sx={{ order: { xs: 1, md: 2 } }}>
           <MarketActionPanel
+            key={positionKey}
+            account={account}
+            connected={connected}
+            isOther={isOther}
             market={marketData}
             chainId={chainId}
             marketParams={marketParams}
@@ -305,7 +347,7 @@ export default function MarketDetailPage() {
             marketId={marketId}
             accrualPosition={accrualPosition}
             onchainPosition={onchainPosition}
-            onPositionUpdate={refreshAfterTransaction}
+            onPositionUpdate={onPositionUpdate}
             onRefresh={refreshPositionData}
             onBorrowAmountChange={onBorrowAmountChange}
             onCollateralAmountChange={onCollateralAmountChange}

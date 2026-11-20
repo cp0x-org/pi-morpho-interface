@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect, useCallback, FC } from 'react';
 import { MarketInterface } from 'types/market';
 import { useAccount, useBlock, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
-import { formatUnits, parseUnits } from 'viem';
+import { type Address, formatUnits, parseUnits } from 'viem';
 import { AccrualPosition, Market, MarketParams, MathLib } from '@morpho-org/blue-sdk';
 import { Time } from '@morpho-org/morpho-ts';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
@@ -17,7 +17,14 @@ import { TokenIcon } from 'components/TokenIcon';
 import { CustomInput } from 'components/CustomInput';
 import Divider from '@mui/material/Divider';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
-import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
+import {
+  formatAssetOutput,
+  normalizePointAmount,
+  parseAmountOrZero,
+  percentOfAmount,
+  shortenAddress,
+  truncateDecimals
+} from 'utils/formatters';
 import { MaxRepayInputs, MaxRepayPlan, maxRepayPlanStands, planMaxRepay } from 'utils/repay';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -29,6 +36,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 const DEBT_FLOOR_LAG_SECONDS = 60n;
 
 interface RepayTabProps {
+  targetAccount: Address;
+  isOther: boolean;
   market: MarketInterface;
   chainId: number;
   marketParams: MarketParams | null;
@@ -43,6 +52,8 @@ interface RepayTabProps {
 }
 
 const RepayTab: FC<RepayTabProps> = ({
+  targetAccount,
+  isOther,
   market,
   chainId,
   marketParams,
@@ -394,7 +405,7 @@ const RepayTab: FC<RepayTabProps> = ({
             },
             amountBN,
             sharesAmountBN,
-            userAddress as `0x${string}`,
+            targetAccount,
             '' as `0x${string}`
           ]
         });
@@ -416,6 +427,7 @@ const RepayTab: FC<RepayTabProps> = ({
     }
   }, [
     userAddress,
+    targetAccount,
     marketId,
     repayAmount,
     market,
@@ -469,8 +481,20 @@ const RepayTab: FC<RepayTabProps> = ({
       return intl.formatMessage({ id: 'repay.failed' });
     }
 
-    return intl.formatMessage({ id: 'repay.button' });
-  }, [repayAmount, isApproved, allowanceChecking, approveTx.txState, repayTx.txState, market?.loanAsset.symbol, intl]);
+    return isOther
+      ? intl.formatMessage({ id: 'repay.forAccount' }, { address: shortenAddress(targetAccount) })
+      : intl.formatMessage({ id: 'repay.button' });
+  }, [
+    repayAmount,
+    isApproved,
+    allowanceChecking,
+    approveTx.txState,
+    repayTx.txState,
+    market?.loanAsset.symbol,
+    intl,
+    isOther,
+    targetAccount
+  ]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {
