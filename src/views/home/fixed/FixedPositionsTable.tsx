@@ -18,6 +18,7 @@ interface FixedPositionsTableProps {
   positions: MidnightUserPosition[];
   getToken: (chainId: number, address?: string) => TokenMetadata | undefined;
   nowSec: bigint;
+  readOnly?: boolean;
 }
 
 type PositionStatus = 'active' | 'redeem' | 'overdue' | 'matured';
@@ -44,7 +45,7 @@ const TYPE_LABELS = {
 
 // ==============================|| FIXED-RATE POSITIONS TABLE ||============================== //
 
-export default function FixedPositionsTable({ positions, getToken, nowSec }: FixedPositionsTableProps) {
+export default function FixedPositionsTable({ positions, getToken, nowSec, readOnly = false }: FixedPositionsTableProps) {
   const intl = useIntl();
   const navigate = useNavigate();
 
@@ -102,21 +103,30 @@ export default function FixedPositionsTable({ positions, getToken, nowSec }: Fix
             const href = routes.fixedMarket(position.marketId, loanSymbol, collateralSymbol, position.maturity);
 
             return (
-              <TableRow key={`${position.chainId}:${position.marketId}`} hover onClick={() => navigate(href)} sx={{ cursor: 'pointer' }}>
+              <TableRow
+                key={`${position.chainId}:${position.marketId}`}
+                hover={!readOnly}
+                onClick={readOnly ? undefined : () => navigate(href)}
+                sx={{ cursor: readOnly ? undefined : 'pointer' }}
+              >
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TokenIcon symbol={loanSymbol} logoURI={loan?.logoURI} avatarProps={{ alt: '' }} />
                     <Box>
-                      <Link
-                        component={RouterLink}
-                        to={href}
-                        color="inherit"
-                        underline="none"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={intl.formatMessage({ id: 'fixed.positions.openAria' }, { pair })}
-                      >
-                        {pair}
-                      </Link>
+                      {readOnly ? (
+                        pair
+                      ) : (
+                        <Link
+                          component={RouterLink}
+                          to={href}
+                          color="inherit"
+                          underline="none"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={intl.formatMessage({ id: 'fixed.positions.openAria' }, { pair })}
+                        >
+                          {pair}
+                        </Link>
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {maturity.date} · {maturity.relative}
                       </Typography>

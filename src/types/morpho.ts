@@ -38,6 +38,7 @@ export interface MarketState {
  * User's position in a specific market
  */
 export interface UserMarketPosition {
+  healthFactor: number | null;
   market: UserMarket;
   state: MarketPositionState;
 }

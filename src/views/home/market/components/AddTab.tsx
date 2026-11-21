@@ -7,7 +7,7 @@ import { MarketParams } from '@morpho-org/blue-sdk';
 import { useAccount, useReadContract } from 'wagmi';
 import { erc20ABIConfig } from '@/appconfig/abi/ERC20';
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
-import { formatUnits, parseUnits } from 'viem';
+import { type Address, formatUnits, parseUnits } from 'viem';
 import { dispatchError, dispatchSuccess } from 'utils/snackbar';
 import { useDebounce } from 'hooks/useDebounce';
 import { BalanceReadError } from 'components/BalanceReadError';
@@ -16,11 +16,20 @@ import { TokenIcon } from 'components/TokenIcon';
 import { useTheme } from '@mui/material/styles';
 import { INPUT_DECIMALS, getMorphoAddress } from '@/appconfig';
 import { CustomInput } from 'components/CustomInput';
-import { formatAssetOutput, normalizePointAmount, parseAmountOrZero, percentOfAmount, truncateDecimals } from 'utils/formatters';
+import {
+  formatAssetOutput,
+  normalizePointAmount,
+  parseAmountOrZero,
+  percentOfAmount,
+  shortenAddress,
+  truncateDecimals
+} from 'utils/formatters';
 import { visuallyHidden } from 'utils/a11y';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface AddTabProps {
+  targetAccount: Address;
+  isOther: boolean;
   market: MarketInterface;
   chainId: number;
   marketParams: MarketParams | null;
@@ -30,7 +39,16 @@ interface AddTabProps {
   onCollateralAmountChange: (amount: bigint) => void;
 }
 
-const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSuccess, onCollateralAmountChange }) => {
+const AddTab: FC<AddTabProps> = ({
+  market,
+  chainId,
+  marketParams,
+  marketId,
+  onSuccess,
+  onCollateralAmountChange,
+  targetAccount,
+  isOther
+}) => {
   const theme = useTheme();
   const intl = useIntl();
   // Track when allowance checking is in progress (during debounce)
@@ -302,7 +320,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
               lltv: marketParams.lltv
             },
             amountBN,
-            userAddress as `0x${string}`,
+            targetAccount,
             '' as `0x${string}`
           ]
         });
@@ -324,6 +342,7 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
     }
   }, [
     userAddress,
+    targetAccount,
     marketId,
     debouncedAddAmount,
     market,
@@ -372,8 +391,20 @@ const AddTab: FC<AddTabProps> = ({ market, chainId, marketParams, marketId, onSu
       return intl.formatMessage({ id: 'addCollateral.failed' });
     }
 
-    return intl.formatMessage({ id: 'addCollateral.button' });
-  }, [addAmount, isApproved, allowanceChecking, approveTx.txState, addCollateralTx.txState, market?.collateralAsset.symbol, intl]);
+    return isOther
+      ? intl.formatMessage({ id: 'addCollateral.forAccount' }, { address: shortenAddress(targetAccount) })
+      : intl.formatMessage({ id: 'addCollateral.button' });
+  }, [
+    addAmount,
+    isApproved,
+    allowanceChecking,
+    approveTx.txState,
+    addCollateralTx.txState,
+    market?.collateralAsset.symbol,
+    intl,
+    isOther,
+    targetAccount
+  ]);
 
   // Determine if button should be disabled
   const isButtonDisabled = useCallback(() => {

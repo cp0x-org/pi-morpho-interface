@@ -125,9 +125,14 @@
     "connectWallet": "Connect wallet to see your positions.",
     "loading": "Loading your positions",
     "refreshing": "Refreshing {network} positions",
+    "incomplete": "Portfolio data is incomplete.",
+    "unavailableNetwork": "{network} is unavailable.",
+    "retryNetwork": "Retry {network}",
+    "staleNetwork": "{network} data is stale. Last successful read {time}.",
     "empty": "No positions found across any network.",
     "vaults": "Vaults",
     "markets": "Markets",
+    "liquidatable": "Liquidatable",
     "vaultPositionsAria": "Your vault positions on {network}",
     "marketPositionsAria": "Your market positions on {network}",
     "openVaultAria": "Open vault {name} on {network}",
@@ -171,6 +176,7 @@
     "loading": "Loading market details",
     "error": "Error loading market details: {message}",
     "notFound": "Market not found",
+    "invalidAccount": "The account address in this link is invalid. Correct it to continue.",
     "multipleNetworks": "This market exists on several networks. Choose one:",
     "incorrectData": "Incorrect Market Data",
     "heading": "Market {collateral} / {loan}",
@@ -222,6 +228,7 @@
     "percentAria": "Use {percent}% of your {symbol} balance",
     "maxAria": "Use maximum available {symbol} balance",
     "button": "Add Collateral",
+    "forAccount": "Add collateral for {address}",
     "pending": "Adding Collateral...",
     "failed": "Add Failed - Try again",
     "success": "{symbol} added successfully",
@@ -254,6 +261,7 @@
     "maxAria": "Repay the full {symbol} loan",
     "loan": "Loan:",
     "button": "Repay Loan",
+    "forAccount": "Repay for {address}",
     "pending": "Repaying Loan...",
     "failed": "Repay Failed - Try again",
     "success": "{symbol} repaid successfully",
@@ -741,5 +749,21 @@
   "more-items": "More Items",
   "account-settings": "Account Settings",
   "social-profile": "Social Profile",
-  "logout": "Logout"
+  "logout": "Logout",
+  "portfolio": {
+    "viewAddress": "View address",
+    "viewAccount": "View",
+    "myWallet": "My wallet",
+    "invalidAddress": "Enter a valid Ethereum address.",
+    "viewingAccount": "Viewing {address} — repay and add collateral from your wallet. Borrow and withdraw need the owner.",
+    "addCollateral": "Add collateral"
+  },
+  "position": {
+    "viewedLabel": "Position of",
+    "viewedTitle": "Position of {address}",
+    "returnToWallet": "Return to my wallet from {address}",
+    "walletPays": "Your wallet {wallet} pays. It can repay and add collateral. Only the owner can borrow or withdraw.",
+    "connectToPay": "Connect a wallet to repay or add collateral. Only the owner can borrow or withdraw.",
+    "ownerOnly": "Only the owner of {address} can borrow or withdraw."
+  }
 }

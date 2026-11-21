@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 
 import { morphoContractConfig } from '@/appconfig/abi/Morpho';
@@ -17,9 +17,11 @@ import { useRefreshAfterTransaction } from 'hooks/useRefreshAfterTransaction';
 export const useMarketData = ({
   marketId,
   chainId,
-  marketItemData
+  marketItemData,
+  userAddress
 }: {
   marketId?: string;
+  userAddress?: `0x${string}`;
   /** Chain the market lives on. All reads target this chain, never the wallet's current one. */
   chainId?: number;
   marketItemData?: {
@@ -27,7 +29,7 @@ export const useMarketData = ({
     loanAsset: { address: string };
   };
 }) => {
-  const { address: userAddress } = useAccount();
+  const { address: connected } = useAccount();
   const morphoAddress = getMorphoAddress(chainId);
 
   const marketIdParam = useMemo(() => {
@@ -137,22 +139,17 @@ export const useMarketData = ({
     address: marketItemData?.collateralAsset.address as `0x${string}` | undefined,
     chainId,
     functionName: 'balanceOf',
-    args: userAddress ? [userAddress] : undefined,
-    query: { enabled: !!userAddress && !!marketItemData && !!chainId }
+    args: connected ? [connected] : undefined,
+    query: { enabled: !!connected && !!marketItemData && !!chainId }
   });
   const { data: loanBalance, refetch: refetchLoanBalance } = useReadContract({
     abi: erc20ABIConfig.abi,
     address: marketItemData?.loanAsset.address as `0x${string}` | undefined,
     chainId,
     functionName: 'balanceOf',
-    args: userAddress ? [userAddress] : undefined,
-    query: { enabled: !!userAddress && !!marketItemData && !!chainId }
+    args: connected ? [connected] : undefined,
+    query: { enabled: !!connected && !!marketItemData && !!chainId }
   });
-  const [market, setMarket] = useState<Market | null>(null);
-  const [accrualPosition, setAccrualPosition] = useState<AccrualPosition | null>(null);
-  const [onchainPosition, setOnchainPosition] = useState<AccrualPosition | null>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
 
   // Function to refresh all position data
   const refreshPositionData = useCallback(async () => {
@@ -163,8 +160,7 @@ export const useMarketData = ({
         refetchOraclePrice(),
         refetchRateAtTarget(),
         refetchMarketState(),
-        refetchCollateralBalance(),
-        refetchLoanBalance()
+        ...(connected ? [refetchCollateralBalance(), refetchLoanBalance()] : [])
       ]);
     } catch (error) {
       console.error('Failed to refresh position data:', error);
@@ -176,14 +172,17 @@ export const useMarketData = ({
     refetchRateAtTarget,
     refetchMarketState,
     refetchCollateralBalance,
-    refetchLoanBalance
+    refetchLoanBalance,
+    connected
   ]);
 
   // Reads again a couple of blocks after the receipt as well: the first read can still come from the block before it.
   const refreshAfterTransaction = useRefreshAfterTransaction(chainId, refreshPositionData);
 
-  useEffect(() => {
-    if (!position || !marketParams || !oraclePrice || !rateAtTarget || !marketState) return;
+  const { accrualPosition, onchainPosition } = useMemo(() => {
+    if (!userAddress || !marketIdParam || !position || !marketParams || !oraclePrice || rateAtTarget == null || !marketState) {
+      return { accrualPosition: null, onchainPosition: null };
+    }
 
     const market = new Market({
       params: marketParams,
@@ -198,8 +197,8 @@ export const useMarketData = ({
     });
 
     const tmpPosition = new Position({
-      user: userAddress as `0x${string}`,
-      marketId: marketIdParam as MarketId,
+      user: userAddress,
+      marketId: marketIdParam,
       supplyShares: position[0],
       borrowShares: position[1],
       collateral: position[2]
@@ -208,18 +207,13 @@ export const useMarketData = ({
     // The contract state is as of the market's last interaction, which can be days old on a quiet market. Every
     // write accrues interest first, so debt read from the raw state is short and every limit built on it (max
     // borrow, withdrawable collateral) promises more than the chain will allow.
-    let tmpAccrualPosition = new AccrualPosition(tmpPosition, market);
-    const tmpOnchainPosition = tmpAccrualPosition;
+    const onchainPosition = new AccrualPosition(tmpPosition, market);
     try {
-      tmpAccrualPosition = tmpAccrualPosition.accrueInterest(MathLib.max(Time.timestamp(), market.lastUpdate));
+      return { accrualPosition: onchainPosition.accrueInterest(MathLib.max(Time.timestamp(), market.lastUpdate)), onchainPosition };
     } catch (accrualError) {
       console.warn('Position accrual failed, using the raw on-chain position', accrualError);
+      return { accrualPosition: onchainPosition, onchainPosition };
     }
-
-    setMarket(tmpAccrualPosition.market);
-    setAccrualPosition(tmpAccrualPosition);
-    setOnchainPosition(tmpOnchainPosition);
-    setIsLoading(false);
   }, [position, marketParams, oraclePrice, rateAtTarget, marketState, userAddress, marketIdParam]);
 
   return {
@@ -231,11 +225,11 @@ export const useMarketData = ({
     collateralBalance,
     loanBalance,
     marketParams,
-    market,
+    market: accrualPosition?.market ?? null,
     accrualPosition,
     /** The position on the market state as last written on chain, before accruing it to now. */
     onchainPosition,
-    isLoading,
+    isLoading: !accrualPosition,
     refreshPositionData,
     refreshAfterTransaction,
     errors: {
