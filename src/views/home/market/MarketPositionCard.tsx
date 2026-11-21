@@ -113,7 +113,8 @@ export default function MarketPositionCard({ market, position, futurePosition, i
       value: parseFloat(formatUnits(position.healthFactor, 18)).toFixed(2),
       future:
         viewedAccount && isChanged && futurePosition
-          ? futurePosition.borrowAssets === 0n
+          ? // Max repay can leave residual (or negative) shares after rounding, so anything at or below zero is fully repaid.
+            (futurePosition.borrowAssets ?? 0n) <= 0n
             ? '∞'
             : futurePosition.healthFactor != null
               ? parseFloat(formatUnits(futurePosition.healthFactor, 18)).toFixed(2)

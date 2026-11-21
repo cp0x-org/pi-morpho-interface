@@ -5,7 +5,9 @@ export function parseAccountAddress(value: string): Address | undefined {
   return isAddress(address) ? getAddress(address) : undefined;
 }
 
-export function parseViewedAccount(value: string | null, connected?: Address) {
+export function parseViewedAccount(rawValue: string | null, connected?: Address) {
+  // A blank `?account=` means "no account", not an invalid one.
+  const value = rawValue?.trim() || null;
   const requestedAccount = value === null ? undefined : parseAccountAddress(value);
   return {
     account: value === null ? connected : requestedAccount,
