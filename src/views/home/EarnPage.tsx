@@ -1,4 +1,4 @@
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -10,9 +10,7 @@ import {
   Autocomplete,
   Avatar,
   Chip,
-  FormControlLabel,
   Stack,
-  Switch,
   CircularProgress,
   FormControl,
   Grid,
@@ -36,19 +34,16 @@ import {
 import { UnfoldMore } from '@mui/icons-material';
 import { formatShortUSDS, shortenAddress } from 'utils/formatters';
 import { CopyableAddress } from 'components/CopyableAddress';
-import { MorphoRequests } from '@/api/constants';
-import { Vault, VaultsData } from 'types/vaults';
-import { appoloClients } from '@/api/apollo-client';
+import { fetchUserPositions, fetchVaultAssetMetadata, fetchVaultMetrics, fetchVaults } from '@/api/morphoRest';
+import { VaultDirectory } from 'types/vaults';
 import { useConfigChainId } from 'hooks/useConfigChainId';
 import { useAccount } from 'wagmi';
 import { CuratorIcon } from 'components/CuratorIcon';
 import { TokenIcon } from 'components/TokenIcon';
-import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
 import { ChainIcon } from 'components/ChainIcon';
 import { routes } from 'utils/routes';
 import { formatUnits } from 'viem';
 import { useVaultsV2 } from 'hooks/useVaultsV2';
-import { normalizeVaultV2Position } from 'utils/vaults';
 import { VaultVersionChip } from 'components/VaultVersionChip';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -81,41 +76,31 @@ export default function EarnPage() {
   const [symbolFilter, setSymbolFilter] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [assetAddressFilter, setAssetAddressFilter] = useState('');
-  const [showUnlisted, setShowUnlisted] = useState(false);
+  const [loadAllAssetSymbols, setLoadAllAssetSymbols] = useState(false);
   const { chainId } = useConfigChainId();
   const { address: userAddress } = useAccount();
-  const {
-    loading: morphoPositionsLoading,
-    error: morphoPositionsError,
-    data: morphoPositionsData
-  } = useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
-    client: appoloClients.morphoApi,
-    variables: {
-      chainId: chainId,
-      address: userAddress || ''
-    },
-    skip: !userAddress
+  const { data: morphoPositionsData } = useQuery({
+    queryKey: ['morpho', 'user-positions', chainId, userAddress?.toLowerCase()],
+    queryFn: () => fetchUserPositions(chainId, userAddress!),
+    enabled: !!userAddress,
+    staleTime: 60_000,
+    retry: false
   });
   const morphoVaultPositions = React.useMemo(() => {
-    const user = morphoPositionsData?.userByAddress;
+    const user = morphoPositionsData;
     if (!user) return [];
 
-    return [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)];
+    return user.vaultPositions;
   }, [morphoPositionsData]);
 
-  const {
-    loading: morphoLoading,
-    error: morphoError,
-    data: morphoData
-  } = useQuery<VaultsData>(MorphoRequests.GetVaultsData, {
-    client: appoloClients.morphoApi,
-    variables: { listed: showUnlisted ? null : true }
+  const { data: morphoData, isLoading: morphoLoading, error: morphoError } = useQuery({
+    queryKey: ['morpho', 'vaultsV1'], queryFn: () => fetchVaults('v1'), staleTime: 5 * 60_000, retry: 1
   });
-  const { data: vaultsV2, isLoading: vaultsV2Loading, error: vaultsV2Error } = useVaultsV2({ includeUnlisted: showUnlisted });
+  const { data: vaultsV2, isLoading: vaultsV2Loading, error: vaultsV2Error } = useVaultsV2();
 
   // Vaults V1 and V2 in one list; `version` tells the rows apart.
-  const combinedVaults = React.useMemo<Vault[]>(
-    () => [...(morphoData?.vaults.items ?? []).map((vault) => ({ ...vault, version: 'v1' as const })), ...(vaultsV2 ?? [])],
+  const combinedVaults = React.useMemo<VaultDirectory[]>(
+    () => [...(morphoData ?? []).map((vault) => ({ ...vault, version: 'v1' as const })), ...(vaultsV2 ?? [])],
     [morphoData, vaultsV2]
   );
   // One generation failing still leaves the other on screen; only both failing blocks the page.
@@ -142,7 +127,7 @@ export default function EarnPage() {
     navigate(routes.vault(vaultAddress, chainId, name));
   };
 
-  const getUniqueNetworks = (vaults: Vault[]): string[] => {
+  const getUniqueNetworks = (vaults: VaultDirectory[]): string[] => {
     const set = new Set<string>();
     vaults.forEach((v) => {
       if (v.chain?.network) set.add(v.chain.network);
@@ -151,7 +136,7 @@ export default function EarnPage() {
   };
 
   // Get unique symbols from vaults data
-  const getUniqueSymbols = (vaults: Vault[]): string[] => {
+  const getUniqueSymbols = (vaults: VaultDirectory[]): string[] => {
     const symbolsSet = new Set<string>();
     vaults.forEach((vault) => {
       if (vault.asset?.symbol) {
@@ -161,10 +146,9 @@ export default function EarnPage() {
     return Array.from(symbolsSet).sort();
   };
 
-  const filterAndSortVaults = (vaults: Vault[]): Vault[] => {
+  const filterAndSortVaults = (vaults: VaultDirectory[]): VaultDirectory[] => {
     const filteredVaults = vaults.filter((vault) => {
       if (vault.address == '0x7f838C4c70B841A4979aF44053c8965f4694F9E5') return false;
-      if (!vault.state) return false;
       const networkMatch = networkFilter.length === 0 || networkFilter.includes(vault.chain?.network);
       const symbolMatch = symbolFilter.length === 0 || symbolFilter.includes(vault.asset?.symbol);
       const nameMatch = nameFilter === '' || vault.name?.toLowerCase().includes(nameFilter.toLowerCase());
@@ -189,6 +173,36 @@ export default function EarnPage() {
     });
   };
 
+  const assetMetadataQuery = useQuery({
+    queryKey: ['morpho', 'vaultAssetMetadata', combinedVaults.map((vault) => `${vault.chain.id}:${vault.asset.address.toLowerCase()}`).sort()],
+    queryFn: () => fetchVaultAssetMetadata(combinedVaults),
+    enabled: loadAllAssetSymbols && combinedVaults.length > 0,
+    staleTime: 5 * 60_000,
+    retry: 1
+  });
+  const assetMetadataByToken = assetMetadataQuery.data ?? new Map();
+  const directoryWithTokens = combinedVaults.map((vault) => {
+    const token = assetMetadataByToken.get(`${vault.chain.id}:${vault.asset.address}`);
+    return token ? {
+      ...vault,
+      asset: { ...vault.asset, symbol: String(token.symbol ?? ''), decimals: Number(token.decimals ?? 18), name: String(token.name ?? token.symbol ?? '') }
+    } : vault;
+  });
+  const filteredDirectory = filterAndSortVaults(directoryWithTokens);
+  const loadingAllMetrics = sortField === 'apy' || sortField === 'totalAssetsUsd';
+  const metricTargets = loadingAllMetrics
+    ? filteredDirectory
+    : filteredDirectory.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const metricsQuery = useQuery({
+    queryKey: ['morpho', 'vaultMetrics', metricTargets.map((vault) => `${vault.version}:${vault.chain.id}:${vault.address.toLowerCase()}`).sort()],
+    queryFn: () => fetchVaultMetrics(metricTargets),
+    enabled: metricTargets.length > 0,
+    staleTime: 5 * 60_000,
+    retry: 1
+  });
+  const metricsByVault = new Map((metricsQuery.data ?? []).map((vault) => [`${vault.version}:${vault.chain.id}:${vault.address.toLowerCase()}`, vault]));
+  const hydratedVaults = directoryWithTokens.map((vault) => metricsByVault.get(`${vault.version}:${vault.chain.id}:${vault.address.toLowerCase()}`) ?? vault);
+
   if (morphoLoading || vaultsV2Loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
@@ -207,7 +221,7 @@ export default function EarnPage() {
     );
   }
 
-  const filteredAndSortedVaults = filterAndSortVaults(combinedVaults);
+  const filteredAndSortedVaults = filterAndSortVaults(hydratedVaults);
   const paginatedVaults = filteredAndSortedVaults.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(filteredAndSortedVaults.length / rowsPerPage);
 
@@ -318,27 +332,6 @@ export default function EarnPage() {
         </Typography>
       )}
 
-      <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ marginBottom: 1 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showUnlisted}
-              onChange={(event) => {
-                setShowUnlisted(event.target.checked);
-                setPage(1);
-              }}
-            />
-          }
-          label={intl.formatMessage({ id: 'earn.showUnlisted' })}
-        />
-      </Stack>
-
-      {showUnlisted && (
-        <Alert severity="warning" sx={{ marginBottom: 2 }}>
-          <FormattedMessage id="earn.unlistedWarning" />
-        </Alert>
-      )}
-
       <Grid container spacing={2} sx={{ marginBottom: 2 }}>
         <Grid size={{ xs: 12, md: 4 }}>
           <Autocomplete
@@ -370,7 +363,8 @@ export default function EarnPage() {
           <Autocomplete
             multiple
             id="symbols-filter"
-            options={getUniqueSymbols(combinedVaults)}
+            options={getUniqueSymbols(hydratedVaults)}
+            onOpen={() => setLoadAllAssetSymbols(true)}
             value={symbolFilter}
             onChange={(event, newValue) => {
               setSymbolFilter(newValue);
@@ -583,7 +577,7 @@ export default function EarnPage() {
                 </TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {vault.state.curators?.map((curator) => (
+                    {vault.state?.curators?.map((curator) => (
                       <Box key={curator?.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CuratorIcon symbol={curator?.id} /> {curator.name ? curator.name : curator?.id}
                       </Box>

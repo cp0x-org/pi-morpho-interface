@@ -1,6 +1,5 @@
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import { Alert, Typography, CircularProgress, Paper, Tooltip, IconButton, Stack, useTheme, Chip, Link } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -8,12 +7,11 @@ import Grid from '@mui/material/Grid';
 import { formatLLTV, formatShortUSDS, shortenAddress } from '@/utils/formatters';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useCallback, useEffect, useState } from 'react';
-import { MarketData } from 'types/market';
+import { MarketInterface } from 'types/market';
 import { userPositionsQuery } from '@/api/userPositions';
 import { useMarketData } from 'hooks/useMarketData';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
-import { MorphoRequests } from '@/api/constants';
-import { appoloClients } from '@/api/apollo-client';
+import { fetchMarketCandidates } from '@/api/morphoRest';
 import { useFuturePosition } from 'hooks/useFuturePosition';
 import { useWalletChainSync } from 'hooks/useWalletChainSync';
 import { useRefreshOnNewBlock } from 'hooks/useRefreshOnNewBlock';
@@ -62,26 +60,18 @@ function MarketDetail({ account, connected, isOther, ownHref, requestedAccount }
 
   // Blue market ids are not unique across chains, so the lookup is scoped to ?chainId=.
   // Without it, or when the market is not on that chain, search every chain and fix the URL.
-  const { loading, error, data } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
-    variables: { marketId: marketId, chainIds: urlChainId ? [urlChainId] : null },
-    skip: !marketId,
-    client: appoloClients.morphoApi
+  const { isLoading: loading, error, data: markets } = useQuery({
+    queryKey: ['morpho', 'blue-market', urlChainId ?? 'any-chain', marketId?.toLowerCase()],
+    queryFn: () => fetchMarketCandidates(marketId!, urlChainId), enabled: !!marketId, staleTime: 5 * 60_000, retry: 1
   });
-  const needsChainLookup = !!urlChainId && !loading && !error && data?.markets?.items.length === 0;
-  const { loading: lookupLoading, data: lookupData } = useQuery<MarketData>(MorphoRequests.GetMorphoMarketByAddress, {
-    variables: { marketId: marketId, chainIds: null },
-    skip: !marketId || !needsChainLookup,
-    client: appoloClients.morphoApi
-  });
-
-  const marketData = urlChainId ? data?.markets?.items.find((item) => item.chain?.id === urlChainId) : undefined;
-  const chainCandidates = (urlChainId ? lookupData : data)?.markets?.items ?? [];
+  const lookupLoading = false;
+  const chainCandidates = (markets ?? []).filter((item: MarketInterface) => item.marketId.toLowerCase() === marketId?.toLowerCase());
+  const marketData = urlChainId ? chainCandidates.find((item) => item.chain.id === urlChainId) : undefined;
   const redirectChainId = !marketData && chainCandidates.length === 1 ? chainCandidates[0].chain?.id : undefined;
   const chainId = marketData?.chain?.id;
 
   // Not a Blue market on any chain: old /borrow/market/ links may point at a fixed-rate (Midnight) market.
-  const isMissingOnBlue =
-    !!marketId && !loading && !lookupLoading && !error && !marketData && chainCandidates.length === 0 && (!urlChainId || !!lookupData);
+  const isMissingOnBlue = !!marketId && !loading && !error && !marketData && chainCandidates.length === 0;
   const fixedMarketLookup = useMidnightMarketLookup(marketId, isMissingOnBlue);
   const fixedMarketId = fixedMarketLookup.data?.marketId;
 

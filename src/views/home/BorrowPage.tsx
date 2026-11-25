@@ -1,4 +1,4 @@
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -28,13 +28,11 @@ import {
   SelectChangeEvent
 } from '@mui/material';
 import { UnfoldMore } from '@mui/icons-material';
-import { MorphoRequests } from '@/api/constants';
+import { fetchMarketMetrics, fetchMarketTokenMetadata, fetchMarkets, fetchUserPositions } from '@/api/morphoRest';
 import { useAccount } from 'wagmi';
 import { TokenIcon } from 'components/TokenIcon';
-import { GetUserPositionsResponse, GetUserPositionsVariables } from 'types/morpho';
-import { appoloClients } from '@/api/apollo-client';
 import { DECIMALS_SCALE_FACTOR, formatTokenAmount, formatShortUSDS } from 'utils/formatters';
-import { MarketData, MarketInterface } from 'types/market';
+import { MarketDirectory } from 'types/market';
 import { ChainIcon } from 'components/ChainIcon';
 import { routes } from 'utils/routes';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -67,32 +65,29 @@ export default function BorrowPage() {
   const intl = useIntl();
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [sortField, setSortField] = useState<SortableField>('borrowApy');
+  const [sortField, setSortField] = useState<SortableField>('chain');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [networkFilter, setNetworkFilter] = useState<string[]>([]);
   const [loanAssetSymbolFilter, setLoanAssetSymbolFilter] = useState<string[]>([]);
   const [collateralAssetSymbolFilter, setCollateralAssetSymbolFilter] = useState<string[]>([]);
+  const [loadAllTokenMetadata, setLoadAllTokenMetadata] = useState(false);
 
   const { address: userAddress, chain } = useAccount();
 
-  const {
-    loading: morphoPositionsLoading,
-    error: morphoPositionsError,
-    data: morphoPositionsData
-  } = useQuery<GetUserPositionsResponse, GetUserPositionsVariables>(MorphoRequests.GetUserPositions, {
-    client: appoloClients.morphoApi,
-    variables: {
-      chainId: Number(chain?.id || 1),
-      address: userAddress || ''
-    },
-    skip: !userAddress
+  const positionsQuery = useQuery({
+    queryKey: ['morpho', 'user-positions', Number(chain?.id || 1), userAddress?.toLowerCase()],
+    queryFn: () => fetchUserPositions(Number(chain?.id || 1), userAddress!),
+    enabled: !!userAddress,
+    staleTime: 60_000,
+    retry: false
   });
+  const morphoPositionsData = positionsQuery.data;
 
   // Process Morpho positions data
   const morphoPositions = React.useMemo<MorphoPositionsData[]>(() => {
-    if (!morphoPositionsData?.userByAddress) return [];
+    if (!morphoPositionsData) return [];
 
-    return morphoPositionsData.userByAddress.marketPositions.map((position) => {
+    return morphoPositionsData.marketPositions.map((position) => {
       return {
         marketId: position.market.marketId,
         collateralSymbol: position.market.collateralAsset?.symbol,
@@ -108,12 +103,11 @@ export default function BorrowPage() {
     });
   }, [morphoPositionsData]);
 
-  const {
-    loading: graphLoading,
-    error: graphError,
-    data: graphData
-  } = useQuery<MarketData>(MorphoRequests.GetMorphoMarkets, {
-    client: appoloClients.morphoApi
+  const { data: graphData, isLoading: graphLoading, error: graphError } = useQuery({
+    queryKey: ['morpho', 'blue-markets'],
+    queryFn: fetchMarkets,
+    staleTime: 5 * 60_000,
+    retry: 1
   });
 
   const handleChangePage = (event: React.ChangeEvent<unknown>, newPage: number) => {
@@ -162,7 +156,7 @@ export default function BorrowPage() {
     }
   };
 
-  const getUniqueNetworks = (markets: MarketInterface[]): string[] => {
+  const getUniqueNetworks = (markets: MarketDirectory[]): string[] => {
     const set = new Set<string>();
     markets.forEach((m) => {
       if (m.chain?.network) set.add(m.chain.network);
@@ -171,7 +165,7 @@ export default function BorrowPage() {
   };
 
   // Get unique loan asset symbols
-  const getUniqueLoanAssetSymbols = (markets: MarketInterface[]): string[] => {
+  const getUniqueLoanAssetSymbols = (markets: MarketDirectory[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
       if (market.loanAsset?.symbol) {
@@ -182,7 +176,7 @@ export default function BorrowPage() {
   };
 
   // Get unique collateral asset symbols
-  const getUniqueCollateralAssetSymbols = (markets: MarketInterface[]): string[] => {
+  const getUniqueCollateralAssetSymbols = (markets: MarketDirectory[]): string[] => {
     const symbolsSet = new Set<string>();
     markets.forEach((market) => {
       if (market.collateralAsset?.symbol) {
@@ -192,7 +186,7 @@ export default function BorrowPage() {
     return Array.from(symbolsSet).sort();
   };
 
-  const sortMarkets = (markets: MarketInterface[]): MarketInterface[] => {
+  const sortMarkets = (markets: MarketDirectory[]): MarketDirectory[] => {
     // Filter out markets with missing required fields and apply symbol filters
     const filteredMarkets = markets.filter((market) => {
       // Basic validation
@@ -228,22 +222,55 @@ export default function BorrowPage() {
         //   return multiplier * ((a.state?.utilization || 0) - (b.state?.utilization || 0));
 
         case 'borrowApy':
-          return multiplier * ((a.state.netBorrowApy || 0) - (b.state.netBorrowApy || 0));
+          return multiplier * ((a.state?.netBorrowApy || 0) - (b.state?.netBorrowApy || 0));
 
         case 'supplyApy':
-          return multiplier * ((a.state.netSupplyApy || 0) - (b.state.netSupplyApy || 0));
+          return multiplier * ((a.state?.netSupplyApy || 0) - (b.state?.netSupplyApy || 0));
 
         case 'sizeUsd':
-          return multiplier * ((a.state.sizeUsd || 0) - (b.state.sizeUsd || 0));
+          return multiplier * ((a.state?.sizeUsd || 0) - (b.state?.sizeUsd || 0));
 
         case 'totalLiquidityUsd':
-          return multiplier * ((a.state.totalLiquidityUsd || 0) - (b.state.totalLiquidityUsd || 0));
+          return multiplier * ((a.state?.totalLiquidityUsd || 0) - (b.state?.totalLiquidityUsd || 0));
 
         default:
           return 0;
       }
     });
   };
+
+  const tokenMetadataQuery = useQuery({
+    queryKey: ['morpho', 'marketTokenMetadata', (graphData ?? []).flatMap((market) => [
+      `${market.chain.id}:${market.loanAsset.address.toLowerCase()}`,
+      `${market.chain.id}:${market.collateralAsset.address.toLowerCase()}`
+    ]).sort()],
+    queryFn: () => fetchMarketTokenMetadata(graphData ?? []),
+    enabled: loadAllTokenMetadata && !!graphData?.length,
+    staleTime: 5 * 60_000,
+    retry: 1
+  });
+  const tokenMetadata = tokenMetadataQuery.data ?? new Map();
+  const marketsWithTokens = (graphData ?? []).map((market) => {
+    const loan = tokenMetadata.get(`${market.chain.id}:${market.loanAsset.address}`);
+    const collateral = tokenMetadata.get(`${market.chain.id}:${market.collateralAsset.address}`);
+    return {
+      ...market,
+      loanAsset: loan ? { ...market.loanAsset, symbol: String(loan.symbol ?? ''), decimals: Number(loan.decimals ?? 18) } : market.loanAsset,
+      collateralAsset: collateral ? { ...market.collateralAsset, symbol: String(collateral.symbol ?? ''), decimals: Number(collateral.decimals ?? 18) } : market.collateralAsset
+    };
+  });
+  const filteredMarkets = sortMarkets(marketsWithTokens);
+  const loadAllMetrics = ['borrowApy', 'supplyApy', 'sizeUsd', 'totalLiquidityUsd'].includes(sortField);
+  const metricTargets = loadAllMetrics ? filteredMarkets : filteredMarkets.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const metricsQuery = useQuery({
+    queryKey: ['morpho', 'blueMarketMetrics', metricTargets.map((market) => `${market.chain.id}:${market.marketId.toLowerCase()}`).sort()],
+    queryFn: () => fetchMarketMetrics(metricTargets),
+    enabled: metricTargets.length > 0,
+    staleTime: 5 * 60_000,
+    retry: 1
+  });
+  const metricByMarket = new Map((metricsQuery.data ?? []).map((market) => [`${market.chain.id}:${market.marketId.toLowerCase()}`, market]));
+  const hydratedMarkets = marketsWithTokens.map((market) => metricByMarket.get(`${market.chain.id}:${market.marketId.toLowerCase()}`) ?? market);
 
   if (graphLoading) {
     return (
@@ -263,7 +290,7 @@ export default function BorrowPage() {
     );
   }
 
-  const markets = sortMarkets(graphData?.markets.items || []);
+  const markets = sortMarkets(hydratedMarkets);
   const paginatedMarkets = markets.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const pageCount = Math.ceil(markets.length / rowsPerPage);
 
@@ -377,7 +404,7 @@ export default function BorrowPage() {
           <Autocomplete
             multiple
             id="network-filter"
-            options={graphData ? getUniqueNetworks(graphData.markets.items) : []}
+            options={graphData ? getUniqueNetworks(hydratedMarkets) : []}
             value={networkFilter}
             onChange={(event, newValue) => {
               setNetworkFilter(newValue);
@@ -403,7 +430,8 @@ export default function BorrowPage() {
           <Autocomplete
             multiple
             id="loan-asset-symbols-filter"
-            options={graphData ? getUniqueLoanAssetSymbols(graphData.markets.items) : []}
+            options={graphData ? getUniqueLoanAssetSymbols(hydratedMarkets) : []}
+            onOpen={() => setLoadAllTokenMetadata(true)}
             value={loanAssetSymbolFilter}
             onChange={(event, newValue) => {
               setLoanAssetSymbolFilter(newValue);
@@ -448,7 +476,8 @@ export default function BorrowPage() {
           <Autocomplete
             multiple
             id="collateral-asset-symbols-filter"
-            options={graphData?.markets.items ? getUniqueCollateralAssetSymbols(graphData?.markets.items) : []}
+            options={graphData ? getUniqueCollateralAssetSymbols(hydratedMarkets) : []}
+            onOpen={() => setLoadAllTokenMetadata(true)}
             value={collateralAssetSymbolFilter}
             onChange={(event, newValue) => {
               setCollateralAssetSymbolFilter(newValue);
@@ -681,25 +710,25 @@ export default function BorrowPage() {
                 </TableCell>
                 <TableCell>{formatLLTV(market.lltv)}</TableCell>
                 {/*<TableCell>{`${((market.state?.utilization || 0) * 100).toFixed(2)}%`}</TableCell>*/}
-                <TableCell>{((market.state.netBorrowApy || 0) * 100).toFixed(2)}%</TableCell>
-                <TableCell>{((market.state.netSupplyApy || 0) * 100).toFixed(2)}%</TableCell>
+                <TableCell>{market.state ? `${(market.state.netBorrowApy * 100).toFixed(2)}%` : '-'}</TableCell>
+                <TableCell>{market.state ? `${(market.state.netSupplyApy * 100).toFixed(2)}%` : '-'}</TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">
-                      {formatShortUSDS(toTokenAmount(market.state.size, market.loanAsset.decimals))} {market.loanAsset.symbol}
+                      {market.state ? `${formatShortUSDS(toTokenAmount(market.state.size, market.loanAsset.decimals))} ${market.loanAsset.symbol}` : '-'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ${formatShortUSDS(market.state.sizeUsd || 0)}
+                      {market.state ? `$${formatShortUSDS(market.state.sizeUsd || 0)}` : '-'}
                     </Typography>
                   </Box>
                 </TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">
-                      {formatShortUSDS(toTokenAmount(market.state.totalLiquidity, market.loanAsset.decimals))} {market.loanAsset.symbol}
+                      {market.state ? `${formatShortUSDS(toTokenAmount(market.state.totalLiquidity, market.loanAsset.decimals))} ${market.loanAsset.symbol}` : '-'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ${formatShortUSDS(market.state.totalLiquidityUsd || 0)}
+                      {market.state ? `$${formatShortUSDS(market.state.totalLiquidityUsd || 0)}` : '-'}
                     </Typography>
                   </Box>
                 </TableCell>

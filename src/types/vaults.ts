@@ -5,7 +5,6 @@ export interface Asset {
   name: string;
   symbol: string;
 }
-
 export interface Chain {
   id: number;
   network: string;
@@ -43,34 +42,8 @@ export interface Vault {
   state: State;
   /** Missing on raw V1 API rows; set by the pages when both generations are mixed. */
   version?: VaultVersion;
-  /** Curated by Morpho. Unlisted vaults are shown only behind the "show unlisted" switch. */
+  /** Morpho's REST directory includes listed vaults and V1 vaults referenced by Vault V2 adapters. */
   listed?: boolean;
 }
 
-export interface VaultsData {
-  vaults: {
-    items: Vault[];
-  };
-}
-
-/** `vaultV2s` API entity. Normalized into `Vault` by `utils/vaults`. */
-export interface VaultV2 {
-  address: string;
-  symbol: string;
-  name: string;
-  listed: boolean | null;
-  asset: Asset;
-  chain: Chain;
-  totalAssets: string | null;
-  totalAssetsUsd: number | null;
-  liquidity: string | null;
-  liquidityUsd: number | null;
-  avgNetApy: number | null;
-  curators: { items: Curators[] } | null;
-}
-
-export interface VaultsV2Data {
-  vaultV2s: {
-    items: VaultV2[];
-  };
-}
+export type VaultDirectory = Omit<Vault, 'state'> & { state?: State };

@@ -12,7 +12,6 @@ export interface MarketState {
   netBorrowApy: number;
   netSupplyApy: number;
 }
-
 export interface Asset {
   address: string;
   symbol: string;
@@ -36,8 +35,4 @@ export interface MarketInterface {
   state: MarketState;
 }
 
-export interface MarketData {
-  markets: {
-    items: MarketInterface[];
-  };
-}
+export type MarketDirectory = Omit<MarketInterface, 'price' | 'state'> & { price?: string; state?: MarketState };

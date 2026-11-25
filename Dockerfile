@@ -11,17 +11,12 @@ COPY . .
 
 RUN pnpm run build
 
-FROM node:20-alpine
+FROM nginx:1.27-alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY docker/nginx.conf.template /etc/nginx/morpho.conf.template
+COPY docker/entrypoint.sh /docker-entrypoint.d/05-morpho-rest-proxy.sh
+RUN chmod +x /docker-entrypoint.d/05-morpho-rest-proxy.sh \
+    && [ -f /usr/share/nginx/html/config.js ] || cp /usr/share/nginx/html/config.example.js /usr/share/nginx/html/config.js
 
-RUN npm install -g serve
-
-COPY --from=builder /app/dist ./dist
-
-# Default (key-less) runtime config; docker-compose mounts the real public/config.js over it.
-RUN [ -f dist/config.js ] || cp dist/config.example.js dist/config.js
-
-EXPOSE 4173
-
-CMD ["serve", "-s", "dist", "-l", "4173"]
+EXPOSE 80
