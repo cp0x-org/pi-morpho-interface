@@ -2,7 +2,7 @@ import { getAddress, type Address, type Hex } from 'viem';
 import { MidnightApi, MidnightApiError } from '@morpho-org/midnight-sdk/api';
 import type { FetchBookQuoteParams, MidnightApiBookMarket, MidnightApiPriceLevel } from '@morpho-org/midnight-sdk/api';
 
-import { ApiUrls } from './constants';
+import { getMidnightApiBaseUrl } from './constants';
 import { isExpectedMidnightAddress } from 'utils/midnight';
 import type {
   MidnightApiErrorResponse,
@@ -42,7 +42,7 @@ export const isInsufficientLiquidity = (error: unknown) => error instanceof Midn
 type QueryValue = string | number | boolean | readonly (string | number)[] | undefined;
 
 const request = async <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal): Promise<T> => {
-  const url = new URL(`${ApiUrls.midnightApi.replace(/\/$/, '')}/${path}`);
+  const url = new URL(`${getMidnightApiBaseUrl()}/${path}`);
   Object.entries(query ?? {}).forEach(([key, value]) => {
     if (value === undefined) return;
     if (Array.isArray(value)) {
@@ -86,7 +86,7 @@ const collectPages = async <T>(fetchPage: (cursor?: string) => Promise<MidnightP
   return items;
 };
 
-const sdkConfig = (signal?: AbortSignal) => ({ baseUrl: ApiUrls.midnightApi, request: { signal } });
+const sdkConfig = (signal?: AbortSignal) => ({ baseUrl: getMidnightApiBaseUrl(), request: { signal } });
 
 const toBigInt = (value: string | undefined) => (value == null ? undefined : BigInt(value));
 

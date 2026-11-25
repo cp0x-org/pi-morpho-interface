@@ -89,42 +89,9 @@ export interface UserVaultPosition {
   state: VaultPositionState;
 }
 
-/** `vaultV2Positions` entry: metrics sit on the vault itself. Normalized into `UserVaultPosition` by `utils/vaults`. */
-export interface UserVaultV2Position {
-  vault: {
-    address: string;
-    name: string;
-    asset: VaultAsset;
-    totalAssets: string | null;
-    totalAssetsUsd: number | null;
-    avgNetApy: number | null;
-    curators: { items: VaultCurator[] } | null;
-  };
-  assets: string | null;
-  assetsUsd: number | null;
-}
-
-/**
- * User data returned by the GetUserPositions query
- */
+/** Normalized portfolio data assembled from public Morpho REST position endpoints. */
 export interface MorphoUser {
   address: string;
   marketPositions: UserMarketPosition[];
   vaultPositions: UserVaultPosition[];
-  vaultV2Positions: UserVaultV2Position[];
-}
-
-/**
- * Response structure for GetUserPositions GraphQL query
- */
-export interface GetUserPositionsResponse {
-  userByAddress: MorphoUser | null;
-}
-
-/**
- * Variables for GetUserPositions GraphQL query
- */
-export interface GetUserPositionsVariables {
-  chainId: number;
-  address: string;
 }

@@ -37,7 +37,14 @@ cp public/config.example.js public/config.js   # 已被 git 忽略，在此填�
 docker compose up -d --build
 ```
 
-镜像中只包含 `config.example.js`（公共节点）；`docker-compose.yml` 会把您的 `public/config.js` 挂载到 `/app/dist/config.js`，因此在执行 `up` 之前该文件必须已存在。界面监听 [http://localhost:4173]。
+Compose 默认挂载使用公共节点的 `public/config.example.js`，无需额外设置即可启动。如需使用私有 RPC 地址，请先复制示例文件，再设置配置路径启动 Compose：
+
+```
+cp public/config.example.js public/config.js
+MORPHO_CONFIG_FILE=./public/config.js docker compose up -d --build
+```
+
+界面监听 [http://localhost:4173]。
 
 ## 应用链接
 

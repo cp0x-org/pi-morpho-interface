@@ -30,7 +30,6 @@ import { TokenIcon } from 'components/TokenIcon';
 import { getChainName } from 'utils/chains';
 import { routes } from 'utils/routes';
 import { withViewedAccount } from 'utils/viewedAccount';
-import { normalizeVaultV2Position } from 'utils/vaults';
 import { VaultVersionChip } from 'components/VaultVersionChip';
 import { useMidnightOpenOrders } from 'hooks/midnight/useMidnightOpenOrders';
 import { useMidnightUserPositions } from 'hooks/midnight/useMidnightUserPositions';
@@ -99,7 +98,7 @@ export default function DashboardPage() {
         healthFactor: position.healthFactor
       }));
 
-    const vaultPositions = [...user.vaultPositions, ...(user.vaultV2Positions ?? []).map(normalizeVaultV2Position)].filter(
+    const vaultPositions = user.vaultPositions.filter(
       (p) => parseFloat(p.state.assets || '0') > 0
     );
 

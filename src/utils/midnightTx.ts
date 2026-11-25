@@ -15,7 +15,7 @@ import {
 } from '@morpho-org/midnight-sdk';
 import type { MidnightApiTake } from '@morpho-org/midnight-sdk/api';
 
-import { ApiUrls } from '@/api/constants';
+import { getMidnightApiBaseUrl } from '@/api/constants';
 import type { RawTxRequest } from 'hooks/midnight/useTxSteps';
 import { getMidnightAddress, getMidnightBundlesAddress, tryChainAddress, validateMarketForWrite } from './midnight';
 
@@ -467,7 +467,7 @@ const createExitOrderTree = ({
 export const buildExitOrder = async (params: ExitOrderParams): Promise<ExitOrder> => {
   const tree = createExitOrderTree(params);
   try {
-    await tree.mempoolValidate({ chainId: params.chainId, apiUrl: ApiUrls.midnightApi });
+    await tree.mempoolValidate({ chainId: params.chainId, apiUrl: getMidnightApiBaseUrl() });
   } catch (error) {
     // The SDK only counts the issues; the rules say what to change.
     if (error instanceof MidnightMempoolValidationError) {
@@ -484,7 +484,7 @@ export const buildExitOrder = async (params: ExitOrderParams): Promise<ExitOrder
  */
 export const fetchMinExitOrderAssets = async (params: Omit<ExitOrderParams, 'units'>) => {
   try {
-    await createExitOrderTree({ ...params, units: 1n }).mempoolValidate({ chainId: params.chainId, apiUrl: ApiUrls.midnightApi });
+    await createExitOrderTree({ ...params, units: 1n }).mempoolValidate({ chainId: params.chainId, apiUrl: getMidnightApiBaseUrl() });
     return 0n;
   } catch (error) {
     if (error instanceof MidnightMempoolValidationError) return findMinOfferAssets(error.issues) ?? 0n;

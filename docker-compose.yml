@@ -3,9 +3,12 @@ services:
     build: .
     image: cp0x/pi-morpho-interface:local
     ports:
-      - '4173:4173'
+      - '4173:80'
+    environment:
+      # Kept in the server-side proxy; never pass this through Vite or the browser runtime config.
+      MORPHO_REST_PRIVATE_API_KEY: ${MORPHO_REST_PRIVATE_API_KEY:-}
     volumes:
       # RPC endpoints (with your keys) are read by the browser at runtime from /config.js.
-      # Create the file first: cp public/config.example.js public/config.js
-      - ./public/config.js:/app/dist/config.js:ro
+      # Override MORPHO_CONFIG_FILE to use a local config.js with private RPC URLs.
+      - ${MORPHO_CONFIG_FILE:-./public/config.example.js}:/usr/share/nginx/html/config.js:ro
     restart: unless-stopped

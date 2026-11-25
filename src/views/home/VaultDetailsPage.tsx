@@ -1,15 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import { Typography, CircularProgress, Paper, Grid, Tabs, Tab, Tooltip, IconButton, Stack, useTheme, Card } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import React, { useMemo, useState } from 'react';
-import { Vault, VaultsData, VaultsV2Data } from 'types/vaults';
-import { normalizeVaultV2 } from 'utils/vaults';
 import { VaultVersionChip } from 'components/VaultVersionChip';
-import { MorphoRequests } from '@/api/constants';
-import { appoloClients } from '@/api/apollo-client';
+import { fetchVault } from '@/api/morphoRest';
 import { useCopyToClipboard } from 'hooks/useCopyToClipboard';
 import DepositTab from 'views/home/vault/Deposit';
 import WithdrawTab from 'views/home/vault/Withdraw';
@@ -37,37 +34,18 @@ export default function VaultDetailsPage() {
   const { copySuccessMsg, copyToClipboard } = useCopyToClipboard();
   const { address: userAddress } = useAccount();
 
-  const {
-    loading: v1Loading,
-    error: v1Error,
-    data: v1Data
-  } = useQuery<VaultsData>(MorphoRequests.GetMorprhoVaultByAddress, {
-    variables: { address: vaultAddress },
-    client: appoloClients.morphoApi
+  const { data: vault, isLoading: loading, error } = useQuery({
+    queryKey: ['morpho', 'vault', targetChainId, vaultAddress?.toLowerCase()],
+    queryFn: () => fetchVault(vaultAddress!, targetChainId),
+    enabled: !!vaultAddress,
+    staleTime: 5 * 60_000,
+    retry: 1
   });
-  const v1Vault = v1Data?.vaults.items[0];
-  // Vaults V2 are a separate API entity: looked up only when the address is not a V1 vault.
-  const {
-    loading: v2Loading,
-    error: v2Error,
-    data: v2Data
-  } = useQuery<VaultsV2Data>(MorphoRequests.GetMorphoVaultV2ByAddress, {
-    variables: { address: vaultAddress, chainIds: targetChainId ? [targetChainId] : null },
-    client: appoloClients.morphoApi,
-    skip: v1Loading || !!v1Vault
-  });
-  const loading = v1Loading || v2Loading;
-  const error = v1Error ?? v2Error;
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const vault = useMemo<Vault | undefined>(() => {
-    if (v1Vault) return { ...v1Vault, version: 'v1' };
-    const v2Vault = v2Data?.vaultV2s.items[0];
-    return v2Vault ? normalizeVaultV2(v2Vault) : undefined;
-  }, [v1Vault, v2Data]);
   // Reads and writes target the vault's chain, not the chain the wallet happens to be on.
   const vaultChainId = targetChainId ?? vault?.chain?.id;
   useWalletChainSync(vaultChainId);

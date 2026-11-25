@@ -37,7 +37,26 @@ cp public/config.example.js public/config.js   # git-ignored, put your own RPC U
 docker compose up -d --build
 ```
 
-The image ships only `config.example.js` (public endpoints); `docker-compose.yml` mounts your `public/config.js` over `/app/dist/config.js`, so the file must exist before `up`. The interface listens on [http://localhost:4173].
+By default, Compose mounts `public/config.example.js`, which uses public endpoints, so the interface starts without extra setup. To use private RPC URLs, copy the example and set the config path when starting Compose:
+
+```
+cp public/config.example.js public/config.js
+MORPHO_CONFIG_FILE=./public/config.js docker compose up -d --build
+```
+
+The interface listens on [http://localhost:4173].
+
+Morpho market and vault reads use the REST API through the container proxy. The proxy uses Morpho's public API by default. To enable the higher-limit private API, create `.env` in this project directory from `.env.example`, then set `MORPHO_REST_PRIVATE_API_KEY` there. Compose sends the key only to the proxy container, and requests include it as `x-api-key`.
+
+```sh
+cp .env.example .env
+```
+
+Keep the key in `pi-morpho-interface/.env`; `.env` is ignored by Git.
+
+If you already keep the key in the sibling `oracle-research/.env`, start this app with `docker compose --env-file ../oracle-research/.env up -d --build`. Compose passes only the Morpho key into this service.
+
+Blue market rates use Morpho's realized 6-hour averages in the directory and 24-hour averages on market details. Vault APY uses the 6-hour realized average; REST APY values exclude rewards. The REST vault directory only exposes listed vaults (plus V1 vaults referenced by V2 adapters), so the previous “show unlisted” switch is no longer available. Wallet Blue positions are valued from REST shares and market state; RPC reads used for onchain interactions remain unchanged.
 
 ## Application Links
 - Website: [pi.cp0x.com](https://pi.cp0x.com/)
